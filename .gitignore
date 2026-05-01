@@ -1,8 +1,28 @@
+# dependencies
+node_modules/
 vendor/
-_*
-*.test
-.DS_Store
-bin/
-*.out
-scripts/load-testing/output.bin
+
+# Next.js
+.next/
+out/
+
+# Go
+backend/tmp/
+backend/bin/
+*.exe
+
+# env
 .env
+.env.local
+.env.*.local
+
+# logs
+*.log
+
+# Docker
+postgres-data/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
