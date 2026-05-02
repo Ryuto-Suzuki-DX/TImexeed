@@ -14,6 +14,7 @@ export default function AdminSideMenu() {
   const menuItems = [
     { label: "マイページ", path: "/admin/mypage" },
     { label: "ユーザー管理", path: "/admin/users" },
+    { label: "所属管理", path: "/admin/departments"},
     { label: "勤怠管理", path: "/admin/attendance" },
     { label: "給与管理", path: "/admin/salary" },
     { label: "Google Drive生成", path: "/admin/drive-files" },

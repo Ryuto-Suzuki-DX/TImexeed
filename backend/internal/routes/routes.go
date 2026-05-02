@@ -6,11 +6,36 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+
+	adminBuilders "timexeed/backend/internal/admin/builders"
+	adminControllers "timexeed/backend/internal/admin/controllers"
+	adminRepositories "timexeed/backend/internal/admin/repositories"
+	adminServices "timexeed/backend/internal/admin/services"
 )
 
 func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
+
+	// ヘルスチェック
 	healthHandler := handlers.NewHealthHandler(db)
 	authHandler := handlers.NewAuthHandler(db)
+
+	// 所属管理
+	departmentRepository := adminRepositories.NewDepartmentRepository()
+	departmentBuilder := adminBuilders.NewDepartmentBuilder()
+	departmentService := adminServices.NewDepartmentService(db, departmentRepository, departmentBuilder)
+	departmentController := adminControllers.NewDepartmentController(departmentService)
+
+	// ユーザー管理
+	userRepository := adminRepositories.NewUserRepository()
+	userBuilder := adminBuilders.NewUserBuilder()
+	userService := adminServices.NewUserService(
+		db,
+		userRepository,
+		userBuilder,
+		departmentRepository,
+		departmentBuilder,
+	)
+	userController := adminControllers.NewUserController(userService)
 
 	/*
 	 * ヘルスチェック
@@ -43,11 +68,19 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		// 管理者マイページ確認用
 		admin.GET("/me", authHandler.Me)
 
-		// 今後ここに管理者用APIを追加する
-		// admin.GET("/users", adminUserHandler.SearchUsers)
-		// admin.POST("/users", adminUserHandler.CreateUser)
-		// admin.GET("/attendance", adminAttendanceHandler.SearchAttendance)
-		// admin.GET("/salary", adminSalaryHandler.SearchSalary)
+		// ユーザー管理
+		admin.GET("/users", userController.SearchUsers)
+		admin.GET("/users/:id", userController.GetUser)
+		admin.POST("/users", userController.CreateUser)
+		admin.PUT("/users/:id", userController.UpdateUser)
+		admin.DELETE("/users/:id", userController.DeleteUser)
+
+		// 所属管理
+		admin.GET("/departments", departmentController.SearchDepartments)
+		admin.GET("/departments/:id", departmentController.GetDepartment)
+		admin.POST("/departments", departmentController.CreateDepartment)
+		admin.PUT("/departments/:id", departmentController.UpdateDepartment)
+		admin.DELETE("/departments/:id", departmentController.DeleteDepartment)
 	}
 
 	/*
