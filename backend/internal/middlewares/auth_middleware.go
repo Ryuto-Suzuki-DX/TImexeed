@@ -9,6 +9,14 @@ import (
 	"timexeed/backend/internal/auth"
 )
 
+/*
+ * トークンの改ざんされていなか
+ * 期限切れではないか
+ * バックエンドのJWT_SECRETで署名されたものか
+ * ↑
+ * OKなら、ID　email roleを取得
+ */
+
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
