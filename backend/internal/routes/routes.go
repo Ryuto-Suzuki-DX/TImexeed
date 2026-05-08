@@ -9,21 +9,31 @@ import (
 )
 
 /*
- * 〇全体ルート登録
+ * 〇 全体ルート登録
+ *
+ * このファイルは、アプリ全体の入口だけを管理する。
  *
  * ヘルスチェック
- *	：health 	バックエンド接続確認
- *	：db-health バックエンドからDBの接続確認
+ * 	GET /health
+ * 		バックエンドが起動しているか確認する
+ *
+ * 	GET /db-health
+ * 		バックエンドからDBへ接続できるか確認する
  *
  * 認証API
- *	：login		ログイン用
- *	：me		JWTトークンを使ってログイン中のユーザー情報を取得する
+ * 	POST /auth/login
+ * 		ログインする
  *
- * 管理者
- * 	：admin_routes.go
- * ユーザー
- *	：user_routes.go
+ * 	GET /auth/me
+ * 		JWTトークンを使ってログイン中のユーザー情報を取得する
  *
+ * 管理者API
+ * 	/admin/*
+ * 		admin_routes.go に分離する
+ *
+ * 従業員API
+ * 	/user/*
+ * 		user_routes.go に分離する
  */
 func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	healthHandler := handlers.NewHealthHandler(db)
@@ -47,10 +57,10 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 	/*
 	 * 管理者用API
 	 */
-	RegisterAdminRoutes(r, db, authHandler)
+	RegisterAdminRoutes(r, db)
 
 	/*
-	 * 一般ユーザー用API
+	 * 従業員用API
 	 */
-	RegisterUserRoutes(r, db, authHandler)
+	RegisterUserRoutes(r, db)
 }

@@ -1,31 +1,35 @@
-import { getAccessToken } from "@/lib/auth";
+import { API_BASE_URL } from "@/api/config";
+import type { ApiResponse } from "@/types/api";
+import type { LoginResponse, MeResponse } from "@/types/auth";
 
-const API_BASE_URL = "http://127.0.0.1:8080";
+const ACCESS_TOKEN_KEY = "accessToken";
 
-type ApiResponse<T> = {
-  data: T | null;
-  error: boolean;
-  code: string;
-  message: string;
-  detail?: unknown;
-};
+/*
+ * accessTokenを保存する
+ */
+export function saveAccessToken(token: string) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, token);
+}
 
-export type LoginResponse = {
-  accessToken: string;
-  user: {
-    id: number;
-    name: string;
-    email: string;
-    role: string;
-  };
-};
+/*
+ * accessTokenを取得する
+ */
+export function getAccessToken() {
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
+}
 
-export type MeResponse = {
-  userId: number;
-  email: string;
-  role: string;
-};
+/*
+ * accessTokenを削除する
+ */
+export function removeAccessToken() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+}
 
+/*
+ * ログインする
+ *
+ * POST /auth/login
+ */
 export async function login(email: string, password: string): Promise<ApiResponse<LoginResponse>> {
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: "POST",
@@ -41,8 +45,22 @@ export async function login(email: string, password: string): Promise<ApiRespons
   return response.json();
 }
 
+/*
+ * ログイン中ユーザー情報を取得する
+ *
+ * GET /auth/me
+ */
 export async function fetchMe(): Promise<ApiResponse<MeResponse>> {
   const token = getAccessToken();
+
+  if (!token) {
+    return {
+      data: null,
+      error: true,
+      code: "TOKEN_NOT_FOUND",
+      message: "ログイン情報がありません",
+    };
+  }
 
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
     method: "GET",

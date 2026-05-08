@@ -1,0 +1,68 @@
+.page {
+  min-height: 100vh;
+  padding: 40px;
+  font-family: sans-serif;
+  background-color: #fff7ed;
+  box-sizing: border-box;
+}
+
+.card {
+  max-width: 720px;
+  margin: 60px auto;
+  padding: 32px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 32px;
+  color: #ea580c;
+}
+
+.description {
+  margin: 0;
+  font-size: 14px;
+  color: #666666;
+}
+
+.loadingText {
+  margin: 0;
+  font-size: 14px;
+  color: #666666;
+}
+
+.infoList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.infoBox {
+  padding: 16px;
+  border-radius: 12px;
+  background-color: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+
+.infoLabel {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #9a3412;
+}
+
+.infoValue {
+  margin: 0;
+  font-size: 18px;
+  color: #111827;
+}

@@ -1,6 +1,8 @@
 package migrations
 
 import (
+	"timexeed/backend/internal/models"
+
 	"gorm.io/gorm"
 )
 
@@ -10,5 +12,19 @@ import (
  * テーブル構造をDBへ反映する
  */
 func RunMigrations(db *gorm.DB) error {
-	return db.AutoMigrate()
+	return db.AutoMigrate(
+
+		// 所属
+		&models.Department{},
+		// ユーザー
+		&models.User{},
+		// 勤怠区分マスタ
+		&models.AttendanceType{},
+		// 勤怠/日
+		&models.AttendanceDay{},
+		// 休憩/日
+		&models.AttendanceBreak{},
+		// 通勤定期/月
+		&models.MonthlyCommuterPass{},
+	)
 }

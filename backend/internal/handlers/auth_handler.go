@@ -39,6 +39,13 @@ type LoginResponse struct {
 	User        UserResponse `json:"user"`
 }
 
+type MeResponse struct {
+	UserID uint   `json:"userId"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	Role   string `json:"role"`
+}
+
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 
@@ -117,16 +124,70 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+/*
+ * ログイン中ユーザー情報取得
+ *
+ * AuthMiddlewareでJWTを検証済み。
+ * JWTから取得したuserIdを使ってDBから最新のユーザー情報を取得する。
+ *
+ * name / email / role はDBの最新情報を返す。
+ */
 func (h *AuthHandler) Me(c *gin.Context) {
-	userID, _ := c.Get("userId")
-	email, _ := c.Get("email")
-	role, _ := c.Get("role")
+	userIDValue, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"data":    nil,
+			"error":   true,
+			"code":    "USER_ID_NOT_FOUND",
+			"message": "認証情報からユーザーIDを取得できません",
+			"detail":  nil,
+		})
+		return
+	}
+
+	userID, ok := userIDValue.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"data":    nil,
+			"error":   true,
+			"code":    "INVALID_USER_ID",
+			"message": "認証情報のユーザーIDが正しくありません",
+			"detail":  nil,
+		})
+		return
+	}
+
+	var user models.User
+	err := h.db.Where("id = ? AND is_deleted = ?", userID, false).First(&user).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"data":    nil,
+			"error":   true,
+			"code":    "USER_NOT_FOUND",
+			"message": "ログイン中のユーザーが存在しません",
+			"detail":  nil,
+		})
+		return
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"data":    nil,
+			"error":   true,
+			"code":    "USER_SEARCH_FAILED",
+			"message": "ログイン中ユーザー情報の取得に失敗しました",
+			"detail":  err.Error(),
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data": gin.H{
-			"userId": userID,
-			"email":  email,
-			"role":   role,
+		"data": MeResponse{
+			UserID: user.ID,
+			Name:   user.Name,
+			Email:  user.Email,
+			Role:   user.Role,
 		},
 		"error":   false,
 		"code":    "",
