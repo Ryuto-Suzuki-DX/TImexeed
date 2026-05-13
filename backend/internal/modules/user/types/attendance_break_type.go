@@ -96,6 +96,54 @@ type DeleteAttendanceBreakRequest struct {
 }
 
 /*
+ * 〇 対象日の休憩差分保存リクエスト
+ *
+ * monthly_attendances/update の月次全体保存から内部的に使う。
+ *
+ * 保存方針：
+ * ・attendanceBreakId がある休憩は更新する
+ * ・attendanceBreakId がない休憩は新規作成する
+ * ・DBに存在するがリクエストから消えた休憩は論理削除する
+ *
+ * 注意：
+ * ・userId / targetUserId は受け取らない
+ * ・attendanceDayId は受け取らない
+ * ・Serviceで userID + workDate から勤怠日を特定する
+ */
+type UpdateAttendanceBreaksByWorkDateRequest struct {
+	// 対象日
+	// 例：2026-05-05
+	WorkDate string `json:"workDate" binding:"required"`
+
+	// 対象日の休憩一覧
+	Breaks []UpdateAttendanceBreaksByWorkDateBreakRequest `json:"breaks"`
+}
+
+/*
+ * 〇 対象日の休憩差分保存リクエスト 1件分
+ *
+ * attendanceBreakId:
+ * ・nil または 0 の場合は新規作成
+ * ・1以上の場合は既存休憩更新
+ */
+type UpdateAttendanceBreaksByWorkDateBreakRequest struct {
+	// 休憩ID
+	// 新規作成の場合は nil
+	AttendanceBreakID *uint `json:"attendanceBreakId"`
+
+	// 休憩開始日時
+	// 例：2026-05-05T12:00:00+09:00
+	BreakStartAt string `json:"breakStartAt" binding:"required"`
+
+	// 休憩終了日時
+	// 例：2026-05-05T13:00:00+09:00
+	BreakEndAt string `json:"breakEndAt" binding:"required"`
+
+	// 休憩メモ
+	BreakMemo *string `json:"breakMemo"`
+}
+
+/*
  * 〇 休憩レスポンス
  *
  * フロントへ返す1件分の休憩データ。
@@ -157,4 +205,24 @@ type UpdateAttendanceBreakResponse struct {
 type DeleteAttendanceBreakResponse struct {
 	WorkDate          string `json:"workDate"`
 	AttendanceBreakID uint   `json:"attendanceBreakId"`
+}
+
+/*
+ * 〇 対象日の休憩差分保存レスポンス
+ */
+type UpdateAttendanceBreaksByWorkDateResponse struct {
+	WorkDate string `json:"workDate"`
+
+	// 作成・更新された休憩数
+	// 論理削除は保存件数には含めない
+	SavedAttendanceBreakCount int `json:"savedAttendanceBreakCount"`
+
+	// 新規作成した休憩数
+	CreatedAttendanceBreakCount int `json:"createdAttendanceBreakCount"`
+
+	// 更新した休憩数
+	UpdatedAttendanceBreakCount int `json:"updatedAttendanceBreakCount"`
+
+	// 論理削除した休憩数
+	DeletedAttendanceBreakCount int `json:"deletedAttendanceBreakCount"`
 }

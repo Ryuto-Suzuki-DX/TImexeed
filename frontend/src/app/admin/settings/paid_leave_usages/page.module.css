@@ -1,0 +1,426 @@
+.pageWrap {
+  width: 100%;
+  min-height: 100vh;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.pageCard {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  background: #f5f5f5;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.loadingCard {
+  width: min(720px, calc(100% - 48px));
+  margin: 48px auto;
+  background: #f5f5f5;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.headerArea {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.searchPanel,
+.detailPanel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sectionDescription {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.searchForm {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.searchInput,
+.input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #111827;
+  font-size: 14px;
+}
+
+.searchInput:focus,
+.input:focus {
+  outline: 2px solid #fed7aa;
+  border-color: #fb923c;
+}
+
+.searchInput:disabled,
+.input:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.userList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 580px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.userRow {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.userRow:hover {
+  border-color: #fb923c;
+  background: #fff7ed;
+}
+
+.userRowSelected {
+  border-color: #f97316;
+  background: #fff7ed;
+}
+
+.userName {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.userEmail {
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.userMeta {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.emptyText {
+  margin: 0;
+  padding: 16px;
+  color: #6b7280;
+  font-size: 14px;
+  text-align: center;
+}
+
+.moreButtonArea {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.balanceGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.balanceCard,
+.balanceCardStrong {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px;
+  box-sizing: border-box;
+  background: #f9fafb;
+}
+
+.balanceCardStrong {
+  border-color: #fb923c;
+  background: #fff7ed;
+}
+
+.balanceLabel {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.balanceValue {
+  margin: 8px 0 0;
+  color: #111827;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.balanceSubValue {
+  margin: 8px 0 0;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.formCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 18px;
+  box-sizing: border-box;
+  background: #f9fafb;
+  margin-bottom: 18px;
+}
+
+.formHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.formTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.formDescription {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 180px 160px 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+.field,
+.fieldWide {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.tableArea {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 18px;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.tableTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.tableDescription {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.tableScroll {
+  width: 100%;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.table th {
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.table td {
+  color: #111827;
+  font-size: 14px;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.manualBadge,
+.systemBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.manualBadge {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.systemBadge {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.rowActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.emptyCell {
+  text-align: center;
+  color: #6b7280;
+  padding: 24px !important;
+}
+
+@media (max-width: 1180px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .userList {
+    max-height: 360px;
+  }
+
+  .balanceGrid {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .pageWrap {
+    padding: 16px;
+  }
+
+  .pageCard {
+    min-height: calc(100vh - 32px);
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .loadingCard {
+    width: calc(100% - 32px);
+    margin: 24px auto;
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .searchForm {
+    flex-direction: column;
+  }
+
+  .balanceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .formHeader {
+    flex-direction: column;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .formActions {
+    justify-content: stretch;
+  }
+
+  .tableHeader {
+    flex-direction: column;
+  }
+
+  .rowActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

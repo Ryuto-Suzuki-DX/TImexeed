@@ -28,6 +28,8 @@ type MonthlyCommuterPassBuilder interface {
  * 注意：
  * ・DB実行はしない
  * ・Find / Create / Save はRepositoryに任せる
+ * ・MonthlyCommuterPass は申請状態を持たない
+ * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
  */
 type monthlyCommuterPassBuilder struct {
 	db *gorm.DB
@@ -99,6 +101,9 @@ func (builder *monthlyCommuterPassBuilder) BuildFindMonthlyCommuterPassByUserIDA
  * 月次通勤定期作成用Model作成
  *
  * 画面上は「更新」操作だが、対象年月の通勤定期が未登録の場合は新規作成する。
+ *
+ * 注意：
+ * ・MonthlyCommuterPass には月次申請状態を保存しない
  */
 func (builder *monthlyCommuterPassBuilder) BuildCreateMonthlyCommuterPassModel(
 	userID uint,
@@ -142,7 +147,6 @@ func (builder *monthlyCommuterPassBuilder) BuildCreateMonthlyCommuterPassModel(
 		CommuterTo:     req.CommuterTo,
 		CommuterMethod: req.CommuterMethod,
 		CommuterAmount: req.CommuterAmount,
-		MonthlyStatus:  "DRAFT",
 		IsDeleted:      false,
 	}
 
@@ -158,6 +162,9 @@ func (builder *monthlyCommuterPassBuilder) BuildCreateMonthlyCommuterPassModel(
  * 月次通勤定期更新用Model作成
  *
  * 対象年月の通勤定期が登録済みの場合に更新する。
+ *
+ * 注意：
+ * ・MonthlyCommuterPass には月次申請状態を保存しない
  */
 func (builder *monthlyCommuterPassBuilder) BuildUpdateMonthlyCommuterPassModel(
 	currentMonthlyCommuterPass models.MonthlyCommuterPass,

@@ -3,13 +3,21 @@ package types
 import "time"
 
 /*
- * 〇 勤怠検索リクエスト
+ * 〇 従業員 勤怠日別 Type
  *
- * 従業員本人の対象年月の勤怠一覧を取得する。
+ * 従業員本人の勤怠日別データを扱う型。
  *
- * 注意：
- * ・userId / targetUserId は受け取らない
- * ・ログイン中ユーザーIDはControllerでJWTから取得してServiceへ渡す
+ * 重要：
+ * ・AttendanceDay は日別勤怠データだけを持つ
+ * ・申請状態、承認状態は AttendanceDay では持たない
+ * ・月次申請状態は MonthlyAttendanceRequestResponse として返す
+ * ・従業員APIでは userId / targetUserId をRequestで受け取らない
+ */
+
+/*
+ * 勤怠検索 Request
+ *
+ * POST /user/attendance-days/search
  */
 type SearchAttendanceDaysRequest struct {
 	// 対象年
@@ -20,63 +28,40 @@ type SearchAttendanceDaysRequest struct {
 }
 
 /*
- * 〇 勤怠更新リクエスト
+ * 勤怠更新 Request
  *
- * 月次一覧画面の1行を直接更新するためのリクエスト。
- *
- * 仕様：
- * ・workDateで対象日を指定する
- * ・未登録の日付なら新規作成する
- * ・登録済みの日付なら更新する
- *
- * commonStartAt / commonEndAt：
- * ・DBには保存しない
- * ・syncPlanActual = true の勤務区分で使う
- * ・Serviceで plan / actual の両方へ反映する
- *
- * 注意：
- * ・userId / targetUserId は受け取らない
- * ・attendanceDayId も基本使わない
- * ・userID + workDate で対象勤怠を特定する
+ * APIとして直接公開しない。
+ * monthly_attendances/update の月次全体保存から内部的に使う。
  */
 type UpdateAttendanceDayRequest struct {
 	// 対象日
-	// 例：2026-05-05
 	WorkDate string `json:"workDate" binding:"required"`
 
 	// 予定区分ID
 	PlanAttendanceTypeID uint `json:"planAttendanceTypeId" binding:"required"`
 
 	// 実績区分ID
-	// 通常勤務など、予定と実績を分ける区分で使う
-	// syncPlanActual = true の場合はService側で予定区分IDを実績にも反映する
 	ActualAttendanceTypeID *uint `json:"actualAttendanceTypeId"`
 
-	// 共通開始日時
-	// 有給・欠勤・病欠・休職・介護休業など、
-	// syncPlanActual = true の区分で使う
-	CommonStartAt *string `json:"commonStartAt"`
-
-	// 共通終了日時
-	// 有給・欠勤・病欠・休職・介護休業など、
-	// syncPlanActual = true の区分で使う
-	CommonEndAt *string `json:"commonEndAt"`
-
 	// 予定開始日時
-	// 通常勤務など、予定と実績を分ける区分で使う
 	PlanStartAt *string `json:"planStartAt"`
 
 	// 予定終了日時
-	// 通常勤務など、予定と実績を分ける区分で使う
 	PlanEndAt *string `json:"planEndAt"`
 
 	// 実績開始日時
-	// 通常勤務など、予定と実績を分ける区分で使う
 	ActualStartAt *string `json:"actualStartAt"`
 
 	// 実績終了日時
-	// 通常勤務など、予定と実績を分ける区分で使う
 	ActualEndAt *string `json:"actualEndAt"`
+
+	// 共通開始日時
+	// 有給、欠勤、病欠、休職など、予定・実績を同期する区分で使う
+	CommonStartAt *string `json:"commonStartAt"`
+
+	// 共通終了日時
+	// 有給、欠勤、病欠、休職など、予定・実績を同期する区分で使う
+	CommonEndAt *string `json:"commonEndAt"`
 
 	// 遅刻フラグ
 	LateFlag bool `json:"lateFlag"`
@@ -90,8 +75,12 @@ type UpdateAttendanceDayRequest struct {
 	// 病欠フラグ
 	SickLeaveFlag bool `json:"sickLeaveFlag"`
 
-	// 申請メモ
-	RequestMemo *string `json:"requestMemo"`
+	// 在宅勤務補助対象フラグ
+	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
+
+	// 画面表示用メッセージ
+	// 例：残業15分、深夜勤務ありなど
+	SystemMessage *string `json:"systemMessage"`
 
 	// 日別交通費：出発地
 	TransportFrom *string `json:"transportFrom"`
@@ -107,32 +96,24 @@ type UpdateAttendanceDayRequest struct {
 }
 
 /*
- * 〇 勤怠削除リクエスト
+ * 勤怠削除 Request
  *
- * 従業員本人の指定日の勤怠を論理削除する。
- *
- * 注意：
- * ・userId / targetUserId は受け取らない
- * ・attendanceDayId ではなく workDate で対象日を指定する
- * ・userID + workDate で削除対象を特定する
+ * 現時点ではAPIとして直接公開しない。
+ * 必要になった場合の内部用として残す。
  */
 type DeleteAttendanceDayRequest struct {
 	// 対象日
-	// 例：2026-05-05
 	WorkDate string `json:"workDate" binding:"required"`
 }
 
 /*
- * 〇 勤怠レスポンス
+ * 勤怠日別 Response
  *
- * フロントの月次一覧画面に返す1日分の勤怠データ。
- *
- * 注意：
- * ・日付や日時は time.Time / *time.Time のまま返す
- * ・表示形式の整形はフロント側で行う
- * ・勤務区分名は勤務区分マスタのレスポンス側で持つ想定
+ * AttendanceDay 自体のデータだけを返す。
+ * 月次申請状態はここには入れない。
  */
 type AttendanceDayResponse struct {
+	// 勤怠ID
 	ID uint `json:"id"`
 
 	// 対象日
@@ -156,21 +137,6 @@ type AttendanceDayResponse struct {
 	// 実績終了日時
 	ActualEndAt *time.Time `json:"actualEndAt"`
 
-	// 申請状態
-	RequestStatus string `json:"requestStatus"`
-
-	// 申請メモ
-	RequestMemo *string `json:"requestMemo"`
-
-	// 承認者ID
-	ApprovedBy *uint `json:"approvedBy"`
-
-	// 承認日時
-	ApprovedAt *time.Time `json:"approvedAt"`
-
-	// 否認理由
-	RejectedReason *string `json:"rejectedReason"`
-
 	// 遅刻フラグ
 	LateFlag bool `json:"lateFlag"`
 
@@ -182,6 +148,9 @@ type AttendanceDayResponse struct {
 
 	// 病欠フラグ
 	SickLeaveFlag bool `json:"sickLeaveFlag"`
+
+	// 在宅勤務補助対象フラグ
+	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
 
 	// 画面表示用メッセージ
 	SystemMessage *string `json:"systemMessage"`
@@ -198,9 +167,6 @@ type AttendanceDayResponse struct {
 	// 日別交通費：金額
 	TransportAmount *int `json:"transportAmount"`
 
-	// 月次申請状態
-	MonthlyStatus string `json:"monthlyStatus"`
-
 	// 論理削除フラグ
 	IsDeleted bool `json:"isDeleted"`
 
@@ -215,30 +181,37 @@ type AttendanceDayResponse struct {
 }
 
 /*
- * 〇 勤怠検索レスポンス
+ * 勤怠検索 Response
  *
- * 対象年月の勤怠一覧を返す。
+ * 勤怠日別データと、対象月の月次申請状態を一緒に返す。
  */
 type SearchAttendanceDaysResponse struct {
-	TargetYear  int `json:"targetYear"`
+	// 対象年
+	TargetYear int `json:"targetYear"`
+
+	// 対象月
 	TargetMonth int `json:"targetMonth"`
 
+	// 対象月の月次申請状態
+	MonthlyAttendanceRequest MonthlyAttendanceRequestResponse `json:"monthlyAttendanceRequest"`
+
+	// 勤怠日別一覧
 	AttendanceDays []AttendanceDayResponse `json:"attendanceDays"`
 }
 
 /*
- * 〇 勤怠更新レスポンス
+ * 勤怠更新 Response
  *
- * 更新後、または新規作成後の勤怠データを返す。
+ * monthly_attendances/update の内部処理で使う。
  */
 type UpdateAttendanceDayResponse struct {
 	AttendanceDay AttendanceDayResponse `json:"attendanceDay"`
 }
 
 /*
- * 〇 勤怠削除レスポンス
+ * 勤怠削除 Response
  *
- * 論理削除した対象日を返す。
+ * 必要になった場合の内部用。
  */
 type DeleteAttendanceDayResponse struct {
 	WorkDate string `json:"workDate"`

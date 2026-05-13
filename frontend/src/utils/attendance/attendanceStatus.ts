@@ -2,6 +2,14 @@
  * 勤怠 ステータス表示 Utility
  *
  * USER/ADMIN共通で使える表示変換。
+ *
+ * 主な月次申請状態：
+ * ・DRAFT    未申請
+ * ・PENDING  申請中
+ * ・APPROVED 承認済み
+ * ・REJECTED 否認
+ *
+ * NONE は既存画面や日別表示の互換用として残す。
  */
 
 export function getStatusLabel(status: string) {

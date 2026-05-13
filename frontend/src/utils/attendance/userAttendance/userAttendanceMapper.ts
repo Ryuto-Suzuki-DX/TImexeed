@@ -2,13 +2,17 @@ import type { AttendanceType } from "@/types/user/attendanceType";
 import type { AttendanceDay } from "@/types/user/attendanceDay";
 import type { AttendanceBreak } from "@/types/user/attendanceBreak";
 import type { MonthlyCommuterPass } from "@/types/user/monthlyCommuterPass";
-import type { AttendanceBreakViewRow, AttendanceViewRow, CommuterPassViewForm } from "@/types/user/attendanceView";
 import type {
-  UpdateMonthlyAttendanceBreakRequest,
-  UpdateMonthlyAttendanceCommuterPassRequest,
-  UpdateMonthlyAttendanceDayRequest,
-  UpdateMonthlyAttendanceRequest,
-} from "@/types/user/monthlyAttendance";
+  AttendanceBreakViewRow,
+  AttendanceViewRow,
+  CommuterPassViewForm,
+} from "@/types/user/attendanceView";
+import type {
+  UpdateMonthlyAttendanceSaveBreakRequest,
+  UpdateMonthlyAttendanceSaveCommuterPassRequest,
+  UpdateMonthlyAttendanceSaveDayRequest,
+  UpdateMonthlyAttendanceSaveRequest,
+} from "@/types/user/monthlyAttendanceSave";
 import {
   buildDayLabel,
   buildWeekdayLabel,
@@ -63,12 +67,9 @@ export function buildBlankAttendanceViewRows(targetYear: number, targetMonth: nu
       absenceFlag: false,
       sickLeaveFlag: false,
 
-      requestStatus: "NONE",
-      requestMemo: "",
-      rejectedReason: null,
-      systemMessage: null,
+      remoteWorkAllowanceFlag: false,
 
-      monthlyStatus: "DRAFT",
+      requestMemo: "",
 
       transportFrom: "",
       transportTo: "",
@@ -82,6 +83,52 @@ export function buildBlankAttendanceViewRows(targetYear: number, targetMonth: nu
   }
 
   return rows;
+}
+
+/*
+ * 日別勤怠Rowを初期値に戻す
+ *
+ * 注意：
+ * ・API削除は呼ばない
+ * ・画面stateだけを初期化する
+ * ・このあと月次勤怠全体保存APIでDBへ反映する
+ */
+export function resetAttendanceViewRow(row: AttendanceViewRow): AttendanceViewRow {
+  return {
+    ...row,
+
+    attendanceDayId: null,
+
+    planAttendanceTypeId: 0,
+    actualAttendanceTypeId: null,
+
+    commonStartTime: "",
+    commonEndTime: "",
+
+    planStartTime: "",
+    planEndTime: "",
+
+    actualStartTime: "",
+    actualEndTime: "",
+
+    lateFlag: false,
+    earlyLeaveFlag: false,
+    absenceFlag: false,
+    sickLeaveFlag: false,
+
+    remoteWorkAllowanceFlag: false,
+
+    requestMemo: "",
+
+    transportFrom: "",
+    transportTo: "",
+    transportMethod: "",
+    transportAmount: "",
+
+    breaks: [],
+
+    isDirty: true,
+  };
 }
 
 /*
@@ -110,12 +157,9 @@ export function applyAttendanceDayToViewRow(row: AttendanceViewRow, attendanceDa
     absenceFlag: attendanceDay.absenceFlag,
     sickLeaveFlag: attendanceDay.sickLeaveFlag,
 
-    requestStatus: attendanceDay.requestStatus,
-    requestMemo: attendanceDay.requestMemo ?? "",
-    rejectedReason: attendanceDay.rejectedReason,
-    systemMessage: attendanceDay.systemMessage,
+    remoteWorkAllowanceFlag: attendanceDay.remoteWorkAllowanceFlag,
 
-    monthlyStatus: attendanceDay.monthlyStatus,
+    requestMemo: attendanceDay.requestMemo ?? "",
 
     transportFrom: attendanceDay.transportFrom ?? "",
     transportTo: attendanceDay.transportTo ?? "",
@@ -198,16 +242,32 @@ export function buildCommuterPassViewForm(monthlyCommuterPass: MonthlyCommuterPa
       monthlyCommuterPass?.commuterAmount === null || monthlyCommuterPass?.commuterAmount === undefined
         ? ""
         : String(monthlyCommuterPass.commuterAmount),
-    monthlyStatus: monthlyCommuterPass?.monthlyStatus ?? "DRAFT",
+  };
+}
+
+/*
+ * 月次通勤定期Formを初期値に戻す
+ *
+ * 注意：
+ * ・API削除は呼ばない
+ * ・画面stateだけを初期化する
+ * ・このあと月次勤怠全体保存APIでDBへ反映する
+ */
+export function resetCommuterPassViewForm(): CommuterPassViewForm {
+  return {
+    commuterFrom: "",
+    commuterTo: "",
+    commuterMethod: "",
+    commuterAmount: "",
   };
 }
 
 /*
  * 画面用の月次通勤定期Formから月次勤怠全体保存API用Requestを作る
  */
-export function buildUpdateMonthlyAttendanceCommuterPassRequest(
+export function buildUpdateMonthlyAttendanceSaveCommuterPassRequest(
   commuterPass: CommuterPassViewForm,
-): UpdateMonthlyAttendanceCommuterPassRequest {
+): UpdateMonthlyAttendanceSaveCommuterPassRequest {
   return {
     commuterFrom: toNullableString(commuterPass.commuterFrom),
     commuterTo: toNullableString(commuterPass.commuterTo),
@@ -219,10 +279,10 @@ export function buildUpdateMonthlyAttendanceCommuterPassRequest(
 /*
  * 画面用休憩Rowから月次勤怠全体保存API用の休憩Requestを作る
  */
-export function buildUpdateMonthlyAttendanceBreakRequest(
+export function buildUpdateMonthlyAttendanceSaveBreakRequest(
   workDate: string,
   breakRow: AttendanceBreakViewRow,
-): UpdateMonthlyAttendanceBreakRequest {
+): UpdateMonthlyAttendanceSaveBreakRequest {
   const breakEndUsesNextDay = shouldUseNextDay(breakRow.breakStartTime, breakRow.breakEndTime);
 
   return {
@@ -235,11 +295,57 @@ export function buildUpdateMonthlyAttendanceBreakRequest(
 /*
  * 画面Rowから月次勤怠全体保存API用の日別勤怠Requestを作る
  */
-export function buildUpdateMonthlyAttendanceDayRequest(
+export function buildUpdateMonthlyAttendanceSaveDayRequest(
   row: AttendanceViewRow,
-  selectedPlanType: AttendanceType,
-): UpdateMonthlyAttendanceDayRequest {
-  const breaks = row.breaks.map((breakRow) => buildUpdateMonthlyAttendanceBreakRequest(row.workDate, breakRow));
+  selectedPlanType: AttendanceType | null,
+): UpdateMonthlyAttendanceSaveDayRequest {
+  const breaks = row.breaks.map((breakRow) => buildUpdateMonthlyAttendanceSaveBreakRequest(row.workDate, breakRow));
+
+  /*
+   * リセット行
+   *
+   * 注意：
+   * ・削除APIは呼ばない
+   * ・画面stateを初期値に戻した行を、月次勤怠全体保存APIへ送る
+   * ・バックエンド側で planAttendanceTypeId=0 を初期値戻しとして扱う想定
+   */
+  if (row.planAttendanceTypeId === 0) {
+    return {
+      workDate: row.workDate,
+
+      planAttendanceTypeId: 0,
+      actualAttendanceTypeId: null,
+
+      commonStartAt: null,
+      commonEndAt: null,
+
+      planStartAt: null,
+      planEndAt: null,
+
+      actualStartAt: null,
+      actualEndAt: null,
+
+      lateFlag: false,
+      earlyLeaveFlag: false,
+      absenceFlag: false,
+      sickLeaveFlag: false,
+
+      remoteWorkAllowanceFlag: false,
+
+      requestMemo: null,
+
+      transportFrom: null,
+      transportTo: null,
+      transportMethod: null,
+      transportAmount: null,
+
+      breaks: [],
+    };
+  }
+
+  if (!selectedPlanType) {
+    throw new Error(`${row.dayLabel} の予定区分を選択してください。`);
+  }
 
   /*
    * 休日だけは予定にも実績にも時間を保存しない。
@@ -264,6 +370,8 @@ export function buildUpdateMonthlyAttendanceDayRequest(
       earlyLeaveFlag: false,
       absenceFlag: false,
       sickLeaveFlag: false,
+
+      remoteWorkAllowanceFlag: false,
 
       requestMemo: toNullableString(row.requestMemo),
 
@@ -302,6 +410,8 @@ export function buildUpdateMonthlyAttendanceDayRequest(
       absenceFlag: false,
       sickLeaveFlag: false,
 
+      remoteWorkAllowanceFlag: row.remoteWorkAllowanceFlag,
+
       requestMemo: toNullableString(row.requestMemo),
 
       transportFrom: toNullableString(row.transportFrom),
@@ -339,6 +449,8 @@ export function buildUpdateMonthlyAttendanceDayRequest(
     absenceFlag: row.absenceFlag,
     sickLeaveFlag: row.sickLeaveFlag,
 
+    remoteWorkAllowanceFlag: row.remoteWorkAllowanceFlag,
+
     requestMemo: toNullableString(row.requestMemo),
 
     transportFrom: toNullableString(row.transportFrom),
@@ -353,27 +465,24 @@ export function buildUpdateMonthlyAttendanceDayRequest(
 /*
  * 月次勤怠画面のstateから月次勤怠全体保存API用Requestを作る
  */
-export function buildUpdateMonthlyAttendanceRequest(
+export function buildUpdateMonthlyAttendanceSaveRequest(
   targetYear: number,
   targetMonth: number,
   commuterPass: CommuterPassViewForm,
   attendanceRows: AttendanceViewRow[],
   attendanceTypes: AttendanceType[],
-): UpdateMonthlyAttendanceRequest {
+): UpdateMonthlyAttendanceSaveRequest {
   const attendanceDays = attendanceRows.map((row) => {
-    const selectedPlanType = attendanceTypes.find((attendanceType) => attendanceType.id === row.planAttendanceTypeId);
+    const selectedPlanType =
+      attendanceTypes.find((attendanceType) => attendanceType.id === row.planAttendanceTypeId) ?? null;
 
-    if (!selectedPlanType) {
-      throw new Error(`${row.dayLabel} の予定区分を選択してください。`);
-    }
-
-    return buildUpdateMonthlyAttendanceDayRequest(row, selectedPlanType);
+    return buildUpdateMonthlyAttendanceSaveDayRequest(row, selectedPlanType);
   });
 
   return {
     targetYear,
     targetMonth,
-    commuterPass: buildUpdateMonthlyAttendanceCommuterPassRequest(commuterPass),
+    commuterPass: buildUpdateMonthlyAttendanceSaveCommuterPassRequest(commuterPass),
     attendanceDays,
   };
 }

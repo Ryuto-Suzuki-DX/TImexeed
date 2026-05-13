@@ -26,7 +26,8 @@ type MonthlyCommuterPassRepository interface {
  * 注意：
  * ・検索条件や業務ルールは作らない
  * ・クエリ作成はBuilderに任せる
- * ・通勤定期の更新可否、承認状態チェックなどはServiceに任せる
+ * ・通勤定期の更新可否、月次申請状態チェックなどはServiceに任せる
+ * ・MonthlyCommuterPass は申請状態を持たない
  */
 type monthlyCommuterPassRepository struct {
 	db *gorm.DB

@@ -27,7 +27,13 @@ type AttendanceBreakRepository interface {
  * 注意：
  * ・検索条件や業務ルールは作らない
  * ・クエリ作成はBuilderに任せる
- * ・休憩の更新可否、承認状態チェックなどはServiceに任せる
+ * ・休憩の更新可否、月次申請状態チェックなどはServiceに任せる
+ * ・AttendanceBreak は申請状態を持たない
+ *
+ * 月次全体保存での休憩保存方針：
+ * ・IDなしの休憩は CreateAttendanceBreak で作成する
+ * ・IDありの休憩は SaveAttendanceBreak で更新する
+ * ・リクエストから消えた休憩は SaveAttendanceBreak で論理削除する
  */
 type attendanceBreakRepository struct {
 	db *gorm.DB

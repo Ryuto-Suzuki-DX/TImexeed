@@ -28,11 +28,19 @@ type MonthlyAttendanceService interface {
  * ・Serviceではc.JSONしない
  * ・DBへの直接アクセスはしない
  * ・まずは既存Serviceを呼び出して保存処理を統一する
+ * ・月次申請中、月次承認済みの保存可否は各Service側で MonthlyAttendanceRequest を見て判定する
+ *
+ * 画面表示用メッセージ方針：
+ * ・SystemMessage はDB保存しない
+ * ・月次勤怠全体保存でも SystemMessage は受け渡ししない
+ * ・残業、深夜勤務、有給申請中、承認済みなどは表示時に組み立てる
  */
 type monthlyAttendanceService struct {
 	attendanceDayService       AttendanceDayService
 	attendanceBreakService     AttendanceBreakService
 	monthlyCommuterPassService MonthlyCommuterPassService
+	attendanceTypeService      AttendanceTypeService
+	paidLeaveService           PaidLeaveService
 }
 
 /*
@@ -42,11 +50,15 @@ func NewMonthlyAttendanceService(
 	attendanceDayService AttendanceDayService,
 	attendanceBreakService AttendanceBreakService,
 	monthlyCommuterPassService MonthlyCommuterPassService,
+	attendanceTypeService AttendanceTypeService,
+	paidLeaveService PaidLeaveService,
 ) *monthlyAttendanceService {
 	return &monthlyAttendanceService{
 		attendanceDayService:       attendanceDayService,
 		attendanceBreakService:     attendanceBreakService,
 		monthlyCommuterPassService: monthlyCommuterPassService,
+		attendanceTypeService:      attendanceTypeService,
+		paidLeaveService:           paidLeaveService,
 	}
 }
 
@@ -59,10 +71,20 @@ func NewMonthlyAttendanceService(
  * 3. 既存休憩削除
  * 4. 休憩作成
  *
- * 休憩方針：
+ * 現時点の休憩方針：
  * ・画面に残っている休憩だけを正とする
  * ・保存時に既存休憩を一旦削除する
  * ・その後、送られてきた休憩を作り直す
+ *
+ * 注意：
+ * ・AttendanceDay は申請状態を持たない
+ * ・MonthlyCommuterPass も申請状態を持たない
+ * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
+ * ・SystemMessage は保存しない
+ *
+ * 今後の改善：
+ * ・休憩も削除→新規作成ではなく、attendanceBreakId を使った update / create / delete に変える
+ * ・その場合は AttendanceBreakService 側に更新用メソッドを用意してからこのServiceを差し替える
  */
 func (service *monthlyAttendanceService) UpdateMonthlyAttendance(
 	userID uint,
@@ -94,6 +116,17 @@ func (service *monthlyAttendanceService) UpdateMonthlyAttendance(
 				"targetMonth": req.TargetMonth,
 			},
 		)
+	}
+
+	/*
+	 * 有給残数チェック
+	 *
+	 * フロントでも有給残数0以下の場合は止めているが、
+	 * バックエンドでも保存前に必ず止める。
+	 */
+	paidLeaveCheckResult := service.validatePaidLeaveBalanceBeforeMonthlySave(userID, req)
+	if paidLeaveCheckResult.Error {
+		return paidLeaveCheckResult
 	}
 
 	savedMonthlyCommuterPass := false
@@ -151,7 +184,7 @@ func (service *monthlyAttendanceService) UpdateMonthlyAttendance(
 				AbsenceFlag:    attendanceDayReq.AbsenceFlag,
 				SickLeaveFlag:  attendanceDayReq.SickLeaveFlag,
 
-				RequestMemo: attendanceDayReq.RequestMemo,
+				RemoteWorkAllowanceFlag: attendanceDayReq.RemoteWorkAllowanceFlag,
 
 				TransportFrom:   attendanceDayReq.TransportFrom,
 				TransportTo:     attendanceDayReq.TransportTo,
@@ -171,6 +204,11 @@ func (service *monthlyAttendanceService) UpdateMonthlyAttendance(
 		 *
 		 * 月次勤怠画面では、画面に残っている休憩だけを正とする。
 		 * そのため、対象日の休憩は一旦すべて削除し、後続で作り直す。
+		 *
+		 * 注意：
+		 * ・ここはまだ update 方式ではない
+		 * ・休憩を update 方式にするには、AttendanceBreak 側の Request にIDを持たせ、
+		 *   UpdateAttendanceBreak を実装してからこの処理を変更する
 		 */
 		searchAttendanceBreaksResult := service.attendanceBreakService.SearchAttendanceBreaks(
 			userID,
@@ -242,4 +280,127 @@ func (service *monthlyAttendanceService) UpdateMonthlyAttendance(
 		"月次勤怠を全体保存しました",
 		nil,
 	)
+}
+
+/*
+ * 月次勤怠保存前の有給残数チェック
+ *
+ * 保存対象に有給区分が含まれている場合だけ、有給残数を確認する。
+ */
+func (service *monthlyAttendanceService) validatePaidLeaveBalanceBeforeMonthlySave(
+	userID uint,
+	req types.UpdateMonthlyAttendanceRequest,
+) results.Result {
+	searchAttendanceTypesResult := service.attendanceTypeService.SearchAttendanceTypes(types.SearchAttendanceTypesRequest{})
+	if searchAttendanceTypesResult.Error {
+		return searchAttendanceTypesResult
+	}
+
+	searchAttendanceTypesResponse, ok := searchAttendanceTypesResult.Data.(types.SearchAttendanceTypesResponse)
+	if !ok {
+		return results.InternalServerError(
+			"UPDATE_MONTHLY_ATTENDANCE_INVALID_ATTENDANCE_TYPE_SEARCH_RESPONSE",
+			"勤務区分マスタ検索結果の形式が正しくありません",
+			nil,
+		)
+	}
+
+	paidLeaveAttendanceTypeIDs := buildPaidLeaveAttendanceTypeIDMap(searchAttendanceTypesResponse.AttendanceTypes)
+
+	if len(paidLeaveAttendanceTypeIDs) == 0 {
+		return results.OK(
+			nil,
+			"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_TYPE_NOT_FOUND",
+			"",
+			nil,
+		)
+	}
+
+	hasPaidLeave := hasPaidLeaveAttendanceDay(req, paidLeaveAttendanceTypeIDs)
+
+	if !hasPaidLeave {
+		return results.OK(
+			nil,
+			"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_NOT_INCLUDED",
+			"",
+			nil,
+		)
+	}
+
+	getPaidLeaveBalanceResult := service.paidLeaveService.GetPaidLeaveBalance(userID)
+	if getPaidLeaveBalanceResult.Error {
+		return getPaidLeaveBalanceResult
+	}
+
+	paidLeaveBalanceResponse, ok := getPaidLeaveBalanceResult.Data.(types.PaidLeaveBalanceResponse)
+	if !ok {
+		return results.InternalServerError(
+			"UPDATE_MONTHLY_ATTENDANCE_INVALID_PAID_LEAVE_BALANCE_RESPONSE",
+			"有給残数取得結果の形式が正しくありません",
+			nil,
+		)
+	}
+
+	if paidLeaveBalanceResponse.RemainingDays <= 0 {
+		return results.BadRequest(
+			"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_BALANCE_NOT_ENOUGH",
+			"有給残数がないため、有給を登録できません",
+			map[string]any{
+				"remainingDays": paidLeaveBalanceResponse.RemainingDays,
+			},
+		)
+	}
+
+	return results.OK(
+		nil,
+		"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_BALANCE_CHECK_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 有給区分IDマップ作成
+ *
+ * 基本は code = PAID_LEAVE をシステム判定に使う。
+ * 念のため name = 有給 も対象にする。
+ */
+func buildPaidLeaveAttendanceTypeIDMap(attendanceTypes []types.AttendanceTypeResponse) map[uint]bool {
+	paidLeaveAttendanceTypeIDs := make(map[uint]bool)
+
+	for _, attendanceType := range attendanceTypes {
+		if attendanceType.Code == "PAID_LEAVE" || attendanceType.Name == "有給" {
+			paidLeaveAttendanceTypeIDs[attendanceType.ID] = true
+		}
+	}
+
+	return paidLeaveAttendanceTypeIDs
+}
+
+/*
+ * 月次保存対象に有給区分が含まれているか判定する
+ *
+ * 予定区分・実績区分のどちらかが有給なら、有給ありと判定する。
+ *
+ * 注意：
+ * ・PlanAttendanceTypeID は uint
+ * ・ActualAttendanceTypeID は *uint のため nil チェックしてから判定する
+ */
+func hasPaidLeaveAttendanceDay(
+	req types.UpdateMonthlyAttendanceRequest,
+	paidLeaveAttendanceTypeIDs map[uint]bool,
+) bool {
+	for _, attendanceDayReq := range req.AttendanceDays {
+		if paidLeaveAttendanceTypeIDs[attendanceDayReq.PlanAttendanceTypeID] {
+			return true
+		}
+
+		if attendanceDayReq.ActualAttendanceTypeID != nil {
+			if paidLeaveAttendanceTypeIDs[*attendanceDayReq.ActualAttendanceTypeID] {
+				return true
+			}
+		}
+	}
+
+	return false
 }

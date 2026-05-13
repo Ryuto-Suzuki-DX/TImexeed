@@ -41,6 +41,14 @@ type AttendanceBreakBuilder interface {
  * ・Find / Create / Save はRepositoryに任せる
  * ・日付文字列、日時文字列の変換はServiceで行う
  * ・Builderでは変換済みの time.Time を受け取る
+ * ・AttendanceBreak は申請状態を持たない
+ * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
+ *
+ * 月次全体保存での休憩保存方針：
+ * ・削除 → 全新規作成はしない
+ * ・IDありの休憩は BuildUpdateAttendanceBreakModel で更新用Modelを作る
+ * ・IDなしの休憩は BuildCreateAttendanceBreakModel で作成用Modelを作る
+ * ・リクエストから消えた休憩は BuildDeleteAttendanceBreakModel で論理削除用Modelを作る
  */
 type attendanceBreakBuilder struct {
 	db *gorm.DB
@@ -57,6 +65,10 @@ func NewAttendanceBreakBuilder(db *gorm.DB) AttendanceBreakBuilder {
  * 休憩検索用クエリ作成
  *
  * 勤怠日IDに紐づく休憩一覧を取得する。
+ *
+ * 注意：
+ * ・attendanceDayID はログイン中ユーザー本人の AttendanceDay から取得したID
+ * ・論理削除済みの休憩は対象外
  */
 func (builder *attendanceBreakBuilder) BuildSearchAttendanceBreaksQuery(
 	attendanceDayID uint,
@@ -90,6 +102,10 @@ func (builder *attendanceBreakBuilder) BuildSearchAttendanceBreaksQuery(
  * 休憩ID + 勤怠日IDで休憩1件取得用クエリ作成
  *
  * 更新・削除時に使う。
+ *
+ * 注意：
+ * ・attendanceDayID を条件に含めることで、他ユーザーの休憩を触れないようにする
+ * ・論理削除済みの休憩は対象外
  */
 func (builder *attendanceBreakBuilder) BuildFindAttendanceBreakByIDAndAttendanceDayIDQuery(
 	attendanceBreakID uint,
@@ -131,6 +147,11 @@ func (builder *attendanceBreakBuilder) BuildFindAttendanceBreakByIDAndAttendance
 
 /*
  * 休憩作成用Model作成
+ *
+ * monthly_attendances/update の月次全体保存から内部的に使う。
+ *
+ * 用途：
+ * ・休憩差分保存時、リクエストにIDがない休憩を新規作成する
  */
 func (builder *attendanceBreakBuilder) BuildCreateAttendanceBreakModel(
 	attendanceDayID uint,
@@ -182,6 +203,11 @@ func (builder *attendanceBreakBuilder) BuildCreateAttendanceBreakModel(
 
 /*
  * 休憩更新用Model作成
+ *
+ * monthly_attendances/update の月次全体保存から内部的に使う。
+ *
+ * 用途：
+ * ・休憩差分保存時、リクエストにIDがある既存休憩を更新する
  */
 func (builder *attendanceBreakBuilder) BuildUpdateAttendanceBreakModel(
 	currentAttendanceBreak models.AttendanceBreak,
@@ -227,6 +253,11 @@ func (builder *attendanceBreakBuilder) BuildUpdateAttendanceBreakModel(
 
 /*
  * 休憩論理削除用Model作成
+ *
+ * monthly_attendances/update の月次全体保存から内部的に使う。
+ *
+ * 用途：
+ * ・休憩差分保存時、DBにはあるがリクエストから消えた休憩を論理削除する
  */
 func (builder *attendanceBreakBuilder) BuildDeleteAttendanceBreakModel(
 	currentAttendanceBreak models.AttendanceBreak,

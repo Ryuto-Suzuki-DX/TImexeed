@@ -26,5 +26,11 @@ func RunMigrations(db *gorm.DB) error {
 		&models.AttendanceBreak{},
 		// 通勤定期/月
 		&models.MonthlyCommuterPass{},
+		// 有給使用日
+		&models.PaidLeaveUsage{},
+		// 勤怠申請系
+		&models.MonthlyAttendanceRequest{},
+		// // お知らせ
+		&models.Notification{},
 	)
 }

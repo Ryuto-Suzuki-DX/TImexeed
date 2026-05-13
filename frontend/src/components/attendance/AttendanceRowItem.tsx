@@ -3,19 +3,30 @@
 import Button from "@/components/atoms/Button";
 import Input from "@/components/atoms/Input";
 import type { AttendanceType } from "@/types/user/attendanceType";
-import type { AttendanceBreakViewRow, AttendanceViewRow } from "@/types/user/attendanceView";
+import type {
+  AttendanceBreakViewRow,
+  AttendanceViewRow,
+} from "@/types/user/attendanceView";
 import AttendanceLockedText from "@/components/attendance/AttendanceLockedText";
-import AttendanceStatusBadge from "@/components/attendance/AttendanceStatusBadge";
 import styles from "@/app/user/attendance/page.module.css";
 
 type AttendanceRowItemProps = {
   row: AttendanceViewRow;
   attendanceTypes: AttendanceType[];
   locked: boolean;
-  onChangeRow: <K extends keyof AttendanceViewRow>(workDate: string, key: K, value: AttendanceViewRow[K]) => void;
+  onChangeRow: <K extends keyof AttendanceViewRow>(
+    workDate: string,
+    key: K,
+    value: AttendanceViewRow[K],
+  ) => void;
   onDeleteRow: (row: AttendanceViewRow) => void;
   onAddBreak: (workDate: string) => void;
-  onChangeBreak: <K extends keyof AttendanceBreakViewRow>(workDate: string, breakIndex: number, key: K, value: AttendanceBreakViewRow[K]) => void;
+  onChangeBreak: <K extends keyof AttendanceBreakViewRow>(
+    workDate: string,
+    breakIndex: number,
+    key: K,
+    value: AttendanceBreakViewRow[K],
+  ) => void;
   onDeleteBreak: (row: AttendanceViewRow, breakIndex: number) => void;
 };
 
@@ -51,6 +62,87 @@ function getWeekdayRowClass(weekday: string) {
   return "";
 }
 
+function hasRowInput(row: AttendanceViewRow) {
+  return (
+    row.attendanceDayId !== null ||
+    row.planAttendanceTypeId !== 0 ||
+    row.actualAttendanceTypeId !== null ||
+    row.commonStartTime !== "" ||
+    row.commonEndTime !== "" ||
+    row.planStartTime !== "" ||
+    row.planEndTime !== "" ||
+    row.actualStartTime !== "" ||
+    row.actualEndTime !== "" ||
+    row.lateFlag ||
+    row.earlyLeaveFlag ||
+    row.absenceFlag ||
+    row.sickLeaveFlag ||
+    row.remoteWorkAllowanceFlag ||
+    row.requestMemo !== "" ||
+    row.transportFrom !== "" ||
+    row.transportTo !== "" ||
+    row.transportMethod !== "" ||
+    row.transportAmount !== "" ||
+    row.breaks.length > 0
+  );
+}
+
+/*
+ * 保存しないシステムメッセージを画面側で作る
+ *
+ * 注意：
+ * ・DBには保存しない
+ * ・表示専用
+ * ・まずは既存UIを壊さないため最小限の表示にする
+ */
+function buildRowSystemMessage(row: AttendanceViewRow, selectedPlanType: AttendanceType | undefined) {
+  if (!selectedPlanType) {
+    return "勤務区分未選択";
+  }
+
+  if (selectedPlanType.code === "HOLIDAY") {
+    return "休日";
+  }
+
+  if (row.lateFlag) {
+    return "遅刻";
+  }
+
+  if (row.earlyLeaveFlag) {
+    return "早退";
+  }
+
+  if (row.absenceFlag) {
+    return "欠勤";
+  }
+
+  if (row.sickLeaveFlag) {
+    return "病欠";
+  }
+
+  if (selectedPlanType.requiresRequest) {
+    return "申請対象";
+  }
+
+  return "通常";
+}
+
+function getStatusBadgeClass(requiresRequest: boolean) {
+  if (requiresRequest) {
+    return `${styles.statusBadge} ${styles.statusRequiresRequest}`;
+  }
+
+  return `${styles.statusBadge} ${styles.statusNone}`;
+}
+
+function getStatusBadgeText(requiresRequest: boolean) {
+  if (requiresRequest) {
+    return "申請対象";
+  }
+
+  return "通常";
+}
+
 export default function AttendanceRowItem({
   row,
   attendanceTypes,
@@ -61,8 +153,12 @@ export default function AttendanceRowItem({
   onChangeBreak,
   onDeleteBreak,
 }: AttendanceRowItemProps) {
-  const selectedPlanType = attendanceTypes.find((attendanceType) => attendanceType.id === row.planAttendanceTypeId);
-  const selectedActualType = attendanceTypes.find((attendanceType) => attendanceType.id === row.actualAttendanceTypeId);
+  const selectedPlanType = attendanceTypes.find(
+    (attendanceType) => attendanceType.id === row.planAttendanceTypeId,
+  );
+  const selectedActualType = attendanceTypes.find(
+    (attendanceType) => attendanceType.id === row.actualAttendanceTypeId,
+  );
 
   /*
    * 勤務区分マスタの設定をもとに画面制御する。
@@ -76,6 +172,8 @@ export default function AttendanceRowItem({
   const requiresRequest = selectedPlanType?.requiresRequest === true;
   const allowBreakInput = selectedPlanType ? selectedPlanType.allowBreakInput === true : true;
   const allowTransportInput = selectedPlanType ? selectedPlanType.allowTransportInput === true : true;
+  const rowSystemMessage = buildRowSystemMessage(row, selectedPlanType);
+  const resetDisabled = locked || !hasRowInput(row);
 
   /*
    * syncPlanActual=true かつ休日ではない区分は、
@@ -106,6 +204,7 @@ export default function AttendanceRowItem({
    * ・予定/実績/共通の時刻を全部クリア
    * ・遅刻/早退/欠勤/病欠をクリア
    * ・交通費をクリア
+   * ・在宅勤務補助ありをクリア
    */
   const handlePlanAttendanceTypeChange = (attendanceTypeId: number) => {
     const nextType = attendanceTypes.find((attendanceType) => attendanceType.id === attendanceTypeId);
@@ -133,6 +232,8 @@ export default function AttendanceRowItem({
       onChangeRow(row.workDate, "earlyLeaveFlag", false);
       onChangeRow(row.workDate, "absenceFlag", false);
       onChangeRow(row.workDate, "sickLeaveFlag", false);
+
+      onChangeRow(row.workDate, "remoteWorkAllowanceFlag", false);
 
       onChangeRow(row.workDate, "transportFrom", "");
       onChangeRow(row.workDate, "transportTo", "");
@@ -166,7 +267,11 @@ export default function AttendanceRowItem({
   };
 
   return (
-    <tr className={`${styles.row} ${getWeekdayRowClass(row.weekday)} ${requiresRequest ? styles.rowRequestRequired : ""} ${locked ? styles.rowLocked : ""}`}>
+    <tr
+      className={`${styles.row} ${getWeekdayRowClass(row.weekday)} ${
+        requiresRequest ? styles.rowRequestRequired : ""
+      } ${locked ? styles.rowLocked : ""}`}
+    >
       <td className={styles.td}>
         <p className={styles.dayLabel}>{row.dayLabel}</p>
         <p className={styles.weekday}>{row.weekday}</p>
@@ -194,13 +299,33 @@ export default function AttendanceRowItem({
             <p className={styles.syncText}>時間入力なし</p>
           ) : showCommonTimeInput ? (
             <>
-              <Input type="time" value={row.commonStartTime} onChange={(event) => onChangeRow(row.workDate, "commonStartTime", event.target.value)} disabled={locked} />
-              <Input type="time" value={row.commonEndTime} onChange={(event) => onChangeRow(row.workDate, "commonEndTime", event.target.value)} disabled={locked} />
+              <Input
+                type="time"
+                value={row.commonStartTime}
+                onChange={(event) => onChangeRow(row.workDate, "commonStartTime", event.target.value)}
+                disabled={locked}
+              />
+              <Input
+                type="time"
+                value={row.commonEndTime}
+                onChange={(event) => onChangeRow(row.workDate, "commonEndTime", event.target.value)}
+                disabled={locked}
+              />
             </>
           ) : (
             <>
-              <Input type="time" value={row.planStartTime} onChange={(event) => onChangeRow(row.workDate, "planStartTime", event.target.value)} disabled={locked} />
-              <Input type="time" value={row.planEndTime} onChange={(event) => onChangeRow(row.workDate, "planEndTime", event.target.value)} disabled={locked} />
+              <Input
+                type="time"
+                value={row.planStartTime}
+                onChange={(event) => onChangeRow(row.workDate, "planStartTime", event.target.value)}
+                disabled={locked}
+              />
+              <Input
+                type="time"
+                value={row.planEndTime}
+                onChange={(event) => onChangeRow(row.workDate, "planEndTime", event.target.value)}
+                disabled={locked}
+              />
             </>
           )}
         </div>
@@ -221,7 +346,9 @@ export default function AttendanceRowItem({
               <select
                 aria-label={`${row.dayLabel}の実績区分`}
                 value={row.actualAttendanceTypeId ?? 0}
-                onChange={(event) => onChangeRow(row.workDate, "actualAttendanceTypeId", Number(event.target.value))}
+                onChange={(event) =>
+                  onChangeRow(row.workDate, "actualAttendanceTypeId", Number(event.target.value))
+                }
                 className={styles.select}
                 disabled={locked}
               >
@@ -276,13 +403,39 @@ export default function AttendanceRowItem({
 
             {row.breaks.map((breakRow, breakIndex) => (
               <div key={`${breakRow.id ?? "new"}-${breakIndex}`} className={styles.breakEditRow}>
-                <Input type="time" value={breakRow.breakStartTime} onChange={(event) => onChangeBreak(row.workDate, breakIndex, "breakStartTime", event.target.value)} disabled={locked} />
+                <Input
+                  type="time"
+                  value={breakRow.breakStartTime}
+                  onChange={(event) =>
+                    onChangeBreak(row.workDate, breakIndex, "breakStartTime", event.target.value)
+                  }
+                  disabled={locked}
+                />
 
-                <Input type="time" value={breakRow.breakEndTime} onChange={(event) => onChangeBreak(row.workDate, breakIndex, "breakEndTime", event.target.value)} disabled={locked} />
+                <Input
+                  type="time"
+                  value={breakRow.breakEndTime}
+                  onChange={(event) =>
+                    onChangeBreak(row.workDate, breakIndex, "breakEndTime", event.target.value)
+                  }
+                  disabled={locked}
+                />
 
-                <Input placeholder="メモ" value={breakRow.breakMemo} onChange={(event) => onChangeBreak(row.workDate, breakIndex, "breakMemo", event.target.value)} disabled={locked} />
+                <Input
+                  placeholder="メモ"
+                  value={breakRow.breakMemo}
+                  onChange={(event) =>
+                    onChangeBreak(row.workDate, breakIndex, "breakMemo", event.target.value)
+                  }
+                  disabled={locked}
+                />
 
-                <Button type="button" variant="danger" onClick={() => onDeleteBreak(row, breakIndex)} disabled={locked}>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => onDeleteBreak(row, breakIndex)}
+                  disabled={locked}
+                >
                   削除
                 </Button>
               </div>
@@ -294,58 +447,101 @@ export default function AttendanceRowItem({
       </td>
 
       <td className={styles.td}>
-        {allowTransportInput ? (
-          <div className={styles.transportCompactGrid}>
-            <label className={styles.miniField}>
-              <span className={styles.miniLabel}>出発地</span>
-              <Input placeholder="例：新宿" value={row.transportFrom} onChange={(event) => onChangeRow(row.workDate, "transportFrom", event.target.value)} disabled={locked} />
-            </label>
+        <div className={styles.inputBlock}>
+          {allowTransportInput ? (
+            <div className={styles.transportCompactGrid}>
+              <label className={styles.miniField}>
+                <span className={styles.miniLabel}>出発地</span>
+                <Input
+                  placeholder="例：新宿"
+                  value={row.transportFrom}
+                  onChange={(event) => onChangeRow(row.workDate, "transportFrom", event.target.value)}
+                  disabled={locked}
+                />
+              </label>
 
-            <label className={styles.miniField}>
-              <span className={styles.miniLabel}>目的地</span>
-              <Input placeholder="例：品川" value={row.transportTo} onChange={(event) => onChangeRow(row.workDate, "transportTo", event.target.value)} disabled={locked} />
-            </label>
+              <label className={styles.miniField}>
+                <span className={styles.miniLabel}>目的地</span>
+                <Input
+                  placeholder="例：品川"
+                  value={row.transportTo}
+                  onChange={(event) => onChangeRow(row.workDate, "transportTo", event.target.value)}
+                  disabled={locked}
+                />
+              </label>
 
-            <label className={styles.miniField}>
-              <span className={styles.miniLabel}>手段</span>
-              <select aria-label={`${row.dayLabel}の交通手段`} value={row.transportMethod} onChange={(event) => onChangeRow(row.workDate, "transportMethod", event.target.value)} className={styles.select} disabled={locked}>
-                <option value="">選択</option>
-                <option value="電車">電車</option>
-                <option value="バス">バス</option>
-                <option value="車">車</option>
-                <option value="徒歩">徒歩</option>
-                <option value="その他">その他</option>
-              </select>
-            </label>
+              <label className={styles.miniField}>
+                <span className={styles.miniLabel}>手段</span>
+                <select
+                  aria-label={`${row.dayLabel}の交通手段`}
+                  value={row.transportMethod}
+                  onChange={(event) => onChangeRow(row.workDate, "transportMethod", event.target.value)}
+                  className={styles.select}
+                  disabled={locked}
+                >
+                  <option value="">選択</option>
+                  <option value="電車">電車</option>
+                  <option value="バス">バス</option>
+                  <option value="車">車</option>
+                  <option value="徒歩">徒歩</option>
+                  <option value="その他">その他</option>
+                </select>
+              </label>
 
-            <label className={styles.miniField}>
-              <span className={styles.miniLabel}>金額</span>
-              <Input placeholder="例：320" type="number" value={row.transportAmount} onChange={(event) => onChangeRow(row.workDate, "transportAmount", event.target.value)} disabled={locked} />
+              <label className={styles.miniField}>
+                <span className={styles.miniLabel}>金額</span>
+                <Input
+                  placeholder="例：320"
+                  type="number"
+                  value={row.transportAmount}
+                  onChange={(event) => onChangeRow(row.workDate, "transportAmount", event.target.value)}
+                  disabled={locked}
+                />
+              </label>
+            </div>
+          ) : (
+            <p className={styles.noBreakText}>対象外</p>
+          )}
+
+          {!isHoliday && (
+            <label className={`${styles.checkLabel} ${locked ? styles.checkLabelDisabled : ""}`}>
+              <input
+                type="checkbox"
+                checked={row.remoteWorkAllowanceFlag}
+                onChange={(event) =>
+                  onChangeRow(row.workDate, "remoteWorkAllowanceFlag", event.target.checked)
+                }
+                disabled={locked}
+              />
+              在宅勤務補助あり
             </label>
-          </div>
-        ) : (
-          <p className={styles.noBreakText}>対象外</p>
-        )}
+          )}
+        </div>
       </td>
 
       <td className={styles.td}>
-        <AttendanceStatusBadge status={row.requestStatus} requiresRequest={requiresRequest} />
+        <span className={getStatusBadgeClass(requiresRequest)}>
+          {getStatusBadgeText(requiresRequest)}
+        </span>
 
-        <p className={styles.rowMessage}>{row.systemMessage || "通常"}</p>
+        <p className={styles.rowMessage}>{rowSystemMessage}</p>
 
-        {requiresRequest && row.requestStatus !== "PENDING" && row.requestStatus !== "APPROVED" && <p className={styles.warningText}>申請必要</p>}
-
-        {row.rejectedReason && <p className={styles.rejectedReason}>否認理由：{row.rejectedReason}</p>}
+        {requiresRequest && <p className={styles.warningText}>月次申請前に確認してください</p>}
 
         <div className={styles.requestMemo}>
-          <Input placeholder="申請メモ" value={row.requestMemo} onChange={(event) => onChangeRow(row.workDate, "requestMemo", event.target.value)} disabled={locked} />
+          <Input
+            placeholder="申請メモ"
+            value={row.requestMemo}
+            onChange={(event) => onChangeRow(row.workDate, "requestMemo", event.target.value)}
+            disabled={locked}
+          />
         </div>
       </td>
 
       <td className={styles.td}>
         <div className={styles.actionList}>
-          <Button type="button" variant="danger" onClick={() => onDeleteRow(row)} disabled={locked || row.attendanceDayId === null}>
-            削除
+          <Button type="button" variant="danger" onClick={() => onDeleteRow(row)} disabled={resetDisabled}>
+            リセット
           </Button>
 
           {locked && <AttendanceLockedText />}

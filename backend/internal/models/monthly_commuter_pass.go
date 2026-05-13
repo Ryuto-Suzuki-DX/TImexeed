@@ -7,6 +7,25 @@ import "time"
  *
  * 月ごとの通勤定期を管理する。
  *
+ * このテーブルに入れるもの：
+ * 	・対象ユーザー
+ * 	・対象年月
+ * 	・定期の出発地
+ * 	・定期の目的地
+ * 	・定期の手段
+ * 	・定期の金額
+ *
+ * このテーブルに入れないもの：
+ * 	・月次申請状態
+ * 	・月次承認状態
+ * 	・承認者
+ * 	・承認日時
+ * 	・否認理由
+ *
+ * 理由：
+ * 	MonthlyCommuterPass は、月単位の通勤定期データだけを管理する。
+ * 	月次申請・承認の状態は MonthlyAttendanceRequest を見て判断する。
+ *
  * 日ごとの交通費は AttendanceDay に持たせる。
  * 月単位の定期代は、この MonthlyCommuterPass に持たせる。
  */
@@ -34,10 +53,6 @@ type MonthlyCommuterPass struct {
 
 	// 定期：金額
 	CommuterAmount *int `json:"commuterAmount"`
-
-	// 月次申請状態
-	// 例：DRAFT, PENDING, APPROVED, REJECTED
-	MonthlyStatus string `gorm:"type:varchar(30);not null;default:'DRAFT'" json:"monthlyStatus"`
 
 	// 論理削除フラグ
 	IsDeleted bool `gorm:"not null;default:false" json:"isDeleted"`

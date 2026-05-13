@@ -7,6 +7,7 @@ const adminMenuItems: SideMenuItem[] = [
   { label: "ユーザー管理", href: "/admin/users" },
   { label: "所属管理", href: "/admin/departments" },
   { label: "勤怠管理", href: "/admin/attendance" },
+  { label: "有給確認", href: "/admin/paid-leave-check" },
   { label: "給与管理", href: "/admin/salary" },
   { label: "設定", href: "/admin/settings" },
 ];

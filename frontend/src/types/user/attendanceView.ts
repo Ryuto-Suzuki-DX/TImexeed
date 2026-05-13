@@ -28,6 +28,11 @@ export type AttendanceBreakViewRow = {
  *
  * APIでは日時は RFC3339 だが、
  * 画面では input type="time" で扱いやすいよう HH:mm で持つ。
+ *
+ * 注意：
+ * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
+ * ・systemMessage は保存せず、画面側で計算して表示する
+ * ・日別勤怠の削除はAPIでは行わず、画面stateを初期値に戻して全体保存する
  */
 export type AttendanceViewRow = {
   workDate: string;
@@ -53,12 +58,9 @@ export type AttendanceViewRow = {
   absenceFlag: boolean;
   sickLeaveFlag: boolean;
 
-  requestStatus: string;
-  requestMemo: string;
-  rejectedReason: string | null;
-  systemMessage: string | null;
+  remoteWorkAllowanceFlag: boolean;
 
-  monthlyStatus: string;
+  requestMemo: string;
 
   transportFrom: string;
   transportTo: string;
@@ -75,11 +77,13 @@ export type AttendanceViewRow = {
  *
  * APIでは commuterAmount は number | null。
  * 画面では input value として扱いやすいよう string で持つ。
+ *
+ * 注意：
+ * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
  */
 export type CommuterPassViewForm = {
   commuterFrom: string;
   commuterTo: string;
   commuterMethod: string;
   commuterAmount: string;
-  monthlyStatus: string;
 };

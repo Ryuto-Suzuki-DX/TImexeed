@@ -89,6 +89,9 @@ type UpdateMonthlyAttendanceDayRequest struct {
 	// 病欠フラグ
 	SickLeaveFlag bool `json:"sickLeaveFlag"`
 
+	// 在宅勤務補助対象フラグ
+	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
+
 	// 申請メモ
 	RequestMemo *string `json:"requestMemo"`
 

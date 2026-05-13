@@ -12,17 +12,20 @@ import (
 /*
  * 従業員用休憩Service interface
  *
- * ControllerがServiceに求める処理だけを定義する。
+ * Controllerや月次勤怠全体保存ServiceがServiceに求める処理だけを定義する。
  *
  * 注意：
  * ・従業員APIでは userId / targetUserId をRequestで受け取らない
  * ・ControllerでAuthMiddleware由来のuserIdを取得し、Serviceへ渡す
+ * ・AttendanceBreak は申請状態を持たない
+ * ・編集可否は MonthlyAttendanceRequest を見て判断する
  */
 type AttendanceBreakService interface {
 	SearchAttendanceBreaks(userID uint, req types.SearchAttendanceBreaksRequest) results.Result
 	CreateAttendanceBreak(userID uint, req types.CreateAttendanceBreakRequest) results.Result
 	UpdateAttendanceBreak(userID uint, req types.UpdateAttendanceBreakRequest) results.Result
 	DeleteAttendanceBreak(userID uint, req types.DeleteAttendanceBreakRequest) results.Result
+	UpdateAttendanceBreaksByWorkDate(userID uint, req types.UpdateAttendanceBreaksByWorkDateRequest) results.Result
 }
 
 /*
@@ -37,6 +40,17 @@ type AttendanceBreakService interface {
  * ・Repositoryで発生したエラーはRepositoryから返されたResultをそのまま返す
  * ・成功時はResponse型に変換してControllerへ返す
  *
+ * 状態管理：
+ * ・AttendanceBreak 自体は申請状態を持たない
+ * ・対象月の申請状態は MonthlyAttendanceRequest から取得する
+ * ・MonthlyAttendanceRequest が存在しない場合は未申請扱いにする
+ *
+ * 月次全体保存での休憩保存方針：
+ * ・削除 → 全新規作成はしない
+ * ・リクエストにIDがある休憩は更新する
+ * ・リクエストにIDがない休憩は新規作成する
+ * ・DBに存在するがリクエストから消えた休憩は論理削除する
+ *
  * 注意：
  * ・Controllerにはgin.Contextを渡さない
  * ・Serviceではc.JSONしない
@@ -44,10 +58,12 @@ type AttendanceBreakService interface {
  * ・Builder/Repositoryのエラー文言をServiceで作り直さない
  */
 type attendanceBreakService struct {
-	attendanceBreakBuilder    builders.AttendanceBreakBuilder
-	attendanceBreakRepository repositories.AttendanceBreakRepository
-	attendanceDayBuilder      builders.AttendanceDayBuilder
-	attendanceDayRepository   repositories.AttendanceDayRepository
+	attendanceBreakBuilder             builders.AttendanceBreakBuilder
+	attendanceBreakRepository          repositories.AttendanceBreakRepository
+	attendanceDayBuilder               builders.AttendanceDayBuilder
+	attendanceDayRepository            repositories.AttendanceDayRepository
+	monthlyAttendanceRequestBuilder    builders.MonthlyAttendanceRequestBuilder
+	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository
 }
 
 /*
@@ -58,12 +74,16 @@ func NewAttendanceBreakService(
 	attendanceBreakRepository repositories.AttendanceBreakRepository,
 	attendanceDayBuilder builders.AttendanceDayBuilder,
 	attendanceDayRepository repositories.AttendanceDayRepository,
+	monthlyAttendanceRequestBuilder builders.MonthlyAttendanceRequestBuilder,
+	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository,
 ) *attendanceBreakService {
 	return &attendanceBreakService{
-		attendanceBreakBuilder:    attendanceBreakBuilder,
-		attendanceBreakRepository: attendanceBreakRepository,
-		attendanceDayBuilder:      attendanceDayBuilder,
-		attendanceDayRepository:   attendanceDayRepository,
+		attendanceBreakBuilder:             attendanceBreakBuilder,
+		attendanceBreakRepository:          attendanceBreakRepository,
+		attendanceDayBuilder:               attendanceDayBuilder,
+		attendanceDayRepository:            attendanceDayRepository,
+		monthlyAttendanceRequestBuilder:    monthlyAttendanceRequestBuilder,
+		monthlyAttendanceRequestRepository: monthlyAttendanceRequestRepository,
 	}
 }
 
@@ -88,6 +108,74 @@ func toAttendanceBreakResponse(attendanceBreak models.AttendanceBreak) types.Att
 }
 
 /*
+ * 対象月の休憩が編集可能か確認する
+ *
+ * PENDING / APPROVED の場合は従業員側から作成・更新・削除できない。
+ * NOT_SUBMITTED / REJECTED / CANCELED の場合は編集可能。
+ */
+func (service *attendanceBreakService) validateMonthlyAttendanceEditable(
+	userID uint,
+	targetYear int,
+	targetMonth int,
+	actionCode string,
+) results.Result {
+	query, buildResult := service.monthlyAttendanceRequestBuilder.BuildFindMonthlyAttendanceRequestByUserIDAndTargetYearMonthQuery(
+		userID,
+		targetYear,
+		targetMonth,
+	)
+	if buildResult.Error {
+		return buildResult
+	}
+
+	monthlyAttendanceRequest, findResult := service.monthlyAttendanceRequestRepository.FindMonthlyAttendanceRequest(query)
+
+	if findResult.Error && findResult.Code == "MONTHLY_ATTENDANCE_REQUEST_NOT_FOUND" {
+		return results.OK(
+			nil,
+			actionCode+"_MONTHLY_ATTENDANCE_EDITABLE",
+			"",
+			nil,
+		)
+	}
+
+	if findResult.Error {
+		return findResult
+	}
+
+	if monthlyAttendanceRequest.Status == "PENDING" {
+		return results.Conflict(
+			actionCode+"_MONTHLY_ATTENDANCE_REQUEST_PENDING",
+			"月次申請中のため、休憩を変更できません",
+			map[string]any{
+				"targetYear":  targetYear,
+				"targetMonth": targetMonth,
+				"status":      monthlyAttendanceRequest.Status,
+			},
+		)
+	}
+
+	if monthlyAttendanceRequest.Status == "APPROVED" {
+		return results.Conflict(
+			actionCode+"_MONTHLY_ATTENDANCE_REQUEST_APPROVED",
+			"月次承認済みのため、休憩を変更できません",
+			map[string]any{
+				"targetYear":  targetYear,
+				"targetMonth": targetMonth,
+				"status":      monthlyAttendanceRequest.Status,
+			},
+		)
+	}
+
+	return results.OK(
+		nil,
+		actionCode+"_MONTHLY_ATTENDANCE_EDITABLE",
+		"",
+		nil,
+	)
+}
+
+/*
  * 休憩検索
  *
  * userID + workDate で勤怠日を取得し、その勤怠日に紐づく休憩一覧を取得する。
@@ -104,7 +192,6 @@ func (service *attendanceBreakService) SearchAttendanceBreaks(
 		)
 	}
 
-	// 対象日を日付型へ変換する
 	workDate, err := utils.ParseDate(req.WorkDate)
 	if err != nil {
 		return results.BadRequest(
@@ -117,31 +204,26 @@ func (service *attendanceBreakService) SearchAttendanceBreaks(
 		)
 	}
 
-	// Builderで対象勤怠取得用クエリを作成する
 	findAttendanceDayQuery, buildFindAttendanceDayResult := service.attendanceDayBuilder.BuildFindAttendanceDayByUserIDAndWorkDateQuery(userID, workDate)
 	if buildFindAttendanceDayResult.Error {
 		return buildFindAttendanceDayResult
 	}
 
-	// Repositoryで対象勤怠を取得する
 	attendanceDay, findAttendanceDayResult := service.attendanceDayRepository.FindAttendanceDay(findAttendanceDayQuery)
 	if findAttendanceDayResult.Error {
 		return findAttendanceDayResult
 	}
 
-	// Builderで休憩検索用クエリを作成する
 	query, buildResult := service.attendanceBreakBuilder.BuildSearchAttendanceBreaksQuery(attendanceDay.ID)
 	if buildResult.Error {
 		return buildResult
 	}
 
-	// Repositoryで休憩一覧を取得する
 	attendanceBreaks, findResult := service.attendanceBreakRepository.FindAttendanceBreaks(query)
 	if findResult.Error {
 		return findResult
 	}
 
-	// DBモデルをフロント返却用Responseへ変換する
 	attendanceBreakResponses := make([]types.AttendanceBreakResponse, 0, len(attendanceBreaks))
 	for _, attendanceBreak := range attendanceBreaks {
 		attendanceBreakResponses = append(attendanceBreakResponses, toAttendanceBreakResponse(attendanceBreak))
@@ -161,7 +243,8 @@ func (service *attendanceBreakService) SearchAttendanceBreaks(
 /*
  * 休憩作成
  *
- * userID + workDate で勤怠日を取得し、その勤怠日に休憩を作成する。
+ * APIとして直接公開しない。
+ * monthly_attendances/update の月次全体保存から内部的に使う。
  */
 func (service *attendanceBreakService) CreateAttendanceBreak(
 	userID uint,
@@ -175,7 +258,6 @@ func (service *attendanceBreakService) CreateAttendanceBreak(
 		)
 	}
 
-	// 対象日を日付型へ変換する
 	workDate, err := utils.ParseDate(req.WorkDate)
 	if err != nil {
 		return results.BadRequest(
@@ -188,7 +270,16 @@ func (service *attendanceBreakService) CreateAttendanceBreak(
 		)
 	}
 
-	// 休憩開始日時を変換する
+	editableResult := service.validateMonthlyAttendanceEditable(
+		userID,
+		workDate.Year(),
+		int(workDate.Month()),
+		"CREATE_ATTENDANCE_BREAK",
+	)
+	if editableResult.Error {
+		return editableResult
+	}
+
 	breakStartAt, err := utils.ParseDateTime(req.BreakStartAt)
 	if err != nil {
 		return results.BadRequest(
@@ -201,7 +292,6 @@ func (service *attendanceBreakService) CreateAttendanceBreak(
 		)
 	}
 
-	// 休憩終了日時を変換する
 	breakEndAt, err := utils.ParseDateTime(req.BreakEndAt)
 	if err != nil {
 		return results.BadRequest(
@@ -225,25 +315,16 @@ func (service *attendanceBreakService) CreateAttendanceBreak(
 		)
 	}
 
-	// Builderで対象勤怠取得用クエリを作成する
 	findAttendanceDayQuery, buildFindAttendanceDayResult := service.attendanceDayBuilder.BuildFindAttendanceDayByUserIDAndWorkDateQuery(userID, workDate)
 	if buildFindAttendanceDayResult.Error {
 		return buildFindAttendanceDayResult
 	}
 
-	// Repositoryで対象勤怠を取得する
 	attendanceDay, findAttendanceDayResult := service.attendanceDayRepository.FindAttendanceDay(findAttendanceDayQuery)
 	if findAttendanceDayResult.Error {
 		return findAttendanceDayResult
 	}
 
-	// 既存勤怠がある場合は、変更可能か確認する
-	editableResult := validateAttendanceDayEditable(attendanceDay, "CREATE_ATTENDANCE_BREAK")
-	if editableResult.Error {
-		return editableResult
-	}
-
-	// Builderで休憩作成用Modelを作る
 	attendanceBreak, buildCreateResult := service.attendanceBreakBuilder.BuildCreateAttendanceBreakModel(
 		attendanceDay.ID,
 		req,
@@ -254,7 +335,6 @@ func (service *attendanceBreakService) CreateAttendanceBreak(
 		return buildCreateResult
 	}
 
-	// Repositoryで休憩を作成する
 	createdAttendanceBreak, createResult := service.attendanceBreakRepository.CreateAttendanceBreak(attendanceBreak)
 	if createResult.Error {
 		return createResult
@@ -273,7 +353,8 @@ func (service *attendanceBreakService) CreateAttendanceBreak(
 /*
  * 休憩更新
  *
- * userID + workDate で勤怠日を取得し、指定された休憩を更新する。
+ * APIとして直接公開しない。
+ * monthly_attendances/update の月次全体保存から内部的に使う。
  */
 func (service *attendanceBreakService) UpdateAttendanceBreak(
 	userID uint,
@@ -287,7 +368,6 @@ func (service *attendanceBreakService) UpdateAttendanceBreak(
 		)
 	}
 
-	// 対象日を日付型へ変換する
 	workDate, err := utils.ParseDate(req.WorkDate)
 	if err != nil {
 		return results.BadRequest(
@@ -300,7 +380,16 @@ func (service *attendanceBreakService) UpdateAttendanceBreak(
 		)
 	}
 
-	// 休憩開始日時を変換する
+	editableResult := service.validateMonthlyAttendanceEditable(
+		userID,
+		workDate.Year(),
+		int(workDate.Month()),
+		"UPDATE_ATTENDANCE_BREAK",
+	)
+	if editableResult.Error {
+		return editableResult
+	}
+
 	breakStartAt, err := utils.ParseDateTime(req.BreakStartAt)
 	if err != nil {
 		return results.BadRequest(
@@ -313,7 +402,6 @@ func (service *attendanceBreakService) UpdateAttendanceBreak(
 		)
 	}
 
-	// 休憩終了日時を変換する
 	breakEndAt, err := utils.ParseDateTime(req.BreakEndAt)
 	if err != nil {
 		return results.BadRequest(
@@ -337,25 +425,16 @@ func (service *attendanceBreakService) UpdateAttendanceBreak(
 		)
 	}
 
-	// Builderで対象勤怠取得用クエリを作成する
 	findAttendanceDayQuery, buildFindAttendanceDayResult := service.attendanceDayBuilder.BuildFindAttendanceDayByUserIDAndWorkDateQuery(userID, workDate)
 	if buildFindAttendanceDayResult.Error {
 		return buildFindAttendanceDayResult
 	}
 
-	// Repositoryで対象勤怠を取得する
 	attendanceDay, findAttendanceDayResult := service.attendanceDayRepository.FindAttendanceDay(findAttendanceDayQuery)
 	if findAttendanceDayResult.Error {
 		return findAttendanceDayResult
 	}
 
-	// 既存勤怠がある場合は、変更可能か確認する
-	editableResult := validateAttendanceDayEditable(attendanceDay, "UPDATE_ATTENDANCE_BREAK")
-	if editableResult.Error {
-		return editableResult
-	}
-
-	// Builderで対象休憩取得用クエリを作成する
 	findAttendanceBreakQuery, buildFindAttendanceBreakResult := service.attendanceBreakBuilder.BuildFindAttendanceBreakByIDAndAttendanceDayIDQuery(
 		req.AttendanceBreakID,
 		attendanceDay.ID,
@@ -364,13 +443,11 @@ func (service *attendanceBreakService) UpdateAttendanceBreak(
 		return buildFindAttendanceBreakResult
 	}
 
-	// Repositoryで対象休憩を取得する
 	currentAttendanceBreak, findAttendanceBreakResult := service.attendanceBreakRepository.FindAttendanceBreak(findAttendanceBreakQuery)
 	if findAttendanceBreakResult.Error {
 		return findAttendanceBreakResult
 	}
 
-	// Builderで休憩更新用Modelを作る
 	attendanceBreak, buildUpdateResult := service.attendanceBreakBuilder.BuildUpdateAttendanceBreakModel(
 		currentAttendanceBreak,
 		req,
@@ -381,7 +458,6 @@ func (service *attendanceBreakService) UpdateAttendanceBreak(
 		return buildUpdateResult
 	}
 
-	// Repositoryで休憩を保存する
 	savedAttendanceBreak, saveResult := service.attendanceBreakRepository.SaveAttendanceBreak(attendanceBreak)
 	if saveResult.Error {
 		return saveResult
@@ -400,7 +476,8 @@ func (service *attendanceBreakService) UpdateAttendanceBreak(
 /*
  * 休憩削除
  *
- * userID + workDate で勤怠日を取得し、指定された休憩を論理削除する。
+ * APIとして直接公開しない。
+ * monthly_attendances/update の月次全体保存から内部的に使う。
  */
 func (service *attendanceBreakService) DeleteAttendanceBreak(
 	userID uint,
@@ -414,7 +491,6 @@ func (service *attendanceBreakService) DeleteAttendanceBreak(
 		)
 	}
 
-	// 対象日を日付型へ変換する
 	workDate, err := utils.ParseDate(req.WorkDate)
 	if err != nil {
 		return results.BadRequest(
@@ -427,25 +503,26 @@ func (service *attendanceBreakService) DeleteAttendanceBreak(
 		)
 	}
 
-	// Builderで対象勤怠取得用クエリを作成する
+	editableResult := service.validateMonthlyAttendanceEditable(
+		userID,
+		workDate.Year(),
+		int(workDate.Month()),
+		"DELETE_ATTENDANCE_BREAK",
+	)
+	if editableResult.Error {
+		return editableResult
+	}
+
 	findAttendanceDayQuery, buildFindAttendanceDayResult := service.attendanceDayBuilder.BuildFindAttendanceDayByUserIDAndWorkDateQuery(userID, workDate)
 	if buildFindAttendanceDayResult.Error {
 		return buildFindAttendanceDayResult
 	}
 
-	// Repositoryで対象勤怠を取得する
 	attendanceDay, findAttendanceDayResult := service.attendanceDayRepository.FindAttendanceDay(findAttendanceDayQuery)
 	if findAttendanceDayResult.Error {
 		return findAttendanceDayResult
 	}
 
-	// 既存勤怠がある場合は、変更可能か確認する
-	editableResult := validateAttendanceDayEditable(attendanceDay, "DELETE_ATTENDANCE_BREAK")
-	if editableResult.Error {
-		return editableResult
-	}
-
-	// Builderで対象休憩取得用クエリを作成する
 	findAttendanceBreakQuery, buildFindAttendanceBreakResult := service.attendanceBreakBuilder.BuildFindAttendanceBreakByIDAndAttendanceDayIDQuery(
 		req.AttendanceBreakID,
 		attendanceDay.ID,
@@ -454,19 +531,16 @@ func (service *attendanceBreakService) DeleteAttendanceBreak(
 		return buildFindAttendanceBreakResult
 	}
 
-	// Repositoryで対象休憩を取得する
 	currentAttendanceBreak, findAttendanceBreakResult := service.attendanceBreakRepository.FindAttendanceBreak(findAttendanceBreakQuery)
 	if findAttendanceBreakResult.Error {
 		return findAttendanceBreakResult
 	}
 
-	// Builderで休憩論理削除用Modelを作る
 	deletedAttendanceBreak, buildDeleteResult := service.attendanceBreakBuilder.BuildDeleteAttendanceBreakModel(currentAttendanceBreak)
 	if buildDeleteResult.Error {
 		return buildDeleteResult
 	}
 
-	// Repositoryで休憩を保存する
 	_, saveResult := service.attendanceBreakRepository.SaveAttendanceBreak(deletedAttendanceBreak)
 	if saveResult.Error {
 		return saveResult
@@ -479,6 +553,175 @@ func (service *attendanceBreakService) DeleteAttendanceBreak(
 		},
 		"DELETE_ATTENDANCE_BREAK_SUCCESS",
 		"休憩を削除しました",
+		nil,
+	)
+}
+
+/*
+ * 対象日の休憩を差分保存する
+ *
+ * monthly_attendances/update の月次全体保存から内部的に使う。
+ *
+ * 保存方針：
+ * ・リクエストにIDがある休憩は更新する
+ * ・リクエストにIDがない休憩は新規作成する
+ * ・DBに存在するがリクエストから消えた休憩は論理削除する
+ *
+ * 注意：
+ * ・このメソッド自体はAPIとして直接公開しない
+ * ・月次申請中、月次承認済みの場合は保存できない
+ * ・休憩の所属チェックは userID + workDate で取得した AttendanceDay 配下に限定する
+ */
+func (service *attendanceBreakService) UpdateAttendanceBreaksByWorkDate(
+	userID uint,
+	req types.UpdateAttendanceBreaksByWorkDateRequest,
+) results.Result {
+	if userID == 0 {
+		return results.Unauthorized(
+			"UPDATE_ATTENDANCE_BREAKS_BY_WORK_DATE_INVALID_USER_ID",
+			"認証情報のユーザーIDが正しくありません",
+			nil,
+		)
+	}
+
+	workDate, err := utils.ParseDate(req.WorkDate)
+	if err != nil {
+		return results.BadRequest(
+			"UPDATE_ATTENDANCE_BREAKS_BY_WORK_DATE_INVALID_WORK_DATE",
+			"対象日の形式が正しくありません",
+			map[string]any{
+				"workDate": req.WorkDate,
+				"format":   "yyyy-MM-dd",
+			},
+		)
+	}
+
+	editableResult := service.validateMonthlyAttendanceEditable(
+		userID,
+		workDate.Year(),
+		int(workDate.Month()),
+		"UPDATE_ATTENDANCE_BREAKS_BY_WORK_DATE",
+	)
+	if editableResult.Error {
+		return editableResult
+	}
+
+	findAttendanceDayQuery, buildFindAttendanceDayResult := service.attendanceDayBuilder.BuildFindAttendanceDayByUserIDAndWorkDateQuery(userID, workDate)
+	if buildFindAttendanceDayResult.Error {
+		return buildFindAttendanceDayResult
+	}
+
+	attendanceDay, findAttendanceDayResult := service.attendanceDayRepository.FindAttendanceDay(findAttendanceDayQuery)
+	if findAttendanceDayResult.Error {
+		return findAttendanceDayResult
+	}
+
+	searchAttendanceBreaksQuery, buildSearchAttendanceBreaksResult := service.attendanceBreakBuilder.BuildSearchAttendanceBreaksQuery(attendanceDay.ID)
+	if buildSearchAttendanceBreaksResult.Error {
+		return buildSearchAttendanceBreaksResult
+	}
+
+	currentAttendanceBreaks, findAttendanceBreaksResult := service.attendanceBreakRepository.FindAttendanceBreaks(searchAttendanceBreaksQuery)
+	if findAttendanceBreaksResult.Error {
+		return findAttendanceBreaksResult
+	}
+
+	currentAttendanceBreakMap := make(map[uint]models.AttendanceBreak, len(currentAttendanceBreaks))
+	for _, currentAttendanceBreak := range currentAttendanceBreaks {
+		currentAttendanceBreakMap[currentAttendanceBreak.ID] = currentAttendanceBreak
+	}
+
+	requestedAttendanceBreakIDMap := make(map[uint]bool)
+
+	createdCount := 0
+	updatedCount := 0
+	deletedCount := 0
+	savedCount := 0
+
+	for _, attendanceBreakReq := range req.Breaks {
+		if attendanceBreakReq.AttendanceBreakID != nil && *attendanceBreakReq.AttendanceBreakID > 0 {
+			requestedAttendanceBreakIDMap[*attendanceBreakReq.AttendanceBreakID] = true
+
+			if _, exists := currentAttendanceBreakMap[*attendanceBreakReq.AttendanceBreakID]; !exists {
+				return results.BadRequest(
+					"UPDATE_ATTENDANCE_BREAKS_BY_WORK_DATE_BREAK_NOT_IN_TARGET_DAY",
+					"対象日の休憩ではないため更新できません",
+					map[string]any{
+						"workDate":          req.WorkDate,
+						"attendanceBreakId": *attendanceBreakReq.AttendanceBreakID,
+					},
+				)
+			}
+
+			updateAttendanceBreakResult := service.UpdateAttendanceBreak(
+				userID,
+				types.UpdateAttendanceBreakRequest{
+					WorkDate:          req.WorkDate,
+					AttendanceBreakID: *attendanceBreakReq.AttendanceBreakID,
+					BreakStartAt:      attendanceBreakReq.BreakStartAt,
+					BreakEndAt:        attendanceBreakReq.BreakEndAt,
+					BreakMemo:         attendanceBreakReq.BreakMemo,
+				},
+			)
+
+			if updateAttendanceBreakResult.Error {
+				return updateAttendanceBreakResult
+			}
+
+			updatedCount++
+			savedCount++
+
+			continue
+		}
+
+		createAttendanceBreakResult := service.CreateAttendanceBreak(
+			userID,
+			types.CreateAttendanceBreakRequest{
+				WorkDate:     req.WorkDate,
+				BreakStartAt: attendanceBreakReq.BreakStartAt,
+				BreakEndAt:   attendanceBreakReq.BreakEndAt,
+				BreakMemo:    attendanceBreakReq.BreakMemo,
+			},
+		)
+
+		if createAttendanceBreakResult.Error {
+			return createAttendanceBreakResult
+		}
+
+		createdCount++
+		savedCount++
+	}
+
+	for _, currentAttendanceBreak := range currentAttendanceBreaks {
+		if requestedAttendanceBreakIDMap[currentAttendanceBreak.ID] {
+			continue
+		}
+
+		deleteAttendanceBreakResult := service.DeleteAttendanceBreak(
+			userID,
+			types.DeleteAttendanceBreakRequest{
+				WorkDate:          req.WorkDate,
+				AttendanceBreakID: currentAttendanceBreak.ID,
+			},
+		)
+
+		if deleteAttendanceBreakResult.Error {
+			return deleteAttendanceBreakResult
+		}
+
+		deletedCount++
+	}
+
+	return results.OK(
+		types.UpdateAttendanceBreaksByWorkDateResponse{
+			WorkDate:                    req.WorkDate,
+			SavedAttendanceBreakCount:   savedCount,
+			CreatedAttendanceBreakCount: createdCount,
+			UpdatedAttendanceBreakCount: updatedCount,
+			DeletedAttendanceBreakCount: deletedCount,
+		},
+		"UPDATE_ATTENDANCE_BREAKS_BY_WORK_DATE_SUCCESS",
+		"休憩を保存しました",
 		nil,
 	)
 }

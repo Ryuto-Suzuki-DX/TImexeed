@@ -1,7 +1,10 @@
 "use client";
 
 import type { AttendanceType } from "@/types/user/attendanceType";
-import type { AttendanceBreakViewRow, AttendanceViewRow } from "@/types/user/attendanceView";
+import type {
+  AttendanceBreakViewRow,
+  AttendanceViewRow,
+} from "@/types/user/attendanceView";
 import AttendanceRowItem from "@/components/attendance/AttendanceRowItem";
 import styles from "@/app/user/attendance/page.module.css";
 
@@ -9,10 +12,19 @@ type AttendanceTableProps = {
   rows: AttendanceViewRow[];
   attendanceTypes: AttendanceType[];
   getRowLocked: (row: AttendanceViewRow) => boolean;
-  onChangeRow: <K extends keyof AttendanceViewRow>(workDate: string, key: K, value: AttendanceViewRow[K]) => void;
+  onChangeRow: <K extends keyof AttendanceViewRow>(
+    workDate: string,
+    key: K,
+    value: AttendanceViewRow[K],
+  ) => void;
   onDeleteRow: (row: AttendanceViewRow) => void;
   onAddBreak: (workDate: string) => void;
-  onChangeBreak: <K extends keyof AttendanceBreakViewRow>(workDate: string, breakIndex: number, key: K, value: AttendanceBreakViewRow[K]) => void;
+  onChangeBreak: <K extends keyof AttendanceBreakViewRow>(
+    workDate: string,
+    breakIndex: number,
+    key: K,
+    value: AttendanceBreakViewRow[K],
+  ) => void;
   onDeleteBreak: (row: AttendanceViewRow, breakIndex: number) => void;
 };
 
@@ -31,7 +43,9 @@ export default function AttendanceTable({
       <div className={styles.sectionHeader}>
         <div>
           <h2 className={styles.sectionTitle}>日別勤怠</h2>
-          <p className={styles.sectionDescription}>勤務区分マスタの設定に従って、入力欄を切り替えます。</p>
+          <p className={styles.sectionDescription}>
+            勤務区分マスタの設定に従って、入力欄を切り替えます。
+          </p>
         </div>
       </div>
 

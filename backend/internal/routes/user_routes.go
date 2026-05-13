@@ -47,28 +47,47 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	attendanceTypeService := services.NewAttendanceTypeService(attendanceTypeBuilder, attendanceTypeRepository)
 	attendanceTypeController := controllers.NewAttendanceTypeController(attendanceTypeService)
 
+	// 月次勤怠申請
+	monthlyAttendanceRequestBuilder := builders.NewMonthlyAttendanceRequestBuilder(db)
+	monthlyAttendanceRequestRepository := repositories.NewMonthlyAttendanceRequestRepository(db)
+	monthlyAttendanceRequestService := services.NewMonthlyAttendanceRequestService(monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
+	monthlyAttendanceRequestController := controllers.NewMonthlyAttendanceRequestController(monthlyAttendanceRequestService)
+
 	// 勤怠
 	attendanceDayBuilder := builders.NewAttendanceDayBuilder(db)
 	attendanceDayRepository := repositories.NewAttendanceDayRepository(db)
-	attendanceDayService := services.NewAttendanceDayService(attendanceDayBuilder, attendanceDayRepository, attendanceTypeRepository)
+	attendanceDayService := services.NewAttendanceDayService(attendanceDayBuilder, attendanceDayRepository, attendanceTypeRepository, monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
 	attendanceDayController := controllers.NewAttendanceDayController(attendanceDayService)
 
 	// 休憩
 	attendanceBreakBuilder := builders.NewAttendanceBreakBuilder(db)
 	attendanceBreakRepository := repositories.NewAttendanceBreakRepository(db)
-	attendanceBreakService := services.NewAttendanceBreakService(attendanceBreakBuilder, attendanceBreakRepository, attendanceDayBuilder, attendanceDayRepository)
+	attendanceBreakService := services.NewAttendanceBreakService(attendanceBreakBuilder, attendanceBreakRepository, attendanceDayBuilder, attendanceDayRepository, monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
 	attendanceBreakController := controllers.NewAttendanceBreakController(attendanceBreakService)
 
 	// 月次通勤定期
 	monthlyCommuterPassBuilder := builders.NewMonthlyCommuterPassBuilder(db)
 	monthlyCommuterPassRepository := repositories.NewMonthlyCommuterPassRepository(db)
-	monthlyCommuterPassService := services.NewMonthlyCommuterPassService(monthlyCommuterPassBuilder, monthlyCommuterPassRepository)
+	monthlyCommuterPassService := services.NewMonthlyCommuterPassService(monthlyCommuterPassBuilder, monthlyCommuterPassRepository, monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
 	monthlyCommuterPassController := controllers.NewMonthlyCommuterPassController(monthlyCommuterPassService)
-	user := r.Group("/user")
+
+	// 有給（残数取得のみ）
+	paidLeaveBuilder := builders.NewPaidLeaveBuilder(db)
+	paidLeaveRepository := repositories.NewPaidLeaveRepository(db)
+	paidLeaveService := services.NewPaidLeaveService(paidLeaveBuilder, paidLeaveRepository)
+	paidLeaveController := controllers.NewPaidLeaveController(paidLeaveService)
 
 	// 月次勤怠全体保存
-	monthlyAttendanceService := services.NewMonthlyAttendanceService(attendanceDayService, attendanceBreakService, monthlyCommuterPassService)
+	monthlyAttendanceService := services.NewMonthlyAttendanceService(attendanceDayService, attendanceBreakService, monthlyCommuterPassService, attendanceTypeService, paidLeaveService)
 	monthlyAttendanceController := controllers.NewMonthlyAttendanceController(monthlyAttendanceService)
+
+	// お知らせ機能
+	notificationBuilder := builders.NewNotificationBuilder(db)
+	notificationRepository := repositories.NewNotificationRepository(db)
+	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository)
+	notificationController := controllers.NewNotificationController(notificationService)
+
+	user := r.Group("/user")
 
 	/*
 	 * 従業員APIは、
@@ -82,23 +101,32 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	)
 
 	{
-		// 勤怠区分マスタ(検索のみ)
+		// 勤怠区分マスタ（検索のみ）
 		user.POST("/attendance-types/search", attendanceTypeController.SearchAttendanceTypes)
+
+		// 月次勤怠申請
+		user.POST("/monthly-attendance-requests/status", monthlyAttendanceRequestController.GetMonthlyAttendanceRequestStatus)
+		user.POST("/monthly-attendance-requests/submit", monthlyAttendanceRequestController.SubmitMonthlyAttendanceRequest)
+		user.POST("/monthly-attendance-requests/cancel", monthlyAttendanceRequestController.CancelMonthlyAttendanceRequest)
 
 		// 勤怠
 		user.POST("/attendance-days/search", attendanceDayController.SearchAttendanceDays)
-		user.POST("/attendance-days/delete", attendanceDayController.DeleteAttendanceDay)
 
 		// 休憩
 		user.POST("/attendance-breaks/search", attendanceBreakController.SearchAttendanceBreaks)
-		user.POST("/attendance-breaks/create", attendanceBreakController.CreateAttendanceBreak)
-		user.POST("/attendance-breaks/delete", attendanceBreakController.DeleteAttendanceBreak)
 
 		// 月次通勤定期
 		user.POST("/monthly-commuter-passes/search", monthlyCommuterPassController.SearchMonthlyCommuterPass)
-		user.POST("/monthly-commuter-passes/delete", monthlyCommuterPassController.DeleteMonthlyCommuterPass)
 
-		// 月次勤怠全体保存(勤怠・休憩・月次通勤定期)
+		// 有給（残数取得のみ）
+		user.GET("/paid-leave/balance", paidLeaveController.GetPaidLeaveBalance)
+
+		// 月次勤怠全体保存（勤怠・休憩・月次通勤定期）
 		user.POST("/monthly-attendances/update", monthlyAttendanceController.UpdateMonthlyAttendance)
+
+		// お知らせ機能
+		user.POST("/notifications/search", notificationController.SearchNotifications)
+		user.POST("/notifications/read", notificationController.ReadNotification)
+		user.POST("/notifications/unread-count", notificationController.CountUnreadNotifications)
 	}
 }

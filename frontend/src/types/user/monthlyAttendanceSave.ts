@@ -1,7 +1,7 @@
 /*
  * 従業員 月次勤怠全体保存 Type
  *
- * バックエンドの UpdateMonthlyAttendanceRequest / Response に対応する。
+ * バックエンドの月次勤怠全体保存APIに対応する。
  *
  * 対象：
  * ・月次通勤定期
@@ -14,23 +14,23 @@
  * ・画面用の AttendanceViewRow / CommuterPassViewForm から mapper で変換して作る
  */
 
-export type UpdateMonthlyAttendanceRequest = {
+export type UpdateMonthlyAttendanceSaveRequest = {
   targetYear: number;
   targetMonth: number;
 
-  commuterPass: UpdateMonthlyAttendanceCommuterPassRequest | null;
+  commuterPass: UpdateMonthlyAttendanceSaveCommuterPassRequest | null;
 
-  attendanceDays: UpdateMonthlyAttendanceDayRequest[];
+  attendanceDays: UpdateMonthlyAttendanceSaveDayRequest[];
 };
 
-export type UpdateMonthlyAttendanceCommuterPassRequest = {
+export type UpdateMonthlyAttendanceSaveCommuterPassRequest = {
   commuterFrom: string | null;
   commuterTo: string | null;
   commuterMethod: string | null;
   commuterAmount: number | null;
 };
 
-export type UpdateMonthlyAttendanceDayRequest = {
+export type UpdateMonthlyAttendanceSaveDayRequest = {
   workDate: string;
 
   planAttendanceTypeId: number;
@@ -50,6 +50,8 @@ export type UpdateMonthlyAttendanceDayRequest = {
   absenceFlag: boolean;
   sickLeaveFlag: boolean;
 
+  remoteWorkAllowanceFlag: boolean;
+
   requestMemo: string | null;
 
   transportFrom: string | null;
@@ -57,16 +59,16 @@ export type UpdateMonthlyAttendanceDayRequest = {
   transportMethod: string | null;
   transportAmount: number | null;
 
-  breaks: UpdateMonthlyAttendanceBreakRequest[];
+  breaks: UpdateMonthlyAttendanceSaveBreakRequest[];
 };
 
-export type UpdateMonthlyAttendanceBreakRequest = {
+export type UpdateMonthlyAttendanceSaveBreakRequest = {
   breakStartAt: string;
   breakEndAt: string;
   breakMemo: string | null;
 };
 
-export type UpdateMonthlyAttendanceResponse = {
+export type UpdateMonthlyAttendanceSaveResponse = {
   targetYear: number;
   targetMonth: number;
 

@@ -46,6 +46,15 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	userService := services.NewUserService(userBuilder, userRepository)
 	userController := controllers.NewUserController(userService)
 
+	// 有給使用日
+	paidLeaveUsageBuilder := builders.NewPaidLeaveUsageBuilder(db)
+	paidLeaveUsageRepository := repositories.NewPaidLeaveUsageRepository(db)
+	paidLeaveUsageService := services.NewPaidLeaveUsageService(
+		paidLeaveUsageBuilder,
+		paidLeaveUsageRepository,
+	)
+	paidLeaveUsageController := controllers.NewPaidLeaveUsageController(paidLeaveUsageService)
+
 	admin := r.Group("/admin")
 
 	/*
@@ -73,5 +82,12 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		admin.POST("/users/create", userController.CreateUser)
 		admin.POST("/users/update", userController.UpdateUser)
 		admin.POST("/users/delete", userController.DeleteUser)
+
+		// 有給使用日
+		admin.POST("/paid-leave-usages/search", paidLeaveUsageController.SearchPaidLeaveUsages)
+		admin.POST("/paid-leave-usages/balance", paidLeaveUsageController.GetPaidLeaveBalance)
+		admin.POST("/paid-leave-usages/create", paidLeaveUsageController.CreatePaidLeaveUsage)
+		admin.POST("/paid-leave-usages/update", paidLeaveUsageController.UpdatePaidLeaveUsage)
+		admin.POST("/paid-leave-usages/delete", paidLeaveUsageController.DeletePaidLeaveUsage)
 	}
 }

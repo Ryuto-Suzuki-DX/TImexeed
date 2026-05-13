@@ -49,6 +49,10 @@ type AttendanceDayBuilder interface {
  * ・Find / Create / Save はRepositoryに任せる
  * ・日付文字列、日時文字列の変換はServiceで行う
  * ・Builderでは変換済みの time.Time / *time.Time を受け取る
+ * ・AttendanceDay は申請状態を持たない
+ * ・AttendanceDay は画面表示用SystemMessageを持たない
+ * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
+ * ・画面表示用メッセージは、保存せずに表示時に組み立てる
  */
 type attendanceDayBuilder struct {
 	db *gorm.DB
@@ -183,6 +187,8 @@ func (builder *attendanceDayBuilder) BuildFindAttendanceDayByUserIDAndWorkDateQu
  * 注意：
  * ・commonStartAt / commonEndAt はModelに持たせない
  * ・Service側で syncPlanActual を見て plan / actual へ変換済みの値を受け取る
+ * ・AttendanceDay には申請状態を保存しない
+ * ・AttendanceDay には画面表示用SystemMessageを保存しない
  */
 func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 	userID uint,
@@ -229,26 +235,24 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 	}
 
 	attendanceDay := models.AttendanceDay{
-		UserID:                 userID,
-		WorkDate:               workDate,
-		PlanAttendanceTypeID:   req.PlanAttendanceTypeID,
-		ActualAttendanceTypeID: actualAttendanceTypeID,
-		PlanStartAt:            planStartAt,
-		PlanEndAt:              planEndAt,
-		ActualStartAt:          actualStartAt,
-		ActualEndAt:            actualEndAt,
-		RequestStatus:          "NONE",
-		RequestMemo:            req.RequestMemo,
-		LateFlag:               req.LateFlag,
-		EarlyLeaveFlag:         req.EarlyLeaveFlag,
-		AbsenceFlag:            req.AbsenceFlag,
-		SickLeaveFlag:          req.SickLeaveFlag,
-		TransportFrom:          req.TransportFrom,
-		TransportTo:            req.TransportTo,
-		TransportMethod:        req.TransportMethod,
-		TransportAmount:        req.TransportAmount,
-		MonthlyStatus:          "DRAFT",
-		IsDeleted:              false,
+		UserID:                  userID,
+		WorkDate:                workDate,
+		PlanAttendanceTypeID:    req.PlanAttendanceTypeID,
+		ActualAttendanceTypeID:  actualAttendanceTypeID,
+		PlanStartAt:             planStartAt,
+		PlanEndAt:               planEndAt,
+		ActualStartAt:           actualStartAt,
+		ActualEndAt:             actualEndAt,
+		LateFlag:                req.LateFlag,
+		EarlyLeaveFlag:          req.EarlyLeaveFlag,
+		AbsenceFlag:             req.AbsenceFlag,
+		SickLeaveFlag:           req.SickLeaveFlag,
+		RemoteWorkAllowanceFlag: req.RemoteWorkAllowanceFlag,
+		TransportFrom:           req.TransportFrom,
+		TransportTo:             req.TransportTo,
+		TransportMethod:         req.TransportMethod,
+		TransportAmount:         req.TransportAmount,
+		IsDeleted:               false,
 	}
 
 	return attendanceDay, results.OK(
@@ -267,6 +271,8 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
  * 注意：
  * ・commonStartAt / commonEndAt はModelに持たせない
  * ・Service側で syncPlanActual を見て plan / actual へ変換済みの値を受け取る
+ * ・AttendanceDay には申請状態を保存しない
+ * ・AttendanceDay には画面表示用SystemMessageを保存しない
  */
 func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 	currentAttendanceDay models.AttendanceDay,
@@ -317,11 +323,11 @@ func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 	currentAttendanceDay.PlanEndAt = planEndAt
 	currentAttendanceDay.ActualStartAt = actualStartAt
 	currentAttendanceDay.ActualEndAt = actualEndAt
-	currentAttendanceDay.RequestMemo = req.RequestMemo
 	currentAttendanceDay.LateFlag = req.LateFlag
 	currentAttendanceDay.EarlyLeaveFlag = req.EarlyLeaveFlag
 	currentAttendanceDay.AbsenceFlag = req.AbsenceFlag
 	currentAttendanceDay.SickLeaveFlag = req.SickLeaveFlag
+	currentAttendanceDay.RemoteWorkAllowanceFlag = req.RemoteWorkAllowanceFlag
 	currentAttendanceDay.TransportFrom = req.TransportFrom
 	currentAttendanceDay.TransportTo = req.TransportTo
 	currentAttendanceDay.TransportMethod = req.TransportMethod
@@ -337,6 +343,9 @@ func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 
 /*
  * 勤怠論理削除用Model作成
+ *
+ * 現時点ではAPIとして直接公開しない。
+ * 必要になった場合の内部用として残す。
  */
 func (builder *attendanceDayBuilder) BuildDeleteAttendanceDayModel(
 	currentAttendanceDay models.AttendanceDay,

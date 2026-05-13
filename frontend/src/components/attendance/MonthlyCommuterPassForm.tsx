@@ -1,5 +1,6 @@
 "use client";
 
+import Button from "@/components/atoms/Button";
 import Input from "@/components/atoms/Input";
 import type { CommuterPassViewForm } from "@/types/user/attendanceView";
 import styles from "@/app/user/attendance/page.module.css";
@@ -7,23 +8,48 @@ import styles from "@/app/user/attendance/page.module.css";
 type MonthlyCommuterPassFormProps = {
   commuterPass: CommuterPassViewForm;
   disabled: boolean;
-  onChange: <K extends keyof CommuterPassViewForm>(key: K, value: CommuterPassViewForm[K]) => void;
+  onChange: <K extends keyof CommuterPassViewForm>(
+    key: K,
+    value: CommuterPassViewForm[K],
+  ) => void;
+  onReset: () => void;
 };
 
-export default function MonthlyCommuterPassForm({ commuterPass, disabled, onChange }: MonthlyCommuterPassFormProps) {
+export default function MonthlyCommuterPassForm({
+  commuterPass,
+  disabled,
+  onChange,
+  onReset,
+}: MonthlyCommuterPassFormProps) {
   return (
     <section className={styles.commuterPassSection}>
       <div className={styles.sectionHeader}>
         <div>
           <h2 className={styles.sectionTitle}>月次通勤定期</h2>
-          <p className={styles.sectionDescription}>対象月ごとの通勤定期情報です。全体保存でまとめて保存されます。</p>
+          <p className={styles.sectionDescription}>
+            対象月ごとの通勤定期情報です。全体保存でまとめて保存されます。
+          </p>
         </div>
+
+        <Button type="button" variant="secondary" onClick={onReset} disabled={disabled}>
+          リセット
+        </Button>
       </div>
 
       <div className={styles.commuterPassGrid}>
-        <Input label="出発地" value={commuterPass.commuterFrom} onChange={(event) => onChange("commuterFrom", event.target.value)} disabled={disabled} />
+        <Input
+          label="出発地"
+          value={commuterPass.commuterFrom}
+          onChange={(event) => onChange("commuterFrom", event.target.value)}
+          disabled={disabled}
+        />
 
-        <Input label="目的地" value={commuterPass.commuterTo} onChange={(event) => onChange("commuterTo", event.target.value)} disabled={disabled} />
+        <Input
+          label="目的地"
+          value={commuterPass.commuterTo}
+          onChange={(event) => onChange("commuterTo", event.target.value)}
+          disabled={disabled}
+        />
 
         <label className={styles.fieldLabel}>
           <span className={styles.fieldLabelText}>手段</span>
@@ -43,7 +69,13 @@ export default function MonthlyCommuterPassForm({ commuterPass, disabled, onChan
           </select>
         </label>
 
-        <Input label="金額" type="number" value={commuterPass.commuterAmount} onChange={(event) => onChange("commuterAmount", event.target.value)} disabled={disabled} />
+        <Input
+          label="金額"
+          type="number"
+          value={commuterPass.commuterAmount}
+          onChange={(event) => onChange("commuterAmount", event.target.value)}
+          disabled={disabled}
+        />
       </div>
     </section>
   );

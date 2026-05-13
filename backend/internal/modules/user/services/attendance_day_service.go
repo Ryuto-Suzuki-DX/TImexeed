@@ -14,11 +14,13 @@ import (
 /*
  * 従業員用勤怠Service interface
  *
- * ControllerがServiceに求める処理だけを定義する。
+ * Controllerや月次勤怠全体保存ServiceがServiceに求める処理だけを定義する。
  *
  * 注意：
  * ・従業員APIでは userId / targetUserId をRequestで受け取らない
  * ・ControllerでAuthMiddleware由来のuserIdを取得し、Serviceへ渡す
+ * ・AttendanceDay は申請状態を持たない
+ * ・編集可否は MonthlyAttendanceRequest を見て判断する
  */
 type AttendanceDayService interface {
 	SearchAttendanceDays(userID uint, req types.SearchAttendanceDaysRequest) results.Result
@@ -38,6 +40,17 @@ type AttendanceDayService interface {
  * ・Repositoryで発生したエラーはRepositoryから返されたResultをそのまま返す
  * ・成功時はResponse型に変換してControllerへ返す
  *
+ * 状態管理：
+ * ・AttendanceDay 自体は申請状態を持たない
+ * ・対象月の申請状態は MonthlyAttendanceRequest から取得する
+ * ・MonthlyAttendanceRequest が存在しない場合は未申請扱いにする
+ *
+ * 画面表示用メッセージ方針：
+ * ・AttendanceDay には SystemMessage を保存しない
+ * ・残業、深夜勤務、有給申請中、承認済みなどの画面表示用メッセージは、
+ *   DB保存値ではなく、勤怠データ・休憩データ・月次申請状態・有給申請状態などから
+ *   表示時に組み立てる
+ *
  * 注意：
  * ・Controllerにはgin.Contextを渡さない
  * ・Serviceではc.JSONしない
@@ -45,9 +58,11 @@ type AttendanceDayService interface {
  * ・Builder/Repositoryのエラー文言をServiceで作り直さない
  */
 type attendanceDayService struct {
-	attendanceDayBuilder     builders.AttendanceDayBuilder
-	attendanceDayRepository  repositories.AttendanceDayRepository
-	attendanceTypeRepository repositories.AttendanceTypeRepository
+	attendanceDayBuilder               builders.AttendanceDayBuilder
+	attendanceDayRepository            repositories.AttendanceDayRepository
+	attendanceTypeRepository           repositories.AttendanceTypeRepository
+	monthlyAttendanceRequestBuilder    builders.MonthlyAttendanceRequestBuilder
+	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository
 }
 
 /*
@@ -57,19 +72,27 @@ func NewAttendanceDayService(
 	attendanceDayBuilder builders.AttendanceDayBuilder,
 	attendanceDayRepository repositories.AttendanceDayRepository,
 	attendanceTypeRepository repositories.AttendanceTypeRepository,
+	monthlyAttendanceRequestBuilder builders.MonthlyAttendanceRequestBuilder,
+	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository,
 ) *attendanceDayService {
 	return &attendanceDayService{
-		attendanceDayBuilder:     attendanceDayBuilder,
-		attendanceDayRepository:  attendanceDayRepository,
-		attendanceTypeRepository: attendanceTypeRepository,
+		attendanceDayBuilder:               attendanceDayBuilder,
+		attendanceDayRepository:            attendanceDayRepository,
+		attendanceTypeRepository:           attendanceTypeRepository,
+		monthlyAttendanceRequestBuilder:    monthlyAttendanceRequestBuilder,
+		monthlyAttendanceRequestRepository: monthlyAttendanceRequestRepository,
 	}
 }
 
 /*
  * models.AttendanceDayをフロント返却用AttendanceDayResponseへ変換する
  *
- * 日付はtime.Time / *time.Timeのまま返す。
- * 表示形式の整形はフロント側で行う。
+ * AttendanceDay は申請状態を持たない。
+ * 月次申請状態は SearchAttendanceDaysResponse の上位に載せる。
+ *
+ * 注意：
+ * ・AttendanceDay model から SystemMessage は削除済み
+ * ・ここでは SystemMessage を詰めない
  */
 func toAttendanceDayResponse(attendanceDay models.AttendanceDay) types.AttendanceDayResponse {
 	return types.AttendanceDayResponse{
@@ -84,25 +107,17 @@ func toAttendanceDayResponse(attendanceDay models.AttendanceDay) types.Attendanc
 		ActualStartAt: attendanceDay.ActualStartAt,
 		ActualEndAt:   attendanceDay.ActualEndAt,
 
-		RequestStatus:  attendanceDay.RequestStatus,
-		RequestMemo:    attendanceDay.RequestMemo,
-		ApprovedBy:     attendanceDay.ApprovedBy,
-		ApprovedAt:     attendanceDay.ApprovedAt,
-		RejectedReason: attendanceDay.RejectedReason,
-
 		LateFlag:       attendanceDay.LateFlag,
 		EarlyLeaveFlag: attendanceDay.EarlyLeaveFlag,
 		AbsenceFlag:    attendanceDay.AbsenceFlag,
 		SickLeaveFlag:  attendanceDay.SickLeaveFlag,
 
-		SystemMessage: attendanceDay.SystemMessage,
+		RemoteWorkAllowanceFlag: attendanceDay.RemoteWorkAllowanceFlag,
 
 		TransportFrom:   attendanceDay.TransportFrom,
 		TransportTo:     attendanceDay.TransportTo,
 		TransportMethod: attendanceDay.TransportMethod,
 		TransportAmount: attendanceDay.TransportAmount,
-
-		MonthlyStatus: attendanceDay.MonthlyStatus,
 
 		IsDeleted: attendanceDay.IsDeleted,
 		CreatedAt: attendanceDay.CreatedAt,
@@ -112,9 +127,93 @@ func toAttendanceDayResponse(attendanceDay models.AttendanceDay) types.Attendanc
 }
 
 /*
+ * 対象月の月次勤怠申請状態を取得する
+ *
+ * MonthlyAttendanceRequest が存在しない場合は未申請として返す。
+ */
+func (service *attendanceDayService) getMonthlyAttendanceRequestResponse(
+	userID uint,
+	targetYear int,
+	targetMonth int,
+) (types.MonthlyAttendanceRequestResponse, results.Result) {
+	query, buildResult := service.monthlyAttendanceRequestBuilder.BuildFindMonthlyAttendanceRequestByUserIDAndTargetYearMonthQuery(
+		userID,
+		targetYear,
+		targetMonth,
+	)
+	if buildResult.Error {
+		return types.MonthlyAttendanceRequestResponse{}, buildResult
+	}
+
+	monthlyAttendanceRequest, findResult := service.monthlyAttendanceRequestRepository.FindMonthlyAttendanceRequest(query)
+
+	if findResult.Error && findResult.Code == "MONTHLY_ATTENDANCE_REQUEST_NOT_FOUND" {
+		return toNotSubmittedMonthlyAttendanceRequestResponse(targetYear, targetMonth), results.OK(
+			nil,
+			"GET_MONTHLY_ATTENDANCE_REQUEST_FOR_ATTENDANCE_DAY_NOT_SUBMITTED",
+			"",
+			nil,
+		)
+	}
+
+	if findResult.Error {
+		return types.MonthlyAttendanceRequestResponse{}, findResult
+	}
+
+	return toMonthlyAttendanceRequestResponse(monthlyAttendanceRequest), results.OK(
+		nil,
+		"GET_MONTHLY_ATTENDANCE_REQUEST_FOR_ATTENDANCE_DAY_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 対象月の勤怠が編集可能か確認する
+ *
+ * PENDING / APPROVED の場合は従業員側から更新・削除できない。
+ * NOT_SUBMITTED / REJECTED / CANCELED の場合は編集可能。
+ */
+func (service *attendanceDayService) validateMonthlyAttendanceEditable(
+	userID uint,
+	targetYear int,
+	targetMonth int,
+	actionCode string,
+) results.Result {
+	monthlyAttendanceRequestResponse, monthlyAttendanceRequestResult := service.getMonthlyAttendanceRequestResponse(
+		userID,
+		targetYear,
+		targetMonth,
+	)
+	if monthlyAttendanceRequestResult.Error {
+		return monthlyAttendanceRequestResult
+	}
+
+	if !monthlyAttendanceRequestResponse.Editable {
+		return results.Conflict(
+			actionCode+"_MONTHLY_ATTENDANCE_REQUEST_NOT_EDITABLE",
+			"月次申請中または月次承認済みのため、勤怠を変更できません",
+			map[string]any{
+				"targetYear":  targetYear,
+				"targetMonth": targetMonth,
+				"status":      monthlyAttendanceRequestResponse.Status,
+			},
+		)
+	}
+
+	return results.OK(
+		nil,
+		actionCode+"_MONTHLY_ATTENDANCE_EDITABLE",
+		"",
+		nil,
+	)
+}
+
+/*
  * 勤怠検索
  *
  * 対象年月のログイン中ユーザー本人の勤怠を取得する。
+ * 対象月の月次申請状態も一緒に返す。
  */
 func (service *attendanceDayService) SearchAttendanceDays(
 	userID uint,
@@ -148,6 +247,16 @@ func (service *attendanceDayService) SearchAttendanceDays(
 		)
 	}
 
+	// 対象月の月次申請状態を取得する
+	monthlyAttendanceRequestResponse, monthlyAttendanceRequestResult := service.getMonthlyAttendanceRequestResponse(
+		userID,
+		req.TargetYear,
+		req.TargetMonth,
+	)
+	if monthlyAttendanceRequestResult.Error {
+		return monthlyAttendanceRequestResult
+	}
+
 	// Builderで勤怠検索用クエリを作成する
 	query, buildResult := service.attendanceDayBuilder.BuildSearchAttendanceDaysQuery(userID, req)
 	if buildResult.Error {
@@ -168,9 +277,10 @@ func (service *attendanceDayService) SearchAttendanceDays(
 
 	return results.OK(
 		types.SearchAttendanceDaysResponse{
-			TargetYear:     req.TargetYear,
-			TargetMonth:    req.TargetMonth,
-			AttendanceDays: attendanceDayResponses,
+			TargetYear:               req.TargetYear,
+			TargetMonth:              req.TargetMonth,
+			MonthlyAttendanceRequest: monthlyAttendanceRequestResponse,
+			AttendanceDays:           attendanceDayResponses,
 		},
 		"SEARCH_ATTENDANCE_DAYS_SUCCESS",
 		"勤怠一覧を取得しました",
@@ -181,7 +291,8 @@ func (service *attendanceDayService) SearchAttendanceDays(
 /*
  * 勤怠更新
  *
- * 画面上は月次一覧の1行を更新する操作。
+ * APIとして直接公開しない。
+ * monthly_attendances/update の月次全体保存から内部的に使う。
  *
  * 仕様：
  * ・userID + workDate で既存勤怠を検索する
@@ -189,6 +300,7 @@ func (service *attendanceDayService) SearchAttendanceDays(
  * ・存在すれば更新する
  * ・休日は予定・実績ともに時間を保存しない
  * ・syncPlanActual = true の勤務区分は、commonStartAt / commonEndAt を plan / actual の両方へ反映する
+ * ・更新可否は MonthlyAttendanceRequest を見て判断する
  */
 func (service *attendanceDayService) UpdateAttendanceDay(
 	userID uint,
@@ -213,6 +325,17 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 				"format":   "yyyy-MM-dd",
 			},
 		)
+	}
+
+	// 新規作成・更新どちらの場合でも、先に対象月の編集可否を確認する
+	editableResult := service.validateMonthlyAttendanceEditable(
+		userID,
+		workDate.Year(),
+		int(workDate.Month()),
+		"UPDATE_ATTENDANCE_DAY",
+	)
+	if editableResult.Error {
+		return editableResult
 	}
 
 	// 選択された予定勤務区分を取得する
@@ -443,12 +566,6 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		return findResult
 	}
 
-	// 既存勤怠がある場合は、更新可能か確認する
-	editableResult := validateAttendanceDayEditable(currentAttendanceDay, "UPDATE_ATTENDANCE_DAY")
-	if editableResult.Error {
-		return editableResult
-	}
-
 	// 対象日の勤怠が存在する場合は更新する
 	attendanceDay, buildUpdateResult := service.attendanceDayBuilder.BuildUpdateAttendanceDayModel(
 		currentAttendanceDay,
@@ -482,7 +599,8 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 /*
  * 勤怠削除
  *
- * userID + workDate で対象勤怠を取得し、論理削除する。
+ * 現時点ではAPIとして直接公開しない。
+ * 必要になった場合の内部用として残す。
  */
 func (service *attendanceDayService) DeleteAttendanceDay(
 	userID uint,
@@ -509,6 +627,17 @@ func (service *attendanceDayService) DeleteAttendanceDay(
 		)
 	}
 
+	// 対象月の編集可否を確認する
+	editableResult := service.validateMonthlyAttendanceEditable(
+		userID,
+		workDate.Year(),
+		int(workDate.Month()),
+		"DELETE_ATTENDANCE_DAY",
+	)
+	if editableResult.Error {
+		return editableResult
+	}
+
 	// Builderで対象勤怠取得用クエリを作成する
 	findQuery, buildFindResult := service.attendanceDayBuilder.BuildFindAttendanceDayByUserIDAndWorkDateQuery(userID, workDate)
 	if buildFindResult.Error {
@@ -519,12 +648,6 @@ func (service *attendanceDayService) DeleteAttendanceDay(
 	currentAttendanceDay, findResult := service.attendanceDayRepository.FindAttendanceDay(findQuery)
 	if findResult.Error {
 		return findResult
-	}
-
-	// 既存勤怠がある場合は、削除可能か確認する
-	editableResult := validateAttendanceDayEditable(currentAttendanceDay, "DELETE_ATTENDANCE_DAY")
-	if editableResult.Error {
-		return editableResult
 	}
 
 	// Builderで論理削除用Modelを作る
@@ -545,65 +668,6 @@ func (service *attendanceDayService) DeleteAttendanceDay(
 		},
 		"DELETE_ATTENDANCE_DAY_SUCCESS",
 		"勤怠を削除しました",
-		nil,
-	)
-}
-
-/*
- * 勤怠更新・削除が可能か確認する
- *
- * 月次申請中・月次承認済み・休暇申請中・休暇承認済みの場合は、
- * 従業員側から更新・削除できない。
- */
-func validateAttendanceDayEditable(attendanceDay models.AttendanceDay, actionCode string) results.Result {
-	if attendanceDay.MonthlyStatus == "PENDING" {
-		return results.Conflict(
-			actionCode+"_MONTHLY_STATUS_PENDING",
-			"月次申請中のため、勤怠を変更できません",
-			map[string]any{
-				"attendanceDayId": attendanceDay.ID,
-				"monthlyStatus":   attendanceDay.MonthlyStatus,
-			},
-		)
-	}
-
-	if attendanceDay.MonthlyStatus == "APPROVED" {
-		return results.Conflict(
-			actionCode+"_MONTHLY_STATUS_APPROVED",
-			"月次承認済みのため、勤怠を変更できません",
-			map[string]any{
-				"attendanceDayId": attendanceDay.ID,
-				"monthlyStatus":   attendanceDay.MonthlyStatus,
-			},
-		)
-	}
-
-	if attendanceDay.RequestStatus == "PENDING" {
-		return results.Conflict(
-			actionCode+"_REQUEST_STATUS_PENDING",
-			"申請中の勤怠のため、変更できません",
-			map[string]any{
-				"attendanceDayId": attendanceDay.ID,
-				"requestStatus":   attendanceDay.RequestStatus,
-			},
-		)
-	}
-
-	if attendanceDay.RequestStatus == "APPROVED" {
-		return results.Conflict(
-			actionCode+"_REQUEST_STATUS_APPROVED",
-			"承認済みの申請があるため、変更できません",
-			map[string]any{
-				"attendanceDayId": attendanceDay.ID,
-				"requestStatus":   attendanceDay.RequestStatus,
-			},
-		)
-	}
-
-	return results.OK(
-		nil,
-		actionCode+"_EDITABLE",
-		"",
 		nil,
 	)
 }
