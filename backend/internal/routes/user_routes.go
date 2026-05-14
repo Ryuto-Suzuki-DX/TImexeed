@@ -71,6 +71,12 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	monthlyCommuterPassService := services.NewMonthlyCommuterPassService(monthlyCommuterPassBuilder, monthlyCommuterPassRepository, monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
 	monthlyCommuterPassController := controllers.NewMonthlyCommuterPassController(monthlyCommuterPassService)
 
+	// 祝日
+	holidayDateBuilder := builders.NewHolidayDateBuilder(db)
+	holidayDateRepository := repositories.NewHolidayDateRepository(db)
+	holidayDateService := services.NewHolidayDateService(holidayDateBuilder, holidayDateRepository)
+	holidayDateController := controllers.NewHolidayDateController(holidayDateService)
+
 	// 有給（残数取得のみ）
 	paidLeaveBuilder := builders.NewPaidLeaveBuilder(db)
 	paidLeaveRepository := repositories.NewPaidLeaveRepository(db)
@@ -117,6 +123,9 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 
 		// 月次通勤定期
 		user.POST("/monthly-commuter-passes/search", monthlyCommuterPassController.SearchMonthlyCommuterPass)
+
+		// 祝日
+		user.POST("/holiday-dates/search", holidayDateController.SearchHolidayDates)
 
 		// 有給（残数取得のみ）
 		user.GET("/paid-leave/balance", paidLeaveController.GetPaidLeaveBalance)

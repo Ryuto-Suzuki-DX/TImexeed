@@ -50,12 +50,16 @@ function getWorkFlagValue(row: AttendanceViewRow) {
   return "";
 }
 
-function getWeekdayRowClass(weekday: string) {
-  if (weekday === "土") {
+function getCalendarRowClass(row: AttendanceViewRow) {
+  if (row.isHoliday) {
+    return styles.holidayRow;
+  }
+
+  if (row.weekday === "土") {
     return styles.saturdayRow;
   }
 
-  if (weekday === "日") {
+  if (row.weekday === "日") {
     return styles.sundayRow;
   }
 
@@ -78,7 +82,6 @@ function hasRowInput(row: AttendanceViewRow) {
     row.absenceFlag ||
     row.sickLeaveFlag ||
     row.remoteWorkAllowanceFlag ||
-    row.requestMemo !== "" ||
     row.transportFrom !== "" ||
     row.transportTo !== "" ||
     row.transportMethod !== "" ||
@@ -156,9 +159,6 @@ export default function AttendanceRowItem({
   const selectedPlanType = attendanceTypes.find(
     (attendanceType) => attendanceType.id === row.planAttendanceTypeId,
   );
-  const selectedActualType = attendanceTypes.find(
-    (attendanceType) => attendanceType.id === row.actualAttendanceTypeId,
-  );
 
   /*
    * 勤務区分マスタの設定をもとに画面制御する。
@@ -166,12 +166,18 @@ export default function AttendanceRowItem({
    * 重要：
    * 休日だけは予定・実績の時間入力を出さない。
    * 有給・休職などは syncPlanActual=true でも時間入力が必要なので、時間欄を出す。
+   *
+   * 実績側では attendanceTypes を選ばせない。
+   * 欠勤、病欠、遅刻、早退は実績区分ではなく flag で表現する。
    */
-  const isHoliday = selectedPlanType?.code === "HOLIDAY";
+  const isHolidayAttendanceType = selectedPlanType?.code === "HOLIDAY";
   const syncPlanActual = selectedPlanType?.syncPlanActual === true;
   const requiresRequest = selectedPlanType?.requiresRequest === true;
   const allowBreakInput = selectedPlanType ? selectedPlanType.allowBreakInput === true : true;
   const allowTransportInput = selectedPlanType ? selectedPlanType.allowTransportInput === true : true;
+  const allowActualTimeInput = selectedPlanType
+    ? selectedPlanType.allowActualTimeInput === true
+    : true;
   const rowSystemMessage = buildRowSystemMessage(row, selectedPlanType);
   const resetDisabled = locked || !hasRowInput(row);
 
@@ -186,7 +192,16 @@ export default function AttendanceRowItem({
    * ・介護休業
    * ・育児休業
    */
-  const showCommonTimeInput = syncPlanActual && !isHoliday;
+  const showCommonTimeInput = syncPlanActual && !isHolidayAttendanceType;
+
+  /*
+   * 出勤など、予定と実績時間を分けて入力する区分。
+   *
+   * 注意：
+   * 実績状態の選択肢は attendanceTypes ではなく、
+   * lateFlag / earlyLeaveFlag / absenceFlag / sickLeaveFlag に反映する。
+   */
+  const showActualWorkInput = !syncPlanActual && !isHolidayAttendanceType;
 
   const handleWorkFlagChange = (value: string) => {
     onChangeRow(row.workDate, "lateFlag", value === "late");
@@ -198,7 +213,8 @@ export default function AttendanceRowItem({
   /*
    * 予定区分変更時の制御
    *
-   * syncPlanActual=true の区分は、実績区分も同じ区分にする。
+   * 実績区分IDは、基本的に予定区分IDと同じ値にする。
+   * 欠勤、病欠、遅刻、早退は actualAttendanceTypeId ではなく各Flagで扱う。
    *
    * 休日の場合：
    * ・予定/実績/共通の時刻を全部クリア
@@ -216,9 +232,7 @@ export default function AttendanceRowItem({
       return;
     }
 
-    if (nextType.syncPlanActual) {
-      onChangeRow(row.workDate, "actualAttendanceTypeId", attendanceTypeId);
-    }
+    onChangeRow(row.workDate, "actualAttendanceTypeId", attendanceTypeId);
 
     if (nextType.code === "HOLIDAY") {
       onChangeRow(row.workDate, "commonStartTime", "");
@@ -240,6 +254,13 @@ export default function AttendanceRowItem({
       onChangeRow(row.workDate, "transportMethod", "");
       onChangeRow(row.workDate, "transportAmount", "");
       return;
+    }
+
+    if (nextType.syncPlanActual) {
+      onChangeRow(row.workDate, "lateFlag", false);
+      onChangeRow(row.workDate, "earlyLeaveFlag", false);
+      onChangeRow(row.workDate, "absenceFlag", false);
+      onChangeRow(row.workDate, "sickLeaveFlag", false);
     }
 
     if (!nextType.allowLateFlag) {
@@ -268,13 +289,14 @@ export default function AttendanceRowItem({
 
   return (
     <tr
-      className={`${styles.row} ${getWeekdayRowClass(row.weekday)} ${
+      className={`${styles.row} ${getCalendarRowClass(row)} ${
         requiresRequest ? styles.rowRequestRequired : ""
       } ${locked ? styles.rowLocked : ""}`}
     >
       <td className={styles.td}>
         <p className={styles.dayLabel}>{row.dayLabel}</p>
         <p className={styles.weekday}>{row.weekday}</p>
+        {row.holidayName && <p className={styles.holidayName}>{row.holidayName}</p>}
         {row.isDirty && <p className={styles.unsavedText}>未保存</p>}
       </td>
 
@@ -295,7 +317,7 @@ export default function AttendanceRowItem({
             ))}
           </select>
 
-          {isHoliday ? (
+          {isHolidayAttendanceType ? (
             <p className={styles.syncText}>時間入力なし</p>
           ) : showCommonTimeInput ? (
             <>
@@ -330,7 +352,9 @@ export default function AttendanceRowItem({
           )}
         </div>
 
-        {isHoliday && <p className={styles.subText}>休日は時間なしで予定・実績へ反映します。</p>}
+        {isHolidayAttendanceType && (
+          <p className={styles.subText}>休日は時間なしで予定・実績へ反映します。</p>
+        )}
         {showCommonTimeInput && <p className={styles.subText}>予定・実績へ同時反映</p>}
       </td>
 
@@ -339,56 +363,51 @@ export default function AttendanceRowItem({
           {syncPlanActual ? (
             <p className={styles.syncText}>
               実績：{selectedPlanType?.name ?? "未選択"}
-              {isHoliday ? " / 時間入力なし" : ""}
+              {isHolidayAttendanceType ? " / 時間入力なし" : ""}
             </p>
-          ) : (
+          ) : showActualWorkInput ? (
             <>
-              <select
-                aria-label={`${row.dayLabel}の実績区分`}
-                value={row.actualAttendanceTypeId ?? 0}
-                onChange={(event) =>
-                  onChangeRow(row.workDate, "actualAttendanceTypeId", Number(event.target.value))
-                }
-                className={styles.select}
-                disabled={locked}
-              >
-                <option value={0}>選択</option>
-                {attendanceTypes.map((attendanceType) => (
-                  <option key={attendanceType.id} value={attendanceType.id}>
-                    {attendanceType.name}
-                  </option>
-                ))}
-              </select>
+              <p className={styles.syncText}>
+                実績：{selectedPlanType?.name ?? "未選択"}
+              </p>
 
               <Input
                 type="time"
                 value={row.actualStartTime}
                 onChange={(event) => onChangeRow(row.workDate, "actualStartTime", event.target.value)}
-                disabled={locked || !(selectedActualType?.allowActualTimeInput ?? true)}
+                disabled={locked || !allowActualTimeInput}
               />
 
               <Input
                 type="time"
                 value={row.actualEndTime}
                 onChange={(event) => onChangeRow(row.workDate, "actualEndTime", event.target.value)}
-                disabled={locked || !(selectedActualType?.allowActualTimeInput ?? true)}
+                disabled={locked || !allowActualTimeInput}
               />
             </>
+          ) : (
+            <p className={styles.syncText}>実績：未選択</p>
           )}
 
-          <select
-            aria-label={`${row.dayLabel}の勤怠状態`}
-            value={getWorkFlagValue(row)}
-            onChange={(event) => handleWorkFlagChange(event.target.value)}
-            className={styles.select}
-            disabled={locked || syncPlanActual || isHoliday}
-          >
-            <option value="">通常</option>
-            {(selectedPlanType?.allowLateFlag ?? true) && <option value="late">遅刻</option>}
-            {(selectedPlanType?.allowEarlyLeaveFlag ?? true) && <option value="earlyLeave">早退</option>}
-            {(selectedPlanType?.allowAbsenceFlag ?? true) && <option value="absence">欠勤</option>}
-            {(selectedPlanType?.allowSickLeaveFlag ?? true) && <option value="sickLeave">病欠</option>}
-          </select>
+          {showActualWorkInput && (
+            <select
+              aria-label={`${row.dayLabel}の勤怠状態`}
+              value={getWorkFlagValue(row)}
+              onChange={(event) => handleWorkFlagChange(event.target.value)}
+              className={styles.select}
+              disabled={locked}
+            >
+              <option value="">通常</option>
+              {(selectedPlanType?.allowLateFlag ?? true) && <option value="late">遅刻</option>}
+              {(selectedPlanType?.allowEarlyLeaveFlag ?? true) && (
+                <option value="earlyLeave">早退</option>
+              )}
+              {(selectedPlanType?.allowAbsenceFlag ?? true) && <option value="absence">欠勤</option>}
+              {(selectedPlanType?.allowSickLeaveFlag ?? true) && (
+                <option value="sickLeave">病欠</option>
+              )}
+            </select>
+          )}
         </div>
       </td>
 
@@ -503,7 +522,7 @@ export default function AttendanceRowItem({
             <p className={styles.noBreakText}>対象外</p>
           )}
 
-          {!isHoliday && (
+          {!isHolidayAttendanceType && (
             <label className={`${styles.checkLabel} ${locked ? styles.checkLabelDisabled : ""}`}>
               <input
                 type="checkbox"
@@ -527,15 +546,6 @@ export default function AttendanceRowItem({
         <p className={styles.rowMessage}>{rowSystemMessage}</p>
 
         {requiresRequest && <p className={styles.warningText}>月次申請前に確認してください</p>}
-
-        <div className={styles.requestMemo}>
-          <Input
-            placeholder="申請メモ"
-            value={row.requestMemo}
-            onChange={(event) => onChangeRow(row.workDate, "requestMemo", event.target.value)}
-            disabled={locked}
-          />
-        </div>
       </td>
 
       <td className={styles.td}>

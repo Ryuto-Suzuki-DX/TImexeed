@@ -32,12 +32,17 @@ export type AttendanceBreakViewRow = {
  * 注意：
  * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
  * ・systemMessage は保存せず、画面側で計算して表示する
+ * ・日別勤怠に申請メモは持たせない
  * ・日別勤怠の削除はAPIでは行わず、画面stateを初期値に戻して全体保存する
+ * ・祝日はHolidayDate APIから取得し、画面表示用に保持する
  */
 export type AttendanceViewRow = {
   workDate: string;
   dayLabel: string;
   weekday: string;
+
+  isHoliday: boolean;
+  holidayName: string | null;
 
   attendanceDayId: number | null;
 
@@ -59,8 +64,6 @@ export type AttendanceViewRow = {
   sickLeaveFlag: boolean;
 
   remoteWorkAllowanceFlag: boolean;
-
-  requestMemo: string;
 
   transportFrom: string;
   transportTo: string;

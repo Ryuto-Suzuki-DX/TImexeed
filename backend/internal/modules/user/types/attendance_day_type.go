@@ -12,6 +12,13 @@ import "time"
  * ・申請状態、承認状態は AttendanceDay では持たない
  * ・月次申請状態は MonthlyAttendanceRequestResponse として返す
  * ・従業員APIでは userId / targetUserId をRequestで受け取らない
+ *
+ * 勤務区分と実績状態の整理：
+ * ・PlanAttendanceTypeID は attendance_types のIDを使う
+ * ・ActualAttendanceTypeID も attendance_types のIDを保存する
+ * ・ただし、通常勤務ではバックエンド側で PlanAttendanceTypeID と同じ値を保存する
+ * ・欠勤、病欠、遅刻、早退は attendance_types ではなく各Flagで表現する
+ * ・夜勤は勤務区分ではなく、実績時間から集計時に深夜時間として計算する
  */
 
 /*
@@ -38,9 +45,16 @@ type UpdateAttendanceDayRequest struct {
 	WorkDate string `json:"workDate" binding:"required"`
 
 	// 予定区分ID
+	// attendance_types のIDを指定する。
 	PlanAttendanceTypeID uint `json:"planAttendanceTypeId" binding:"required"`
 
 	// 実績区分ID
+	// 現在はフロントからの送信必須ではない。
+	// 通常勤務、休日、予定・実績同期区分では、Service側で PlanAttendanceTypeID と同じ値を保存する。
+	//
+	// 注意：
+	// 欠勤、病欠、遅刻、早退をここに入れない。
+	// それらは AbsenceFlag / SickLeaveFlag / LateFlag / EarlyLeaveFlag で表現する。
 	ActualAttendanceTypeID *uint `json:"actualAttendanceTypeId"`
 
 	// 予定開始日時
@@ -56,31 +70,31 @@ type UpdateAttendanceDayRequest struct {
 	ActualEndAt *string `json:"actualEndAt"`
 
 	// 共通開始日時
-	// 有給、欠勤、病欠、休職など、予定・実績を同期する区分で使う
+	// 有給、特別休暇、休職、介護休業、育児休業など、予定・実績を同期する区分で使う。
 	CommonStartAt *string `json:"commonStartAt"`
 
 	// 共通終了日時
-	// 有給、欠勤、病欠、休職など、予定・実績を同期する区分で使う
+	// 有給、特別休暇、休職、介護休業、育児休業など、予定・実績を同期する区分で使う。
 	CommonEndAt *string `json:"commonEndAt"`
 
 	// 遅刻フラグ
+	// 出勤日にだけ使用する。
 	LateFlag bool `json:"lateFlag"`
 
 	// 早退フラグ
+	// 出勤日にだけ使用する。
 	EarlyLeaveFlag bool `json:"earlyLeaveFlag"`
 
 	// 欠勤フラグ
+	// 出勤日にだけ使用する。
 	AbsenceFlag bool `json:"absenceFlag"`
 
 	// 病欠フラグ
+	// 出勤日にだけ使用する。
 	SickLeaveFlag bool `json:"sickLeaveFlag"`
 
 	// 在宅勤務補助対象フラグ
 	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
-
-	// 画面表示用メッセージ
-	// 例：残業15分、深夜勤務ありなど
-	SystemMessage *string `json:"systemMessage"`
 
 	// 日別交通費：出発地
 	TransportFrom *string `json:"transportFrom"`
@@ -123,6 +137,8 @@ type AttendanceDayResponse struct {
 	PlanAttendanceTypeID uint `json:"planAttendanceTypeId"`
 
 	// 実績区分ID
+	// 基本的に予定区分IDと同じ勤務区分IDが入る。
+	// 欠勤、病欠、遅刻、早退は各Flagで表現する。
 	ActualAttendanceTypeID uint `json:"actualAttendanceTypeId"`
 
 	// 予定開始日時
@@ -151,9 +167,6 @@ type AttendanceDayResponse struct {
 
 	// 在宅勤務補助対象フラグ
 	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
-
-	// 画面表示用メッセージ
-	SystemMessage *string `json:"systemMessage"`
 
 	// 日別交通費：出発地
 	TransportFrom *string `json:"transportFrom"`

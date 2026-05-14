@@ -1,6 +1,7 @@
 import type { AttendanceType } from "@/types/user/attendanceType";
 import type { AttendanceDay } from "@/types/user/attendanceDay";
 import type { AttendanceBreak } from "@/types/user/attendanceBreak";
+import type { HolidayDate } from "@/types/user/holidayDate";
 import type { MonthlyCommuterPass } from "@/types/user/monthlyCommuterPass";
 import type {
   AttendanceBreakViewRow,
@@ -32,21 +33,43 @@ import {
  */
 
 /*
+ * 祝日一覧から日付ごとの祝日名Mapを作る
+ */
+function buildHolidayNameMap(holidayDates: HolidayDate[]): Map<string, string> {
+  const holidayNameMap = new Map<string, string>();
+
+  holidayDates.forEach((holidayDate) => {
+    holidayNameMap.set(toDateOnly(holidayDate.holidayDate), holidayDate.holidayName);
+  });
+
+  return holidayNameMap;
+}
+
+/*
  * 対象月の日数分、空の画面Rowを作る
  */
-export function buildBlankAttendanceViewRows(targetYear: number, targetMonth: number): AttendanceViewRow[] {
+export function buildBlankAttendanceViewRows(
+  targetYear: number,
+  targetMonth: number,
+  holidayDates: HolidayDate[] = [],
+): AttendanceViewRow[] {
   const daysInMonth = getDaysInMonth(targetYear, targetMonth);
   const rows: AttendanceViewRow[] = [];
+  const holidayNameMap = buildHolidayNameMap(holidayDates);
 
   for (let day = 1; day <= daysInMonth; day += 1) {
     const monthText = String(targetMonth).padStart(2, "0");
     const dayText = String(day).padStart(2, "0");
     const workDate = `${targetYear}-${monthText}-${dayText}`;
+    const holidayName = holidayNameMap.get(workDate) ?? null;
 
     rows.push({
       workDate,
       dayLabel: buildDayLabel(targetMonth, day),
       weekday: buildWeekdayLabel(targetYear, targetMonth, day),
+
+      isHoliday: holidayName !== null,
+      holidayName,
 
       attendanceDayId: null,
 
@@ -69,8 +92,6 @@ export function buildBlankAttendanceViewRows(targetYear: number, targetMonth: nu
 
       remoteWorkAllowanceFlag: false,
 
-      requestMemo: "",
-
       transportFrom: "",
       transportTo: "",
       transportMethod: "",
@@ -92,6 +113,7 @@ export function buildBlankAttendanceViewRows(targetYear: number, targetMonth: nu
  * ・API削除は呼ばない
  * ・画面stateだけを初期化する
  * ・このあと月次勤怠全体保存APIでDBへ反映する
+ * ・祝日情報は画面表示用なので維持する
  */
 export function resetAttendanceViewRow(row: AttendanceViewRow): AttendanceViewRow {
   return {
@@ -118,8 +140,6 @@ export function resetAttendanceViewRow(row: AttendanceViewRow): AttendanceViewRo
 
     remoteWorkAllowanceFlag: false,
 
-    requestMemo: "",
-
     transportFrom: "",
     transportTo: "",
     transportMethod: "",
@@ -134,7 +154,10 @@ export function resetAttendanceViewRow(row: AttendanceViewRow): AttendanceViewRo
 /*
  * APIの AttendanceDay を画面Rowへ反映する
  */
-export function applyAttendanceDayToViewRow(row: AttendanceViewRow, attendanceDay: AttendanceDay): AttendanceViewRow {
+export function applyAttendanceDayToViewRow(
+  row: AttendanceViewRow,
+  attendanceDay: AttendanceDay,
+): AttendanceViewRow {
   return {
     ...row,
 
@@ -159,8 +182,6 @@ export function applyAttendanceDayToViewRow(row: AttendanceViewRow, attendanceDa
 
     remoteWorkAllowanceFlag: attendanceDay.remoteWorkAllowanceFlag,
 
-    requestMemo: attendanceDay.requestMemo ?? "",
-
     transportFrom: attendanceDay.transportFrom ?? "",
     transportTo: attendanceDay.transportTo ?? "",
     transportMethod: attendanceDay.transportMethod ?? "",
@@ -171,10 +192,15 @@ export function applyAttendanceDayToViewRow(row: AttendanceViewRow, attendanceDa
 }
 
 /*
- * 対象月の空Rowに、APIから取得した勤怠一覧を反映する
+ * 対象月の空Rowに、APIから取得した勤怠一覧と祝日一覧を反映する
  */
-export function buildAttendanceViewRows(targetYear: number, targetMonth: number, attendanceDays: AttendanceDay[]): AttendanceViewRow[] {
-  const blankRows = buildBlankAttendanceViewRows(targetYear, targetMonth);
+export function buildAttendanceViewRows(
+  targetYear: number,
+  targetMonth: number,
+  attendanceDays: AttendanceDay[],
+  holidayDates: HolidayDate[] = [],
+): AttendanceViewRow[] {
+  const blankRows = buildBlankAttendanceViewRows(targetYear, targetMonth, holidayDates);
   const attendanceDayMap = new Map<string, AttendanceDay>();
 
   attendanceDays.forEach((attendanceDay) => {
@@ -223,7 +249,10 @@ export function buildNewAttendanceBreakViewRow(): AttendanceBreakViewRow {
 /*
  * Row一覧に休憩一覧を反映する
  */
-export function attachBreaksToAttendanceViewRows(rows: AttendanceViewRow[], breakMap: Map<string, AttendanceBreak[]>): AttendanceViewRow[] {
+export function attachBreaksToAttendanceViewRows(
+  rows: AttendanceViewRow[],
+  breakMap: Map<string, AttendanceBreak[]>,
+): AttendanceViewRow[] {
   return rows.map((row) => ({
     ...row,
     breaks: (breakMap.get(row.workDate) ?? []).map(toAttendanceBreakViewRow),
@@ -233,7 +262,9 @@ export function attachBreaksToAttendanceViewRows(rows: AttendanceViewRow[], brea
 /*
  * 月次通勤定期APIレスポンスを画面Formへ変換する
  */
-export function buildCommuterPassViewForm(monthlyCommuterPass: MonthlyCommuterPass | null): CommuterPassViewForm {
+export function buildCommuterPassViewForm(
+  monthlyCommuterPass: MonthlyCommuterPass | null,
+): CommuterPassViewForm {
   return {
     commuterFrom: monthlyCommuterPass?.commuterFrom ?? "",
     commuterTo: monthlyCommuterPass?.commuterTo ?? "",
@@ -332,8 +363,6 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
       remoteWorkAllowanceFlag: false,
 
-      requestMemo: null,
-
       transportFrom: null,
       transportTo: null,
       transportMethod: null,
@@ -349,13 +378,14 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
   /*
    * 休日だけは予定にも実績にも時間を保存しない。
+   * 実績区分IDは予定区分IDと同じ値を送る。
    */
   if (selectedPlanType.code === "HOLIDAY") {
     return {
       workDate: row.workDate,
 
       planAttendanceTypeId: row.planAttendanceTypeId,
-      actualAttendanceTypeId: null,
+      actualAttendanceTypeId: row.planAttendanceTypeId,
 
       commonStartAt: null,
       commonEndAt: null,
@@ -373,8 +403,6 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
       remoteWorkAllowanceFlag: false,
 
-      requestMemo: toNullableString(row.requestMemo),
-
       transportFrom: null,
       transportTo: null,
       transportMethod: null,
@@ -386,6 +414,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
   /*
    * 有給・特別休暇・休職など、予定と実績を同期する区分。
+   * 実績区分IDは予定区分IDと同じ値を送る。
    */
   if (selectedPlanType.syncPlanActual) {
     const commonEndUsesNextDay = shouldUseNextDay(row.commonStartTime, row.commonEndTime);
@@ -394,7 +423,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
       workDate: row.workDate,
 
       planAttendanceTypeId: row.planAttendanceTypeId,
-      actualAttendanceTypeId: null,
+      actualAttendanceTypeId: row.planAttendanceTypeId,
 
       commonStartAt: toRfc3339(row.workDate, row.commonStartTime, false),
       commonEndAt: toRfc3339(row.workDate, row.commonEndTime, commonEndUsesNextDay),
@@ -412,8 +441,6 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
       remoteWorkAllowanceFlag: row.remoteWorkAllowanceFlag,
 
-      requestMemo: toNullableString(row.requestMemo),
-
       transportFrom: toNullableString(row.transportFrom),
       transportTo: toNullableString(row.transportTo),
       transportMethod: toNullableString(row.transportMethod),
@@ -424,7 +451,14 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
   }
 
   /*
-   * 通常勤務・夜勤など、予定と実績を分ける区分。
+   * 通常勤務など、予定時間と実績時間を分ける区分。
+   *
+   * 実績区分IDは予定区分IDと同じ値を送る。
+   * 欠勤、病欠、遅刻、早退は actualAttendanceTypeId ではなく、
+   * lateFlag / earlyLeaveFlag / absenceFlag / sickLeaveFlag で表現する。
+   *
+   * 夜勤は勤務区分ではない。
+   * 深夜時間は actualStartAt / actualEndAt から集計時に計算する。
    */
   const planEndUsesNextDay = shouldUseNextDay(row.planStartTime, row.planEndTime);
   const actualEndUsesNextDay = shouldUseNextDay(row.actualStartTime, row.actualEndTime);
@@ -433,7 +467,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
     workDate: row.workDate,
 
     planAttendanceTypeId: row.planAttendanceTypeId,
-    actualAttendanceTypeId: row.actualAttendanceTypeId,
+    actualAttendanceTypeId: row.planAttendanceTypeId,
 
     commonStartAt: null,
     commonEndAt: null,
@@ -450,8 +484,6 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
     sickLeaveFlag: row.sickLeaveFlag,
 
     remoteWorkAllowanceFlag: row.remoteWorkAllowanceFlag,
-
-    requestMemo: toNullableString(row.requestMemo),
 
     transportFrom: toNullableString(row.transportFrom),
     transportTo: toNullableString(row.transportTo),

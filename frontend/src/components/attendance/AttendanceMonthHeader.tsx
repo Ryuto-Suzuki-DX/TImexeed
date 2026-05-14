@@ -38,7 +38,7 @@ export default function AttendanceMonthHeader({
     <div className={styles.header}>
       <PageTitle
         title="勤怠入力"
-        description="対象月の予定、実績、休憩、交通費、申請状態を管理します。"
+        description="対象月の予定、実績、休憩、交通費を管理します。"
       />
 
       <div className={styles.monthControl}>

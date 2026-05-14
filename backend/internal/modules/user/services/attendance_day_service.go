@@ -47,8 +47,8 @@ type AttendanceDayService interface {
  *
  * 画面表示用メッセージ方針：
  * ・AttendanceDay には SystemMessage を保存しない
- * ・残業、深夜勤務、有給申請中、承認済みなどの画面表示用メッセージは、
- *   DB保存値ではなく、勤怠データ・休憩データ・月次申請状態・有給申請状態などから
+ * ・残業、深夜勤務、有給、月次申請状態などの画面表示用メッセージは、
+ *   DB保存値ではなく、勤怠データ・休憩データ・月次申請状態などから
  *   表示時に組み立てる
  *
  * 注意：
@@ -247,7 +247,6 @@ func (service *attendanceDayService) SearchAttendanceDays(
 		)
 	}
 
-	// 対象月の月次申請状態を取得する
 	monthlyAttendanceRequestResponse, monthlyAttendanceRequestResult := service.getMonthlyAttendanceRequestResponse(
 		userID,
 		req.TargetYear,
@@ -257,19 +256,16 @@ func (service *attendanceDayService) SearchAttendanceDays(
 		return monthlyAttendanceRequestResult
 	}
 
-	// Builderで勤怠検索用クエリを作成する
 	query, buildResult := service.attendanceDayBuilder.BuildSearchAttendanceDaysQuery(userID, req)
 	if buildResult.Error {
 		return buildResult
 	}
 
-	// Repositoryで勤怠一覧を取得する
 	attendanceDays, findResult := service.attendanceDayRepository.FindAttendanceDays(query)
 	if findResult.Error {
 		return findResult
 	}
 
-	// DBモデルをフロント返却用Responseへ変換する
 	attendanceDayResponses := make([]types.AttendanceDayResponse, 0, len(attendanceDays))
 	for _, attendanceDay := range attendanceDays {
 		attendanceDayResponses = append(attendanceDayResponses, toAttendanceDayResponse(attendanceDay))
@@ -300,6 +296,9 @@ func (service *attendanceDayService) SearchAttendanceDays(
  * ・存在すれば更新する
  * ・休日は予定・実績ともに時間を保存しない
  * ・syncPlanActual = true の勤務区分は、commonStartAt / commonEndAt を plan / actual の両方へ反映する
+ * ・通常勤務は actualAttendanceTypeId をフロントに要求せず、予定区分IDと同じ値を実績区分IDとして保存する
+ * ・欠勤、病欠、遅刻、早退は actualAttendanceTypeId ではなく各Flagで表現する
+ * ・夜勤は勤務区分ではなく、actualStartAt / actualEndAt から集計時に深夜時間として計算する
  * ・更新可否は MonthlyAttendanceRequest を見て判断する
  */
 func (service *attendanceDayService) UpdateAttendanceDay(
@@ -314,7 +313,6 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		)
 	}
 
-	// 対象日を日付型へ変換する
 	workDate, err := utils.ParseDate(req.WorkDate)
 	if err != nil {
 		return results.BadRequest(
@@ -327,7 +325,6 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		)
 	}
 
-	// 新規作成・更新どちらの場合でも、先に対象月の編集可否を確認する
 	editableResult := service.validateMonthlyAttendanceEditable(
 		userID,
 		workDate.Year(),
@@ -338,7 +335,6 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		return editableResult
 	}
 
-	// 選択された予定勤務区分を取得する
 	attendanceType, findAttendanceTypeResult := service.attendanceTypeRepository.FindAttendanceTypeByID(req.PlanAttendanceTypeID)
 	if findAttendanceTypeResult.Error {
 		return findAttendanceTypeResult
@@ -355,6 +351,7 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 	 *
 	 * 休日だけは予定にも実績にも時間を保存しない。
 	 * syncPlanActual=true でも commonStartAt / commonEndAt は要求しない。
+	 * 実績区分IDは予定区分IDと同じ値を保存する。
 	 */
 	if attendanceType.Code == "HOLIDAY" {
 		actualAttendanceTypeID = req.PlanAttendanceTypeID
@@ -380,6 +377,8 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		req.AbsenceFlag = false
 		req.SickLeaveFlag = false
 
+		req.RemoteWorkAllowanceFlag = false
+
 		req.TransportFrom = nil
 		req.TransportTo = nil
 		req.TransportMethod = nil
@@ -388,8 +387,11 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		/*
 		 * 予定・実績同期対象の場合
 		 *
-		 * 有給、欠勤、病欠、休職、介護休業などは、
+		 * 有給、特別休暇、休職、介護休業、育児休業などは、
 		 * commonStartAt / commonEndAt を plan / actual の両方へ反映する。
+		 *
+		 * 欠勤、病欠、遅刻、早退は勤務区分ではなく実績状態なので、
+		 * ここには含めない。
 		 */
 		commonStartAt, err := utils.ParseOptionalDateTime(req.CommonStartAt)
 		if err != nil {
@@ -435,22 +437,15 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		req.SickLeaveFlag = false
 	} else {
 		/*
-		 * 通常勤務・夜勤など、予定と実績を分ける区分。
+		 * 通常勤務の場合
+		 *
+		 * 実績区分は予定区分と同じ勤務区分IDを保存する。
+		 * 欠勤、病欠、遅刻、早退は actualAttendanceTypeId ではなく、
+		 * LateFlag / EarlyLeaveFlag / AbsenceFlag / SickLeaveFlag で表現する。
+		 *
+		 * 夜勤は勤務区分ではない。
+		 * 深夜時間は actualStartAt / actualEndAt から集計時に計算する。
 		 */
-		if req.ActualAttendanceTypeID == nil || *req.ActualAttendanceTypeID == 0 {
-			return results.BadRequest(
-				"UPDATE_ATTENDANCE_DAY_EMPTY_ACTUAL_ATTENDANCE_TYPE_ID",
-				"実績区分を選択してください",
-				nil,
-			)
-		}
-
-		// 選択された実績勤務区分を取得する
-		_, findActualAttendanceTypeResult := service.attendanceTypeRepository.FindAttendanceTypeByID(*req.ActualAttendanceTypeID)
-		if findActualAttendanceTypeResult.Error {
-			return findActualAttendanceTypeResult
-		}
-
 		parsedPlanStartAt, err := utils.ParseOptionalDateTime(req.PlanStartAt)
 		if err != nil {
 			return results.BadRequest(
@@ -515,23 +510,20 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 			)
 		}
 
-		actualAttendanceTypeID = *req.ActualAttendanceTypeID
+		actualAttendanceTypeID = req.PlanAttendanceTypeID
 		planStartAt = parsedPlanStartAt
 		planEndAt = parsedPlanEndAt
 		actualStartAt = parsedActualStartAt
 		actualEndAt = parsedActualEndAt
 	}
 
-	// Builderで対象勤怠取得用クエリを作成する
 	findQuery, buildFindResult := service.attendanceDayBuilder.BuildFindAttendanceDayByUserIDAndWorkDateQuery(userID, workDate)
 	if buildFindResult.Error {
 		return buildFindResult
 	}
 
-	// Repositoryで対象勤怠を取得する
 	currentAttendanceDay, findResult := service.attendanceDayRepository.FindAttendanceDay(findQuery)
 
-	// 対象日の勤怠が存在しない場合は新規作成する
 	if findResult.Error && findResult.Code == "ATTENDANCE_DAY_NOT_FOUND" {
 		attendanceDay, buildCreateResult := service.attendanceDayBuilder.BuildCreateAttendanceDayModel(
 			userID,
@@ -566,7 +558,6 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		return findResult
 	}
 
-	// 対象日の勤怠が存在する場合は更新する
 	attendanceDay, buildUpdateResult := service.attendanceDayBuilder.BuildUpdateAttendanceDayModel(
 		currentAttendanceDay,
 		req,
@@ -614,7 +605,6 @@ func (service *attendanceDayService) DeleteAttendanceDay(
 		)
 	}
 
-	// 対象日を日付型へ変換する
 	workDate, err := utils.ParseDate(req.WorkDate)
 	if err != nil {
 		return results.BadRequest(
@@ -627,7 +617,6 @@ func (service *attendanceDayService) DeleteAttendanceDay(
 		)
 	}
 
-	// 対象月の編集可否を確認する
 	editableResult := service.validateMonthlyAttendanceEditable(
 		userID,
 		workDate.Year(),
@@ -638,25 +627,21 @@ func (service *attendanceDayService) DeleteAttendanceDay(
 		return editableResult
 	}
 
-	// Builderで対象勤怠取得用クエリを作成する
 	findQuery, buildFindResult := service.attendanceDayBuilder.BuildFindAttendanceDayByUserIDAndWorkDateQuery(userID, workDate)
 	if buildFindResult.Error {
 		return buildFindResult
 	}
 
-	// Repositoryで対象勤怠を取得する
 	currentAttendanceDay, findResult := service.attendanceDayRepository.FindAttendanceDay(findQuery)
 	if findResult.Error {
 		return findResult
 	}
 
-	// Builderで論理削除用Modelを作る
 	deletedAttendanceDay, buildDeleteResult := service.attendanceDayBuilder.BuildDeleteAttendanceDayModel(currentAttendanceDay)
 	if buildDeleteResult.Error {
 		return buildDeleteResult
 	}
 
-	// Repositoryで勤怠を保存する
 	_, saveResult := service.attendanceDayRepository.SaveAttendanceDay(deletedAttendanceDay)
 	if saveResult.Error {
 		return saveResult

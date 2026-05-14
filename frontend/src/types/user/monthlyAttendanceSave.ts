@@ -12,6 +12,7 @@
  * ・画面用stateではない
  * ・APIに送るRequest型
  * ・画面用の AttendanceViewRow / CommuterPassViewForm から mapper で変換して作る
+ * ・日別勤怠に申請メモは送らない
  */
 
 export type UpdateMonthlyAttendanceSaveRequest = {
@@ -51,8 +52,6 @@ export type UpdateMonthlyAttendanceSaveDayRequest = {
   sickLeaveFlag: boolean;
 
   remoteWorkAllowanceFlag: boolean;
-
-  requestMemo: string | null;
 
   transportFrom: string | null;
   transportTo: string | null;

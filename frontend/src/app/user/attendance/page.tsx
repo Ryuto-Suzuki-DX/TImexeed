@@ -13,6 +13,7 @@ import { useRequireRole } from "@/hooks/useRequireRole";
 import { searchAttendanceTypes } from "@/api/user/attendanceType";
 import { searchAttendanceDays } from "@/api/user/attendanceDay";
 import { searchAttendanceBreaks } from "@/api/user/attendanceBreak";
+import { searchHolidayDates } from "@/api/user/holidayDate";
 import { searchMonthlyCommuterPass } from "@/api/user/monthlyCommuterPass";
 import { updateMonthlyAttendanceSave } from "@/api/user/monthlyAttendanceSave";
 import {
@@ -149,6 +150,19 @@ export default function UserAttendancePage() {
 
       const nextAttendanceDays = attendanceDaysResult.data.attendanceDays;
 
+      const holidayDatesResult = await searchHolidayDates({
+        targetYear,
+        targetMonth: targetMonthValue,
+      });
+
+      if (holidayDatesResult.error || !holidayDatesResult.data) {
+        setPageMessage(holidayDatesResult.message || "祝日一覧の取得に失敗しました。");
+        setPageMessageVariant("error");
+        return;
+      }
+
+      const nextHolidayDates = holidayDatesResult.data.holidays;
+
       const commuterPassResult = await searchMonthlyCommuterPass({
         targetYear,
         targetMonth: targetMonthValue,
@@ -179,7 +193,12 @@ export default function UserAttendancePage() {
       const nextMonthlyAttendanceRequest =
         monthlyAttendanceRequestResult.data.monthlyAttendanceRequest;
 
-      const rows = buildAttendanceViewRows(targetYear, targetMonthValue, nextAttendanceDays);
+      const rows = buildAttendanceViewRows(
+        targetYear,
+        targetMonthValue,
+        nextAttendanceDays,
+        nextHolidayDates,
+      );
       const breakMap = new Map<string, AttendanceBreak[]>();
 
       /*

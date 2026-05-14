@@ -8,6 +8,7 @@
  * ・登録/更新/初期値戻しは月次勤怠全体保存APIへ集約する
  * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
  * ・systemMessage は保存せず、画面側で計算して表示する
+ * ・日別勤怠に申請メモは持たせない
  */
 
 export type AttendanceDay = {
@@ -23,8 +24,6 @@ export type AttendanceDay = {
 
   actualStartAt: string | null;
   actualEndAt: string | null;
-
-  requestMemo: string | null;
 
   lateFlag: boolean;
   earlyLeaveFlag: boolean;

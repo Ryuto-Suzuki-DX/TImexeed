@@ -30,7 +30,9 @@ func RunMigrations(db *gorm.DB) error {
 		&models.PaidLeaveUsage{},
 		// 勤怠申請系
 		&models.MonthlyAttendanceRequest{},
-		// // お知らせ
+		// お知らせ
 		&models.Notification{},
+		// 祝日
+		&models.HolidayDate{},
 	)
 }
