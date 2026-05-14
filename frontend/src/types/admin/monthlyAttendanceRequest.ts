@@ -54,6 +54,63 @@ export type MonthlyAttendanceRequest = {
 };
 
 /*
+ * 月次勤怠申請一覧検索 Row
+ *
+ * POST /admin/monthly-attendance-requests/search
+ *
+ * 注意：
+ * ・申請一覧画面用
+ * ・ユーザー情報と対象月の月次申請状態を1行にまとめた型
+ * ・未申請の場合、monthlyAttendanceRequest.status は NOT_SUBMITTED
+ * ・未申請の場合、monthlyAttendanceRequest.id は null
+ */
+export type MonthlyAttendanceRequestListRow = {
+  targetUserId: number;
+
+  userName: string;
+  email: string;
+
+  departmentId: number | null;
+  departmentName: string | null;
+
+  targetYear: number;
+  targetMonth: number;
+
+  monthlyAttendanceRequest: MonthlyAttendanceRequest;
+};
+
+/*
+ * 月次勤怠申請一覧検索
+ *
+ * POST /admin/monthly-attendance-requests/search
+ *
+ * 注意：
+ * ・対象年月、ユーザーのフリーワード、申請状態で絞り込む
+ * ・statuses は複数選択可能
+ * ・未申請も検索対象にする場合は NOT_SUBMITTED を含める
+ * ・includeDeletedUsers は退職者/削除済みユーザーも対象に含める場合に true
+ * ・offset / limit / hasMore でページングする
+ */
+export type SearchMonthlyAttendanceRequestsRequest = {
+  keyword: string;
+
+  targetYear: number;
+  targetMonth: number;
+
+  statuses: MonthlyAttendanceRequestStatus[];
+
+  includeDeletedUsers: boolean;
+
+  offset: number;
+  limit: number;
+};
+
+export type SearchMonthlyAttendanceRequestsResponse = {
+  monthlyAttendanceRequests: MonthlyAttendanceRequestListRow[];
+  hasMore: boolean;
+};
+
+/*
  * 月次勤怠申請状態取得
  *
  * POST /admin/monthly-attendance-requests/status

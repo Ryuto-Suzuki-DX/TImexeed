@@ -1,6 +1,7 @@
 package services
 
 import (
+	"strings"
 	"time"
 
 	"timexeed/backend/internal/models"
@@ -19,9 +20,11 @@ import (
  * ・管理者APIでは対象ユーザーIDを targetUserId としてRequestで受け取る
  * ・管理者は対象ユーザーの月次申請状態取得、申請、取り下げができる
  * ・管理者は月次勤怠申請の承認、否認ができる
+ * ・管理者は月次勤怠申請一覧を検索できる
  * ・管理者側では月次申請状態による勤怠編集ロックを行わない
  */
 type MonthlyAttendanceRequestService interface {
+	SearchMonthlyAttendanceRequests(req types.SearchMonthlyAttendanceRequestsRequest) results.Result
 	GetMonthlyAttendanceRequestStatus(req types.GetMonthlyAttendanceRequestStatusRequest) results.Result
 	SubmitMonthlyAttendanceRequest(req types.SubmitMonthlyAttendanceRequestRequest) results.Result
 	CancelMonthlyAttendanceRequest(req types.CancelMonthlyAttendanceRequestRequest) results.Result
@@ -42,6 +45,7 @@ type MonthlyAttendanceRequestService interface {
  * ・成功時はResponse型に変換してControllerへ返す
  *
  * このServiceで扱うもの：
+ * ・月次勤怠申請一覧検索
  * ・対象ユーザーの対象月の月次申請状態取得
  * ・対象ユーザーの対象月の月次申請
  * ・対象ユーザーの申請中の月次申請取り下げ
@@ -206,6 +210,93 @@ func toMonthlyAttendanceRequestResponse(
 }
 
 /*
+ * 検索Rowをフロント返却用MonthlyAttendanceRequestResponseへ変換する
+ *
+ * 注意：
+ * ・monthly_attendance_requests.id が NULL の場合は未申請として返す
+ * ・未申請はDBには保存しない
+ */
+func toMonthlyAttendanceRequestResponseFromSearchRow(
+	row repositories.MonthlyAttendanceRequestSearchRow,
+	targetYear int,
+	targetMonth int,
+) types.MonthlyAttendanceRequestResponse {
+	if row.MonthlyAttendanceRequestID == nil {
+		return toNotSubmittedMonthlyAttendanceRequestResponse(
+			row.TargetUserID,
+			targetYear,
+			targetMonth,
+		)
+	}
+
+	status := ""
+	if row.Status != nil {
+		status = *row.Status
+	}
+
+	editable, canSubmit, canCancel, canApprove, canReject := buildMonthlyAttendanceRequestFlags(status)
+
+	return types.MonthlyAttendanceRequestResponse{
+		ID: row.MonthlyAttendanceRequestID,
+
+		TargetUserID: row.TargetUserID,
+		TargetYear:   targetYear,
+		TargetMonth:  targetMonth,
+		Status:       status,
+		Exists:       true,
+
+		Editable:   editable,
+		CanSubmit:  canSubmit,
+		CanCancel:  canCancel,
+		CanApprove: canApprove,
+		CanReject:  canReject,
+
+		RequestMemo: row.RequestMemo,
+		RequestedAt: row.RequestedAt,
+
+		ApprovedBy: row.ApprovedBy,
+		ApprovedAt: row.ApprovedAt,
+
+		RejectedReason: row.RejectedReason,
+		RejectedAt:     row.RejectedAt,
+
+		CanceledReason: row.CanceledReason,
+		CanceledAt:     row.CanceledAt,
+
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
+	}
+}
+
+/*
+ * 検索Rowを月次勤怠申請一覧Rowへ変換する
+ */
+func toMonthlyAttendanceRequestListRow(
+	row repositories.MonthlyAttendanceRequestSearchRow,
+	targetYear int,
+	targetMonth int,
+) types.MonthlyAttendanceRequestListRow {
+	return types.MonthlyAttendanceRequestListRow{
+		TargetUserID: row.TargetUserID,
+
+		UserName: row.UserName,
+		Email:    row.Email,
+
+		DepartmentID:   row.DepartmentID,
+		DepartmentName: row.DepartmentName,
+
+		TargetYear:  targetYear,
+		TargetMonth: targetMonth,
+
+		MonthlyAttendanceRequest: toMonthlyAttendanceRequestResponseFromSearchRow(
+			row,
+			targetYear,
+			targetMonth,
+		),
+	}
+}
+
+/*
  * 対象ユーザーIDのバリデーション
  */
 func validateMonthlyAttendanceRequestTargetUserID(
@@ -285,6 +376,147 @@ func validateMonthlyAttendanceRequestAdminID(
 		nil,
 		actionCode+"_VALID_ADMIN_ID",
 		"",
+		nil,
+	)
+}
+
+/*
+ * 月次勤怠申請一覧検索ステータスのバリデーション
+ */
+func validateSearchMonthlyAttendanceRequestStatuses(
+	statuses []string,
+) results.Result {
+	if len(statuses) == 0 {
+		return results.BadRequest(
+			"SEARCH_MONTHLY_ATTENDANCE_REQUESTS_EMPTY_STATUSES",
+			"申請状態を1つ以上選択してください",
+			nil,
+		)
+	}
+
+	allowedStatuses := map[string]bool{
+		"NOT_SUBMITTED": true,
+		"PENDING":       true,
+		"APPROVED":      true,
+		"REJECTED":      true,
+		"CANCELED":      true,
+	}
+
+	for _, status := range statuses {
+		trimmedStatus := strings.TrimSpace(status)
+
+		if !allowedStatuses[trimmedStatus] {
+			return results.BadRequest(
+				"SEARCH_MONTHLY_ATTENDANCE_REQUESTS_INVALID_STATUS",
+				"申請状態の指定が正しくありません",
+				map[string]any{
+					"status": status,
+				},
+			)
+		}
+	}
+
+	return results.OK(
+		nil,
+		"SEARCH_MONTHLY_ATTENDANCE_REQUESTS_VALID_STATUSES",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 月次勤怠申請一覧検索用limitを補正する
+ */
+func normalizeMonthlyAttendanceRequestSearchLimit(limit int) int {
+	if limit <= 0 {
+		return 20
+	}
+
+	if limit > 100 {
+		return 100
+	}
+
+	return limit
+}
+
+/*
+ * 月次勤怠申請一覧検索用offsetを補正する
+ */
+func normalizeMonthlyAttendanceRequestSearchOffset(offset int) int {
+	if offset < 0 {
+		return 0
+	}
+
+	return offset
+}
+
+/*
+ * 月次勤怠申請一覧検索
+ *
+ * 仕様：
+ * ・users 起点で検索する
+ * ・対象年月の monthly_attendance_requests を LEFT JOIN する
+ * ・申請レコードが存在しないユーザーは NOT_SUBMITTED として返す
+ * ・ユーザー名、メール、所属名でキーワード検索できる
+ * ・statuses 複数選択で対象状態を絞り込む
+ * ・offset / limit / hasMore でページングする
+ */
+func (service *monthlyAttendanceRequestService) SearchMonthlyAttendanceRequests(
+	req types.SearchMonthlyAttendanceRequestsRequest,
+) results.Result {
+	validateMonthResult := validateMonthlyAttendanceRequestTargetMonth(
+		req.TargetYear,
+		req.TargetMonth,
+		"SEARCH_MONTHLY_ATTENDANCE_REQUESTS",
+	)
+	if validateMonthResult.Error {
+		return validateMonthResult
+	}
+
+	validateStatusesResult := validateSearchMonthlyAttendanceRequestStatuses(req.Statuses)
+	if validateStatusesResult.Error {
+		return validateStatusesResult
+	}
+
+	req.Offset = normalizeMonthlyAttendanceRequestSearchOffset(req.Offset)
+	req.Limit = normalizeMonthlyAttendanceRequestSearchLimit(req.Limit)
+
+	query, buildResult := service.monthlyAttendanceRequestBuilder.BuildSearchMonthlyAttendanceRequestsQuery(
+		req,
+		req.Limit,
+	)
+	if buildResult.Error {
+		return buildResult
+	}
+
+	rows, hasMore, searchResult := service.monthlyAttendanceRequestRepository.SearchMonthlyAttendanceRequests(
+		query,
+		req.Limit,
+	)
+	if searchResult.Error {
+		return searchResult
+	}
+
+	monthlyAttendanceRequestRows := make([]types.MonthlyAttendanceRequestListRow, 0, len(rows))
+
+	for _, row := range rows {
+		monthlyAttendanceRequestRows = append(
+			monthlyAttendanceRequestRows,
+			toMonthlyAttendanceRequestListRow(
+				row,
+				req.TargetYear,
+				req.TargetMonth,
+			),
+		)
+	}
+
+	return results.OK(
+		types.SearchMonthlyAttendanceRequestsResponse{
+			MonthlyAttendanceRequests: monthlyAttendanceRequestRows,
+			HasMore:                   hasMore,
+		},
+		"SEARCH_MONTHLY_ATTENDANCE_REQUESTS_SUCCESS",
+		"月次勤怠申請一覧を取得しました",
 		nil,
 	)
 }

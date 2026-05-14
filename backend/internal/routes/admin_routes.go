@@ -141,6 +141,7 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		admin.POST("/attendance-types/search", attendanceTypeController.SearchAttendanceTypes)
 
 		// 月次勤怠申請
+		admin.POST("/monthly-attendance-requests/search", monthlyAttendanceRequestController.SearchMonthlyAttendanceRequests)
 		admin.POST("/monthly-attendance-requests/status", monthlyAttendanceRequestController.GetMonthlyAttendanceRequestStatus)
 		admin.POST("/monthly-attendance-requests/submit", monthlyAttendanceRequestController.SubmitMonthlyAttendanceRequest)
 		admin.POST("/monthly-attendance-requests/cancel", monthlyAttendanceRequestController.CancelMonthlyAttendanceRequest)

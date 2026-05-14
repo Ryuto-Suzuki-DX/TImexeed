@@ -20,6 +20,7 @@ import (
  * ・Service結果を共通レスポンス形式で返す
  *
  * このControllerで扱うもの：
+ * ・月次勤怠申請一覧検索
  * ・対象ユーザーの対象月の月次申請状態取得
  * ・対象ユーザーの対象月の月次申請
  * ・対象ユーザーの対象月の月次申請取り下げ
@@ -111,6 +112,42 @@ func getLoginAdminID(c *gin.Context, actionCode string) (uint, results.Result) {
 		"",
 		nil,
 	)
+}
+
+/*
+ * 月次勤怠申請一覧検索
+ *
+ * POST /admin/monthly-attendance-requests/search
+ *
+ * 用途：
+ * ・管理者の月次申請一覧画面で、対象月ごとの申請状態を一覧表示する
+ * ・ユーザー名、メール、所属名などのキーワードで対象ユーザーを絞る
+ * ・未申請、申請中、否認済み、承認済み、取り下げ済みを複数選択で絞る
+ *
+ * 仕様：
+ * ・検索の起点は users
+ * ・対象年月の monthly_attendance_requests をLEFT JOINする想定
+ * ・対象月の申請レコードが存在しないユーザーは NOT_SUBMITTED として返す
+ * ・一覧画面の勤怠確認ボタンでは targetUserId と対象年月を使って管理者勤怠画面へ遷移する
+ */
+func (controller *MonthlyAttendanceRequestController) SearchMonthlyAttendanceRequests(c *gin.Context) {
+	var req types.SearchMonthlyAttendanceRequestsRequest
+
+	// リクエストJSONをSearchMonthlyAttendanceRequestsRequest型にbindする
+	if err := c.ShouldBindJSON(&req); err != nil {
+		responses.JSON(c, results.BadRequest(
+			"SEARCH_MONTHLY_ATTENDANCE_REQUESTS_INVALID_REQUEST",
+			"月次勤怠申請一覧検索のリクエスト形式が正しくありません",
+			err.Error(),
+		))
+		return
+	}
+
+	// bindしたRequest型をそのままServiceへ渡す
+	result := controller.monthlyAttendanceRequestService.SearchMonthlyAttendanceRequests(req)
+
+	// Service / Builder / Repository の結果を共通レスポンス形式のJSONでフロントへ返す
+	responses.JSON(c, result)
 }
 
 /*

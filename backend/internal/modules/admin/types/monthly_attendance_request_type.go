@@ -40,6 +40,47 @@ import "time"
  */
 
 /*
+ * 月次勤怠申請一覧検索 Request
+ *
+ * POST /admin/monthly-attendance-requests/search
+ *
+ * 用途：
+ * ・管理者の月次申請一覧画面で使う
+ * ・対象年月で絞る
+ * ・ユーザー名 / メール / 所属名などのキーワードで絞る
+ * ・申請状態を複数選択で絞る
+ *
+ * 注意：
+ * ・未申請はDBレコードなしで表現するため、検索結果では NOT_SUBMITTED として返す
+ * ・statuses は1件以上必須
+ * ・statuses に指定できる値：
+ *   NOT_SUBMITTED / PENDING / APPROVED / REJECTED / CANCELED
+ */
+type SearchMonthlyAttendanceRequestsRequest struct {
+	// ユーザー検索キーワード
+	// ユーザー名、メール、所属名などを対象にする想定
+	Keyword string `json:"keyword"`
+
+	// 対象年
+	TargetYear int `json:"targetYear" binding:"required"`
+
+	// 対象月
+	TargetMonth int `json:"targetMonth" binding:"required"`
+
+	// 検索対象の月次申請状態
+	Statuses []string `json:"statuses" binding:"required"`
+
+	// 論理削除済みユーザーを含めるか
+	IncludeDeletedUsers bool `json:"includeDeletedUsers"`
+
+	// 取得開始位置
+	Offset int `json:"offset"`
+
+	// 取得件数
+	Limit int `json:"limit"`
+}
+
+/*
  * 月次勤怠申請状態取得 Request
  *
  * POST /admin/monthly-attendance-requests/status
@@ -216,6 +257,52 @@ type MonthlyAttendanceRequestResponse struct {
 
 	// 更新日時
 	UpdatedAt *time.Time `json:"updatedAt"`
+}
+
+/*
+ * 月次勤怠申請一覧 Row
+ *
+ * 管理者の月次申請一覧画面で1行として表示するための型。
+ *
+ * 注意：
+ * ・検索自体は users 起点で行う
+ * ・monthly_attendance_requests が存在しないユーザーは、
+ *   MonthlyAttendanceRequest.Status = NOT_SUBMITTED として返す
+ * ・勤怠確認ボタンでは TargetUserID と対象年月を使って
+ *   /admin/attendance を新規タブで開く想定
+ */
+type MonthlyAttendanceRequestListRow struct {
+	// 対象ユーザーID
+	TargetUserID uint `json:"targetUserId"`
+
+	// ユーザー名
+	UserName string `json:"userName"`
+
+	// メールアドレス
+	Email string `json:"email"`
+
+	// 所属ID
+	DepartmentID *uint `json:"departmentId"`
+
+	// 所属名
+	DepartmentName *string `json:"departmentName"`
+
+	// 対象年
+	TargetYear int `json:"targetYear"`
+
+	// 対象月
+	TargetMonth int `json:"targetMonth"`
+
+	// 月次勤怠申請状態
+	MonthlyAttendanceRequest MonthlyAttendanceRequestResponse `json:"monthlyAttendanceRequest"`
+}
+
+/*
+ * 月次勤怠申請一覧検索 Response
+ */
+type SearchMonthlyAttendanceRequestsResponse struct {
+	MonthlyAttendanceRequests []MonthlyAttendanceRequestListRow `json:"monthlyAttendanceRequests"`
+	HasMore                   bool                              `json:"hasMore"`
 }
 
 /*

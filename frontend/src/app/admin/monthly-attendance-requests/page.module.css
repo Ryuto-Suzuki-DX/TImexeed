@@ -1,0 +1,326 @@
+.pageWrap {
+  width: 100%;
+  min-height: 100vh;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.pageCard {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.loadingCard {
+  width: min(720px, calc(100% - 48px));
+  margin: 48px auto;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.headerArea {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.searchCard,
+.summaryCard,
+.tableCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 18px;
+  box-sizing: border-box;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+}
+
+.searchCard {
+  margin-bottom: 16px;
+}
+
+.searchGrid {
+  display: grid;
+  grid-template-columns: 360px minmax(320px, 1fr) 120px;
+  gap: 14px;
+  align-items: end;
+}
+
+.searchLabel {
+  display: block;
+  margin: 0 0 7px;
+  color: #374151;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.monthControl,
+.keywordControl {
+  width: 100%;
+}
+
+.monthInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.monthInput,
+.keywordInput {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 9px 11px;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #111827;
+  font-size: 14px;
+}
+
+.monthInput:focus,
+.keywordInput:focus {
+  outline: 2px solid #fed7aa;
+  border-color: #fb923c;
+}
+
+.searchActionArea {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.statusFilterArea {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.statusButtonList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.statusFilterButton {
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.statusFilterButton:hover {
+  border-color: #fb923c;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.statusFilterButtonSelected {
+  border-color: #ea580c;
+  background: #ea580c;
+  color: #ffffff;
+}
+
+.selectedStatusText {
+  margin: 10px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.summaryCard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.summaryLabel {
+  margin: 0 0 6px;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.summaryValue {
+  margin: 0;
+  color: #111827;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.tableScroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+}
+
+.table th {
+  background: #f9fafb;
+  color: #374151;
+  font-size: 13px;
+  font-weight: bold;
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.table td {
+  color: #111827;
+  font-size: 14px;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.userCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.userName {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.userEmail {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.statusBadgeNotSubmitted {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.statusBadgePending {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.statusBadgeApproved {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.statusBadgeRejected {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.statusBadgeCanceled {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.reasonCell {
+  max-width: 260px;
+  white-space: normal;
+  line-height: 1.5;
+}
+
+.actionButtonList {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.emptyCell {
+  padding: 28px !important;
+  color: #6b7280 !important;
+  text-align: center;
+  font-weight: bold;
+}
+
+.moreButtonArea {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+@media (max-width: 1080px) {
+  .searchGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .searchActionArea {
+    justify-content: flex-start;
+  }
+
+  .summaryCard {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .pageWrap {
+    padding: 16px;
+  }
+
+  .pageCard,
+  .loadingCard {
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .loadingCard {
+    width: calc(100% - 32px);
+    margin: 24px auto;
+  }
+
+  .monthInputRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actionButtonList {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

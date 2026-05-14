@@ -6,6 +6,8 @@ import type {
   RejectMonthlyAttendanceRequestResponse,
   SearchMonthlyAttendanceRequestRequest,
   SearchMonthlyAttendanceRequestResponse,
+  SearchMonthlyAttendanceRequestsRequest,
+  SearchMonthlyAttendanceRequestsResponse,
   SubmitMonthlyAttendanceRequestRequest,
   SubmitMonthlyAttendanceRequestResponse,
   WithdrawMonthlyAttendanceRequestRequest,
@@ -13,12 +15,31 @@ import type {
 } from "@/types/admin/monthlyAttendanceRequest";
 
 /*
+ * 管理者 月次勤怠申請一覧検索
+ *
+ * POST /admin/monthly-attendance-requests/search
+ *
+ * 注意：
+ * ・申請一覧画面用
+ * ・対象年月、ユーザーのフリーワード、申請状態で絞り込む
+ * ・未申請はバックエンド側で NOT_SUBMITTED として返される
+ * ・statuses は複数選択可能
+ */
+export function searchMonthlyAttendanceRequests(request: SearchMonthlyAttendanceRequestsRequest) {
+  return apiPost<SearchMonthlyAttendanceRequestsResponse, SearchMonthlyAttendanceRequestsRequest>(
+    "/admin/monthly-attendance-requests/search",
+    request
+  );
+}
+
+/*
  * 管理者 月次勤怠申請状態取得
  *
  * POST /admin/monthly-attendance-requests/status
  *
  * 注意：
- * ・バックエンド側のルート名は search ではなく status
+ * ・これは一覧検索ではなく、対象ユーザー + 対象年月の1件取得
+ * ・管理者勤怠画面で使う
  * ・管理者APIでは targetUserId を送る
  */
 export function searchMonthlyAttendanceRequest(request: SearchMonthlyAttendanceRequestRequest) {
