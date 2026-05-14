@@ -32,6 +32,8 @@ func RunMigrations(db *gorm.DB) error {
 		&models.MonthlyAttendanceRequest{},
 		// お知らせ
 		&models.Notification{},
+		// 自動お知らせ機能
+		&models.NotificationReminder{},
 		// 祝日
 		&models.HolidayDate{},
 	)

@@ -44,17 +44,17 @@ import (
  * ・そのため、本来は MonthlyAttendanceSaveController や MonthlyAttendanceBulkSaveController
  *   のような名前の方が役割が分かりやすい
  */
-type MonthlyAttendanceController struct {
-	monthlyAttendanceService services.MonthlyAttendanceService
+type MonthlyAttendanceSaveController struct {
+	monthlyAttendanceService services.MonthlyAttendanceSaveService
 }
 
 /*
  * MonthlyAttendanceController生成
  */
-func NewMonthlyAttendanceController(
-	monthlyAttendanceService services.MonthlyAttendanceService,
-) *MonthlyAttendanceController {
-	return &MonthlyAttendanceController{
+func NewMonthlyAttendanceSaveController(
+	monthlyAttendanceService services.MonthlyAttendanceSaveService,
+) *MonthlyAttendanceSaveController {
+	return &MonthlyAttendanceSaveController{
 		monthlyAttendanceService: monthlyAttendanceService,
 	}
 }
@@ -72,7 +72,7 @@ func NewMonthlyAttendanceController(
  * ・SystemMessage はDB保存しない
  * ・画面表示用メッセージは、保存値ではなく表示時に組み立てる
  */
-func (controller *MonthlyAttendanceController) UpdateMonthlyAttendance(c *gin.Context) {
+func (controller *MonthlyAttendanceSaveController) UpdateMonthlyAttendance(c *gin.Context) {
 	var req types.UpdateMonthlyAttendanceRequest
 
 	// AuthMiddlewareでJWTから取得したログイン中ユーザーIDを取得する

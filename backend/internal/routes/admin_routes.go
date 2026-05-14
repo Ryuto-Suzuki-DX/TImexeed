@@ -81,27 +81,33 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	monthlyCommuterPassService := services.NewMonthlyCommuterPassService(monthlyCommuterPassBuilder, monthlyCommuterPassRepository, monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
 	monthlyCommuterPassController := controllers.NewMonthlyCommuterPassController(monthlyCommuterPassService)
 
-	// 祝日
-	holidayDateBuilder := builders.NewHolidayDateBuilder(db)
-	holidayDateRepository := repositories.NewHolidayDateRepository(db)
-	holidayDateService := services.NewHolidayDateService(holidayDateBuilder, holidayDateRepository)
-	holidayDateController := controllers.NewHolidayDateController(holidayDateService)
-
-	// 有給（残数取得のみ）
-	paidLeaveBuilder := builders.NewPaidLeaveBuilder(db)
-	paidLeaveRepository := repositories.NewPaidLeaveRepository(db)
-	paidLeaveService := services.NewPaidLeaveService(paidLeaveBuilder, paidLeaveRepository)
-	paidLeaveController := controllers.NewPaidLeaveController(paidLeaveService)
-
 	// 有給使用日
 	paidLeaveUsageBuilder := builders.NewPaidLeaveUsageBuilder(db)
 	paidLeaveUsageRepository := repositories.NewPaidLeaveUsageRepository(db)
 	paidLeaveUsageService := services.NewPaidLeaveUsageService(paidLeaveUsageBuilder, paidLeaveUsageRepository)
 	paidLeaveUsageController := controllers.NewPaidLeaveUsageController(paidLeaveUsageService)
 
+	// 祝日
+	holidayDateBuilder := builders.NewHolidayDateBuilder(db)
+	holidayDateRepository := repositories.NewHolidayDateRepository(db)
+	holidayDateService := services.NewHolidayDateService(holidayDateBuilder, holidayDateRepository)
+	holidayDateController := controllers.NewHolidayDateController(holidayDateService)
+
+	// お知らせ
+	notificationBuilder := builders.NewNotificationBuilder(db)
+	notificationRepository := repositories.NewNotificationRepository(db)
+	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository)
+	notificationController := controllers.NewNotificationController(notificationService)
+
+	// お知らせ自動リマインド
+	notificationReminderBuilder := builders.NewNotificationReminderBuilder(db)
+	notificationReminderRepository := repositories.NewNotificationReminderRepository(db)
+	notificationReminderService := services.NewNotificationReminderService(notificationReminderBuilder, notificationReminderRepository)
+	notificationReminderController := controllers.NewNotificationReminderController(notificationReminderService)
+
 	// 月次勤怠全体保存
-	monthlyAttendanceService := services.NewMonthlyAttendanceService(attendanceDayService, attendanceBreakService, monthlyCommuterPassService, attendanceTypeService, paidLeaveService)
-	monthlyAttendanceController := controllers.NewMonthlyAttendanceController(monthlyAttendanceService)
+	monthlyAttendanceSaveService := services.NewMonthlyAttendanceSaveService(attendanceDayService, attendanceBreakService, monthlyCommuterPassService, attendanceTypeService, paidLeaveUsageService)
+	monthlyAttendanceSaveController := controllers.NewMonthlyAttendanceSaveController(monthlyAttendanceSaveService)
 
 	admin := r.Group("/admin")
 
@@ -136,6 +142,10 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 
 		// 月次勤怠申請
 		admin.POST("/monthly-attendance-requests/status", monthlyAttendanceRequestController.GetMonthlyAttendanceRequestStatus)
+		admin.POST("/monthly-attendance-requests/submit", monthlyAttendanceRequestController.SubmitMonthlyAttendanceRequest)
+		admin.POST("/monthly-attendance-requests/cancel", monthlyAttendanceRequestController.CancelMonthlyAttendanceRequest)
+		admin.POST("/monthly-attendance-requests/approve", monthlyAttendanceRequestController.ApproveMonthlyAttendanceRequest)
+		admin.POST("/monthly-attendance-requests/reject", monthlyAttendanceRequestController.RejectMonthlyAttendanceRequest)
 
 		// 勤怠
 		admin.POST("/attendance-days/search", attendanceDayController.SearchAttendanceDays)
@@ -146,13 +156,6 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		// 月次通勤定期
 		admin.POST("/monthly-commuter-passes/search", monthlyCommuterPassController.SearchMonthlyCommuterPass)
 
-		// 祝日
-		admin.POST("/holiday-dates/import", holidayDateController.ImportHolidayDates)
-		admin.POST("/holiday-dates/search", holidayDateController.SearchHolidayDates)
-
-		// 有給（残数取得のみ）
-		admin.POST("/paid-leave/balance", paidLeaveController.GetPaidLeaveBalance)
-
 		// 有給使用日
 		admin.POST("/paid-leave-usages/search", paidLeaveUsageController.SearchPaidLeaveUsages)
 		admin.POST("/paid-leave-usages/balance", paidLeaveUsageController.GetPaidLeaveBalance)
@@ -160,7 +163,25 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		admin.POST("/paid-leave-usages/update", paidLeaveUsageController.UpdatePaidLeaveUsage)
 		admin.POST("/paid-leave-usages/delete", paidLeaveUsageController.DeletePaidLeaveUsage)
 
+		// 祝日
+		admin.POST("/holiday-dates/import", holidayDateController.ImportHolidayDates)
+		admin.POST("/holiday-dates/search", holidayDateController.SearchHolidayDates)
+
+		// お知らせ
+		admin.POST("/notifications/search", notificationController.SearchNotifications)
+		admin.POST("/notifications/read", notificationController.ReadNotification)
+		admin.POST("/notifications/unread-count", notificationController.CountUnreadNotifications)
+		admin.POST("/notifications/create-for-all-users", notificationController.CreateNotificationForAllUsers)
+		admin.POST("/notifications/delete", notificationController.DeleteNotification)
+
+		// お知らせ自動リマインド
+		admin.POST("/notification-reminders/search", notificationReminderController.SearchNotificationReminders)
+		admin.POST("/notification-reminders/create", notificationReminderController.CreateNotificationReminder)
+		admin.POST("/notification-reminders/update", notificationReminderController.UpdateNotificationReminder)
+		admin.POST("/notification-reminders/delete", notificationReminderController.DeleteNotificationReminder)
+		admin.POST("/notification-reminders/toggle-enabled", notificationReminderController.ToggleNotificationReminderEnabled)
+
 		// 月次勤怠全体保存（勤怠・休憩・月次通勤定期）
-		admin.POST("/monthly-attendances/update", monthlyAttendanceController.UpdateMonthlyAttendance)
+		admin.POST("/monthly-attendances/update", monthlyAttendanceSaveController.UpdateMonthlyAttendance)
 	}
 }

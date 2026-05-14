@@ -1,100 +1,113 @@
 package services
 
 import (
-	"timexeed/backend/internal/modules/user/types"
+	"timexeed/backend/internal/modules/admin/types"
 	"timexeed/backend/internal/results"
 )
 
 /*
- * 従業員用月次勤怠全体保存Service interface
+ * 管理者用月次勤怠全体保存Service interface
  *
  * ControllerがServiceに求める処理だけを定義する。
  */
 type MonthlyAttendanceSaveService interface {
-	UpdateMonthlyAttendance(userID uint, req types.UpdateMonthlyAttendanceRequest) results.Result
+	UpdateMonthlyAttendance(req types.UpdateMonthlyAttendanceRequest) results.Result
 }
 
 /*
- * 従業員用月次勤怠全体保存Service
+ * 管理者用月次勤怠全体保存Service
  *
  * 役割：
- * ・月次勤怠画面の全体保存をまとめて処理する
+ * ・管理者用月次勤怠画面の全体保存をまとめて処理する
  * ・月次通勤定期、勤怠日、休憩を分解して既存Serviceへ渡す
  * ・Serviceで発生したエラーはServiceでcode/message/detailsを作る
  * ・既存Serviceから返されたエラーはそのまま返す
  *
- * 注意：
- * ・Controllerにはgin.Contextを渡さない
- * ・Serviceではc.JSONしない
+ * 重要：
  * ・DBへの直接アクセスはしない
- * ・まずは既存Serviceを呼び出して保存処理を統一する
- * ・月次申請中、月次承認済みの保存可否は各Service側で MonthlyAttendanceRequest を見て判定する
+ * ・Repository / Builder は基本的に使わない
+ * ・ここでは、今まで作成したadmin用Serviceを呼び出すだけにする
+ * ・管理者APIでは対象ユーザーIDを targetUserId としてRequestで受け取る
+ * ・管理者側では月次申請状態による編集ロックを行わない
+ *
+ * 保存対象：
+ * ・月次通勤定期
+ * ・日別勤怠
+ * ・日別休憩
+ *
+ * 保存順：
+ * 1. 有給残数チェック
+ * 2. 月次通勤定期
+ * 3. 日別勤怠
+ * 4. 対象日の休憩差分保存
+ *
+ * 休憩保存方針：
+ * ・削除 → 全新規作成ではない
+ * ・attendanceBreakId がある休憩は更新する
+ * ・attendanceBreakId がない休憩は新規作成する
+ * ・DBに存在するがリクエストから消えた休憩は論理削除する
+ * ・この差分保存は AttendanceBreakService.UpdateAttendanceBreaksByWorkDate に任せる
  *
  * 画面表示用メッセージ方針：
  * ・SystemMessage はDB保存しない
  * ・月次勤怠全体保存でも SystemMessage は受け渡ししない
  * ・残業、深夜勤務、有給申請中、承認済みなどは表示時に組み立てる
+ *
+ * 注意：
+ * ・Controllerにはgin.Contextを渡さない
+ * ・Serviceではc.JSONしない
+ * ・各Serviceのエラー文言をここで作り直さない
  */
 type monthlyAttendanceSaveService struct {
 	attendanceDayService       AttendanceDayService
 	attendanceBreakService     AttendanceBreakService
 	monthlyCommuterPassService MonthlyCommuterPassService
 	attendanceTypeService      AttendanceTypeService
-	paidLeaveService           PaidLeaveService
+	paidLeaveUsageService      PaidLeaveUsageService
 }
 
 /*
- * MonthlyAttendanceSaveService生成
+ * MonthlyAttendanceService生成
+ *
+ * 注意：
+ * ・有給残数取得は既存の PaidLeaveUsageService.GetPaidLeaveBalance を使う
+ * ・別の PaidLeaveService は作らない
  */
 func NewMonthlyAttendanceSaveService(
 	attendanceDayService AttendanceDayService,
 	attendanceBreakService AttendanceBreakService,
 	monthlyCommuterPassService MonthlyCommuterPassService,
 	attendanceTypeService AttendanceTypeService,
-	paidLeaveService PaidLeaveService,
+	paidLeaveUsageService PaidLeaveUsageService,
 ) *monthlyAttendanceSaveService {
 	return &monthlyAttendanceSaveService{
 		attendanceDayService:       attendanceDayService,
 		attendanceBreakService:     attendanceBreakService,
 		monthlyCommuterPassService: monthlyCommuterPassService,
 		attendanceTypeService:      attendanceTypeService,
-		paidLeaveService:           paidLeaveService,
+		paidLeaveUsageService:      paidLeaveUsageService,
 	}
 }
 
 /*
  * 月次勤怠全体保存
  *
- * 保存順：
- * 1. 月次通勤定期
- * 2. 日別勤怠
- * 3. 既存休憩削除
- * 4. 休憩作成
- *
- * 現時点の休憩方針：
- * ・画面に残っている休憩だけを正とする
- * ・保存時に既存休憩を一旦削除する
- * ・その後、送られてきた休憩を作り直す
+ * 管理者が対象ユーザーの対象年月の勤怠をまとめて保存する。
  *
  * 注意：
- * ・AttendanceDay は申請状態を持たない
- * ・MonthlyCommuterPass も申請状態を持たない
- * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
- * ・SystemMessage は保存しない
- *
- * 今後の改善：
- * ・休憩も削除→新規作成ではなく、attendanceBreakId を使った update / create / delete に変える
- * ・その場合は AttendanceBreakService 側に更新用メソッドを用意してからこのServiceを差し替える
+ * ・管理者側では月次申請状態による編集ロックを行わない
+ * ・ロック解除済みのadmin用Serviceだけを呼び出す
  */
 func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
-	userID uint,
 	req types.UpdateMonthlyAttendanceRequest,
 ) results.Result {
-	if userID == 0 {
-		return results.Unauthorized(
-			"UPDATE_MONTHLY_ATTENDANCE_INVALID_USER_ID",
-			"認証情報のユーザーIDが正しくありません",
-			nil,
+	if req.TargetUserID == 0 {
+		return results.BadRequest(
+			"UPDATE_MONTHLY_ATTENDANCE_INVALID_TARGET_USER_ID",
+			"対象ユーザーIDが正しくありません",
+			map[string]any{
+				"targetUserId": req.TargetUserID,
+			},
 		)
 	}
 
@@ -121,10 +134,14 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 	/*
 	 * 有給残数チェック
 	 *
-	 * フロントでも有給残数0以下の場合は止めているが、
-	 * バックエンドでも保存前に必ず止める。
+	 * フロントでも有給残数0以下の場合は止める想定だが、
+	 * バックエンドでも保存前に確認する。
+	 *
+	 * 注意：
+	 * ・admin側では paid_leave_usage 側の GetPaidLeaveBalance を使う
+	 * ・このチェックは月次申請状態の編集ロックとは別物
 	 */
-	paidLeaveCheckResult := service.validatePaidLeaveBalanceBeforeMonthlySave(userID, req)
+	paidLeaveCheckResult := service.validatePaidLeaveBalanceBeforeMonthlySave(req)
 	if paidLeaveCheckResult.Error {
 		return paidLeaveCheckResult
 	}
@@ -140,10 +157,11 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 	 */
 	if req.CommuterPass != nil {
 		updateMonthlyCommuterPassResult := service.monthlyCommuterPassService.UpdateMonthlyCommuterPass(
-			userID,
 			types.UpdateMonthlyCommuterPassRequest{
-				TargetYear:     req.TargetYear,
-				TargetMonth:    req.TargetMonth,
+				TargetUserID: req.TargetUserID,
+				TargetYear:   req.TargetYear,
+				TargetMonth:  req.TargetMonth,
+
 				CommuterFrom:   req.CommuterPass.CommuterFrom,
 				CommuterTo:     req.CommuterPass.CommuterTo,
 				CommuterMethod: req.CommuterPass.CommuterMethod,
@@ -163,8 +181,9 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 	 */
 	for _, attendanceDayReq := range req.AttendanceDays {
 		updateAttendanceDayResult := service.attendanceDayService.UpdateAttendanceDay(
-			userID,
 			types.UpdateAttendanceDayRequest{
+				TargetUserID: req.TargetUserID,
+
 				WorkDate: attendanceDayReq.WorkDate,
 
 				PlanAttendanceTypeID:   attendanceDayReq.PlanAttendanceTypeID,
@@ -200,78 +219,55 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 		savedAttendanceDayCount++
 
 		/*
-		 * 3. 既存休憩を検索して削除する
+		 * 3. 対象日の休憩を差分保存する
 		 *
-		 * 月次勤怠画面では、画面に残っている休憩だけを正とする。
-		 * そのため、対象日の休憩は一旦すべて削除し、後続で作り直す。
-		 *
-		 * 注意：
-		 * ・ここはまだ update 方式ではない
-		 * ・休憩を update 方式にするには、AttendanceBreak 側の Request にIDを持たせ、
-		 *   UpdateAttendanceBreak を実装してからこの処理を変更する
+		 * 休憩の保存は AttendanceBreakService に任せる。
+		 * 管理者側の AttendanceBreakService は月次申請状態による編集ロックを行わない。
 		 */
-		searchAttendanceBreaksResult := service.attendanceBreakService.SearchAttendanceBreaks(
-			userID,
-			types.SearchAttendanceBreaksRequest{
-				WorkDate: attendanceDayReq.WorkDate,
+		breakRequests := make([]types.UpdateAttendanceBreaksByWorkDateBreakRequest, 0, len(attendanceDayReq.Breaks))
+		for _, attendanceBreakReq := range attendanceDayReq.Breaks {
+			breakRequests = append(breakRequests, types.UpdateAttendanceBreaksByWorkDateBreakRequest{
+				AttendanceBreakID: attendanceBreakReq.AttendanceBreakID,
+				BreakStartAt:      attendanceBreakReq.BreakStartAt,
+				BreakEndAt:        attendanceBreakReq.BreakEndAt,
+				BreakMemo:         attendanceBreakReq.BreakMemo,
+			})
+		}
+
+		updateAttendanceBreaksResult := service.attendanceBreakService.UpdateAttendanceBreaksByWorkDate(
+			types.UpdateAttendanceBreaksByWorkDateRequest{
+				TargetUserID: req.TargetUserID,
+				WorkDate:     attendanceDayReq.WorkDate,
+				Breaks:       breakRequests,
 			},
 		)
 
-		if searchAttendanceBreaksResult.Error {
-			return searchAttendanceBreaksResult
+		if updateAttendanceBreaksResult.Error {
+			return updateAttendanceBreaksResult
 		}
 
-		searchAttendanceBreaksResponse, ok := searchAttendanceBreaksResult.Data.(types.SearchAttendanceBreaksResponse)
+		updateAttendanceBreaksResponse, ok := updateAttendanceBreaksResult.Data.(types.UpdateAttendanceBreaksByWorkDateResponse)
 		if !ok {
 			return results.InternalServerError(
-				"UPDATE_MONTHLY_ATTENDANCE_INVALID_BREAK_SEARCH_RESPONSE",
-				"休憩検索結果の形式が正しくありません",
+				"UPDATE_MONTHLY_ATTENDANCE_INVALID_BREAK_UPDATE_RESPONSE",
+				"休憩保存結果の形式が正しくありません",
 				map[string]any{
-					"workDate": attendanceDayReq.WorkDate,
+					"targetUserId": req.TargetUserID,
+					"workDate":     attendanceDayReq.WorkDate,
 				},
 			)
 		}
 
-		for _, attendanceBreak := range searchAttendanceBreaksResponse.AttendanceBreaks {
-			deleteAttendanceBreakResult := service.attendanceBreakService.DeleteAttendanceBreak(
-				userID,
-				types.DeleteAttendanceBreakRequest{
-					WorkDate:          attendanceDayReq.WorkDate,
-					AttendanceBreakID: attendanceBreak.ID,
-				},
-			)
-
-			if deleteAttendanceBreakResult.Error {
-				return deleteAttendanceBreakResult
-			}
-		}
-
-		/*
-		 * 4. リクエストで送られた休憩を作成する
-		 */
-		for _, attendanceBreakReq := range attendanceDayReq.Breaks {
-			createAttendanceBreakResult := service.attendanceBreakService.CreateAttendanceBreak(
-				userID,
-				types.CreateAttendanceBreakRequest{
-					WorkDate:     attendanceDayReq.WorkDate,
-					BreakStartAt: attendanceBreakReq.BreakStartAt,
-					BreakEndAt:   attendanceBreakReq.BreakEndAt,
-					BreakMemo:    attendanceBreakReq.BreakMemo,
-				},
-			)
-
-			if createAttendanceBreakResult.Error {
-				return createAttendanceBreakResult
-			}
-
-			savedAttendanceBreakCount++
-		}
+		savedAttendanceBreakCount += updateAttendanceBreaksResponse.SavedAttendanceBreakCount
 	}
 
 	return results.OK(
 		types.UpdateMonthlyAttendanceResponse{
-			TargetYear:                req.TargetYear,
-			TargetMonth:               req.TargetMonth,
+			TargetUserID: req.TargetUserID,
+
+			TargetYear:  req.TargetYear,
+			TargetMonth: req.TargetMonth,
+
 			SavedMonthlyCommuterPass:  savedMonthlyCommuterPass,
 			SavedAttendanceDayCount:   savedAttendanceDayCount,
 			SavedAttendanceBreakCount: savedAttendanceBreakCount,
@@ -286,9 +282,13 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
  * 月次勤怠保存前の有給残数チェック
  *
  * 保存対象に有給区分が含まれている場合だけ、有給残数を確認する。
+ *
+ * 注意：
+ * ・admin側では既存の PaidLeaveUsageService.GetPaidLeaveBalance を使う
+ * ・ここでは有給残数だけを確認する
+ * ・月次申請状態による編集ロックは行わない
  */
 func (service *monthlyAttendanceSaveService) validatePaidLeaveBalanceBeforeMonthlySave(
-	userID uint,
 	req types.UpdateMonthlyAttendanceRequest,
 ) results.Result {
 	searchAttendanceTypesResult := service.attendanceTypeService.SearchAttendanceTypes(types.SearchAttendanceTypesRequest{})
@@ -327,7 +327,11 @@ func (service *monthlyAttendanceSaveService) validatePaidLeaveBalanceBeforeMonth
 		)
 	}
 
-	getPaidLeaveBalanceResult := service.paidLeaveService.GetPaidLeaveBalance(userID)
+	getPaidLeaveBalanceResult := service.paidLeaveUsageService.GetPaidLeaveBalance(
+		types.GetPaidLeaveBalanceRequest{
+			TargetUserID: req.TargetUserID,
+		},
+	)
 	if getPaidLeaveBalanceResult.Error {
 		return getPaidLeaveBalanceResult
 	}
@@ -346,6 +350,7 @@ func (service *monthlyAttendanceSaveService) validatePaidLeaveBalanceBeforeMonth
 			"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_BALANCE_NOT_ENOUGH",
 			"有給残数がないため、有給を登録できません",
 			map[string]any{
+				"targetUserId":  req.TargetUserID,
 				"remainingDays": paidLeaveBalanceResponse.RemainingDays,
 			},
 		)

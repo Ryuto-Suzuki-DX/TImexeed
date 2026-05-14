@@ -84,8 +84,8 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	paidLeaveController := controllers.NewPaidLeaveController(paidLeaveService)
 
 	// 月次勤怠全体保存
-	monthlyAttendanceService := services.NewMonthlyAttendanceService(attendanceDayService, attendanceBreakService, monthlyCommuterPassService, attendanceTypeService, paidLeaveService)
-	monthlyAttendanceController := controllers.NewMonthlyAttendanceController(monthlyAttendanceService)
+	monthlyAttendanceSaveService := services.NewMonthlyAttendanceSaveService(attendanceDayService, attendanceBreakService, monthlyCommuterPassService, attendanceTypeService, paidLeaveService)
+	monthlyAttendanceSaveController := controllers.NewMonthlyAttendanceSaveController(monthlyAttendanceSaveService)
 
 	// お知らせ機能
 	notificationBuilder := builders.NewNotificationBuilder(db)
@@ -131,7 +131,7 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 		user.GET("/paid-leave/balance", paidLeaveController.GetPaidLeaveBalance)
 
 		// 月次勤怠全体保存（勤怠・休憩・月次通勤定期）
-		user.POST("/monthly-attendances/update", monthlyAttendanceController.UpdateMonthlyAttendance)
+		user.POST("/monthly-attendances/update", monthlyAttendanceSaveController.UpdateMonthlyAttendance)
 
 		// お知らせ機能
 		user.POST("/notifications/search", notificationController.SearchNotifications)
