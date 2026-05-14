@@ -5,33 +5,38 @@ import Button from "@/components/atoms/Button";
 import MessageBox from "@/components/atoms/MessageBox";
 import PageContainer from "@/components/atoms/PageContainer";
 import PageTitle from "@/components/atoms/PageTitle";
-import UserSideMenu from "@/components/sideMenu/UserSideMenu";
+import AdminSideMenu from "@/components/sideMenu/AdminSideMenu";
 import AttendanceMonthHeader from "@/components/attendance/monthHeader/AttendanceMonthHeader";
 import AttendanceTable from "@/components/attendance/table/AttendanceTable";
 import MonthlyCommuterPassForm from "@/components/attendance/monthlyCommuterPassForm/MonthlyCommuterPassForm";
+import AdminUserSearch from "@/components/attendance/adminUserSearch/AdminUserSearch";
+import AdminApprovalActions from "@/components/attendance/adminApprovalActions/AdminApprovalActions";
 import { useRequireRole } from "@/hooks/useRequireRole";
-import { searchAttendanceTypes } from "@/api/user/attendanceType";
-import { searchAttendanceDays } from "@/api/user/attendanceDay";
-import { searchAttendanceBreaks } from "@/api/user/attendanceBreak";
-import { searchHolidayDates } from "@/api/user/holidayDate";
-import { searchMonthlyCommuterPass } from "@/api/user/monthlyCommuterPass";
-import { updateMonthlyAttendanceSave } from "@/api/user/monthlyAttendanceSave";
+import { searchAttendanceTypes } from "@/api/admin/attendanceType";
+import { searchAttendanceDays } from "@/api/admin/attendanceDay";
+import { searchAttendanceBreaks } from "@/api/admin/attendanceBreak";
+import { searchHolidayDates } from "@/api/admin/holidayDate";
+import { searchMonthlyCommuterPass } from "@/api/admin/monthlyCommuterPass";
+import { updateMonthlyAttendanceSave } from "@/api/admin/monthlyAttendanceSave";
 import {
+  approveMonthlyAttendanceRequest,
+  rejectMonthlyAttendanceRequest,
   searchMonthlyAttendanceRequest,
   submitMonthlyAttendanceRequest,
   withdrawMonthlyAttendanceRequest,
-} from "@/api/user/monthlyAttendanceRequest";
-import { getPaidLeaveBalance } from "@/api/user/paidLeave";
-import type { AttendanceType } from "@/types/user/attendanceType";
-import type { AttendanceBreak } from "@/types/user/attendanceBreak";
-import type { MonthlyAttendanceRequest } from "@/types/user/monthlyAttendanceRequest";
-import type { PaidLeaveBalanceResponse } from "@/types/user/paidLeave";
+} from "@/api/admin/monthlyAttendanceRequest";
+import { getPaidLeaveBalance } from "@/api/admin/paidLeaveUsage";
+import type { UserResponse } from "@/types/admin/user";
+import type { AttendanceType } from "@/types/admin/attendanceType";
+import type { AttendanceBreak } from "@/types/admin/attendanceBreak";
+import type { MonthlyAttendanceRequest } from "@/types/admin/monthlyAttendanceRequest";
+import type { PaidLeaveBalanceResponse } from "@/types/admin/paidLeaveUsage";
 import type {
   AttendanceBreakViewRow,
   AttendanceViewRow,
   CommuterPassViewForm,
   PageMessageVariant,
-} from "@/types/user/attendanceView";
+} from "@/types/admin/attendanceView";
 import {
   buildTargetMonth,
   getCurrentMonth,
@@ -46,13 +51,7 @@ import {
   buildUpdateMonthlyAttendanceSaveRequest,
   resetAttendanceViewRow,
   resetCommuterPassViewForm,
-} from "@/utils/attendance/userAttendance/userAttendanceMapper";
-import {
-  isUserAttendanceRowLocked,
-  isUserMonthlyCommuterPassLocked,
-  isUserMonthlySubmitDisabled,
-  isUserMonthlyWithdrawDisabled,
-} from "@/utils/attendance/userAttendance/userAttendancePermission";
+} from "@/utils/attendance/adminAttendance/adminAttendanceMapper";
 import styles from "./page.module.css";
 
 function formatPaidLeaveDays(value: number | null | undefined) {
@@ -67,11 +66,15 @@ function isPaidLeaveAttendanceType(attendanceType: AttendanceType | undefined) {
   return attendanceType?.code === "PAID_LEAVE" || attendanceType?.name === "有給";
 }
 
-export default function UserAttendancePage() {
-  const { user, isLoading, message } = useRequireRole("USER");
+export default function AdminAttendancePage() {
+  const { user, isLoading, message } = useRequireRole("ADMIN");
 
   const [targetMonth, setTargetMonth] = useState(getCurrentMonth());
   const [pendingTargetMonth, setPendingTargetMonth] = useState<string | null>(null);
+
+  const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
+  const [loadedUser, setLoadedUser] = useState<UserResponse | null>(null);
+
   const [attendanceTypes, setAttendanceTypes] = useState<AttendanceType[]>([]);
   const [attendanceRows, setAttendanceRows] = useState<AttendanceViewRow[]>([]);
   const [commuterPass, setCommuterPass] = useState<CommuterPassViewForm>({
@@ -80,11 +83,14 @@ export default function UserAttendancePage() {
     commuterMethod: "",
     commuterAmount: "",
   });
+
   const [monthlyAttendanceRequest, setMonthlyAttendanceRequest] =
     useState<MonthlyAttendanceRequest | null>(null);
   const [paidLeaveBalance, setPaidLeaveBalance] = useState<PaidLeaveBalanceResponse | null>(null);
+
   const [isCommuterPassDirty, setIsCommuterPassDirty] = useState(false);
-  const [pageMessage, setPageMessage] = useState("対象月の勤怠を入力できます。");
+  const [pageMessage, setPageMessage] =
+    useState("対象ユーザーを検索して、勤怠を読み込んでください。");
   const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
   const [isPageLoading, setIsPageLoading] = useState(false);
 
@@ -93,7 +99,7 @@ export default function UserAttendancePage() {
     [targetMonth],
   );
 
-  const monthlyStatus = monthlyAttendanceRequest?.status ?? "DRAFT";
+  const monthlyStatus = monthlyAttendanceRequest?.status ?? "NOT_SUBMITTED";
 
   const hasUnsavedChanges = useMemo(() => {
     return (
@@ -106,169 +112,160 @@ export default function UserAttendancePage() {
 
   const hasNoPaidLeaveBalance = paidLeaveBalance === null || paidLeaveBalance.remainingDays <= 0;
 
-  const loadPageData = useCallback(async () => {
-    if (!user) {
-      return;
-    }
+  const loadPageData = useCallback(
+    async (
+      targetUser: UserResponse,
+      loadTargetYear = targetYear,
+      loadTargetMonth = targetMonthValue,
+    ) => {
+      setIsPageLoading(true);
+      setPageMessage("管理者用の勤怠情報を取得しています。");
+      setPageMessageVariant("info");
 
-    setIsPageLoading(true);
-    setPageMessage("勤怠情報を取得しています。");
-    setPageMessageVariant("info");
+      try {
+        const paidLeaveBalanceResult = await getPaidLeaveBalance({
+          targetUserId: targetUser.id,
+        });
 
-    try {
-      const paidLeaveBalanceResult = await getPaidLeaveBalance();
+        if (paidLeaveBalanceResult.error || !paidLeaveBalanceResult.data) {
+          setPaidLeaveBalance(null);
+          setPageMessage(paidLeaveBalanceResult.message || "有給残数の取得に失敗しました。");
+          setPageMessageVariant("error");
+          return;
+        }
 
-      if (paidLeaveBalanceResult.error || !paidLeaveBalanceResult.data) {
-        setPaidLeaveBalance(null);
-        setPageMessage(paidLeaveBalanceResult.message || "有給残数の取得に失敗しました。");
-        setPageMessageVariant("error");
-        return;
-      }
+        const nextPaidLeaveBalance = paidLeaveBalanceResult.data;
 
-      const nextPaidLeaveBalance = paidLeaveBalanceResult.data;
+        const attendanceTypesResult = await searchAttendanceTypes({});
 
-      const attendanceTypesResult = await searchAttendanceTypes({});
+        if (attendanceTypesResult.error || !attendanceTypesResult.data) {
+          setPageMessage(attendanceTypesResult.message || "勤務区分マスタの取得に失敗しました。");
+          setPageMessageVariant("error");
+          return;
+        }
 
-      if (attendanceTypesResult.error || !attendanceTypesResult.data) {
-        setPageMessage(attendanceTypesResult.message || "勤務区分マスタの取得に失敗しました。");
-        setPageMessageVariant("error");
-        return;
-      }
+        const nextAttendanceTypes = attendanceTypesResult.data.attendanceTypes;
 
-      const nextAttendanceTypes = attendanceTypesResult.data.attendanceTypes;
+        const attendanceDaysResult = await searchAttendanceDays({
+          targetUserId: targetUser.id,
+          targetYear: loadTargetYear,
+          targetMonth: loadTargetMonth,
+        });
 
-      const attendanceDaysResult = await searchAttendanceDays({
-        targetYear,
-        targetMonth: targetMonthValue,
-      });
+        if (attendanceDaysResult.error || !attendanceDaysResult.data) {
+          setPageMessage(attendanceDaysResult.message || "勤怠一覧の取得に失敗しました。");
+          setPageMessageVariant("error");
+          return;
+        }
 
-      if (attendanceDaysResult.error || !attendanceDaysResult.data) {
-        setPageMessage(attendanceDaysResult.message || "勤怠一覧の取得に失敗しました。");
-        setPageMessageVariant("error");
-        return;
-      }
+        const nextAttendanceDays = attendanceDaysResult.data.attendanceDays;
 
-      const nextAttendanceDays = attendanceDaysResult.data.attendanceDays;
+        const holidayDatesResult = await searchHolidayDates({
+          targetYear: loadTargetYear,
+          targetMonth: loadTargetMonth,
+        });
 
-      const holidayDatesResult = await searchHolidayDates({
-        targetYear,
-        targetMonth: targetMonthValue,
-      });
+        if (holidayDatesResult.error || !holidayDatesResult.data) {
+          setPageMessage(holidayDatesResult.message || "祝日一覧の取得に失敗しました。");
+          setPageMessageVariant("error");
+          return;
+        }
 
-      if (holidayDatesResult.error || !holidayDatesResult.data) {
-        setPageMessage(holidayDatesResult.message || "祝日一覧の取得に失敗しました。");
-        setPageMessageVariant("error");
-        return;
-      }
+        const nextHolidayDates = holidayDatesResult.data.holidays;
 
-      const nextHolidayDates = holidayDatesResult.data.holidays;
+        const commuterPassResult = await searchMonthlyCommuterPass({
+          targetUserId: targetUser.id,
+          targetYear: loadTargetYear,
+          targetMonth: loadTargetMonth,
+        });
 
-      const commuterPassResult = await searchMonthlyCommuterPass({
-        targetYear,
-        targetMonth: targetMonthValue,
-      });
+        if (commuterPassResult.error || !commuterPassResult.data) {
+          setPageMessage(commuterPassResult.message || "月次通勤定期の取得に失敗しました。");
+          setPageMessageVariant("error");
+          return;
+        }
 
-      if (commuterPassResult.error || !commuterPassResult.data) {
-        setPageMessage(commuterPassResult.message || "月次通勤定期の取得に失敗しました。");
-        setPageMessageVariant("error");
-        return;
-      }
+        const nextMonthlyCommuterPass = commuterPassResult.data.monthlyCommuterPass;
 
-      const nextMonthlyCommuterPass = commuterPassResult.data.monthlyCommuterPass;
+        const monthlyAttendanceRequestResult = await searchMonthlyAttendanceRequest({
+          targetUserId: targetUser.id,
+          targetYear: loadTargetYear,
+          targetMonth: loadTargetMonth,
+        });
 
-      const monthlyAttendanceRequestResult = await searchMonthlyAttendanceRequest({
-        targetYear,
-        targetMonth: targetMonthValue,
-      });
+        if (monthlyAttendanceRequestResult.error || !monthlyAttendanceRequestResult.data) {
+          setMonthlyAttendanceRequest(null);
+          setPageMessage(
+            monthlyAttendanceRequestResult.message || "月次申請状態の取得に失敗しました。",
+          );
+          setPageMessageVariant("error");
+          return;
+        }
 
-      if (monthlyAttendanceRequestResult.error || !monthlyAttendanceRequestResult.data) {
-        setMonthlyAttendanceRequest(null);
+        const nextMonthlyAttendanceRequest =
+          monthlyAttendanceRequestResult.data.monthlyAttendanceRequest;
+
+        const rows = buildAttendanceViewRows(
+          loadTargetYear,
+          loadTargetMonth,
+          nextAttendanceDays,
+          nextHolidayDates,
+        );
+
+        const breakMap = new Map<string, AttendanceBreak[]>();
+        let hasBreakLoadError = false;
+
+        await Promise.all(
+          rows.map(async (row) => {
+            if (row.attendanceDayId === null) {
+              breakMap.set(row.workDate, []);
+              return;
+            }
+
+            const result = await searchAttendanceBreaks({
+              targetUserId: targetUser.id,
+              workDate: row.workDate,
+            });
+
+            if (result.error || !result.data) {
+              hasBreakLoadError = true;
+              breakMap.set(row.workDate, []);
+              return;
+            }
+
+            breakMap.set(row.workDate, result.data.attendanceBreaks);
+          }),
+        );
+
+        setLoadedUser(targetUser);
+        setPaidLeaveBalance(nextPaidLeaveBalance);
+        setAttendanceTypes(nextAttendanceTypes);
+        setAttendanceRows(attachBreaksToAttendanceViewRows(rows, breakMap));
+        setCommuterPass(buildCommuterPassViewForm(nextMonthlyCommuterPass));
+        setMonthlyAttendanceRequest(nextMonthlyAttendanceRequest);
+        setIsCommuterPassDirty(false);
+
+        if (hasBreakLoadError) {
+          setPageMessage("勤怠情報を取得しました。一部の日付の休憩取得に失敗しました。");
+          setPageMessageVariant("warning");
+          return;
+        }
+
+        setPageMessage("管理者として対象ユーザーの勤怠を編集できます。");
+        setPageMessageVariant("info");
+      } catch (error) {
         setPageMessage(
-          monthlyAttendanceRequestResult.message || "月次申請状態の取得に失敗しました。",
+          error instanceof Error
+            ? error.message
+            : "勤怠情報の取得中に予期しないエラーが発生しました。",
         );
         setPageMessageVariant("error");
-        return;
+      } finally {
+        setIsPageLoading(false);
       }
-
-      const nextMonthlyAttendanceRequest =
-        monthlyAttendanceRequestResult.data.monthlyAttendanceRequest;
-
-      const rows = buildAttendanceViewRows(
-        targetYear,
-        targetMonthValue,
-        nextAttendanceDays,
-        nextHolidayDates,
-      );
-      const breakMap = new Map<string, AttendanceBreak[]>();
-
-      /*
-       * 休憩検索APIは1日単位。
-       * ただし、1日分の休憩取得で失敗してもページ全体を止めない。
-       * 失敗した日は休憩なしとして表示し、画面上に警告を出す。
-       */
-      let hasBreakLoadError = false;
-
-      await Promise.all(
-        rows.map(async (row) => {
-          if (row.attendanceDayId === null) {
-            breakMap.set(row.workDate, []);
-            return;
-          }
-
-          const result = await searchAttendanceBreaks({
-            workDate: row.workDate,
-          });
-
-          if (result.error || !result.data) {
-            hasBreakLoadError = true;
-            breakMap.set(row.workDate, []);
-            return;
-          }
-
-          breakMap.set(row.workDate, result.data.attendanceBreaks);
-        }),
-      );
-
-      setPaidLeaveBalance(nextPaidLeaveBalance);
-      setAttendanceTypes(nextAttendanceTypes);
-      setAttendanceRows(attachBreaksToAttendanceViewRows(rows, breakMap));
-      setCommuterPass(buildCommuterPassViewForm(nextMonthlyCommuterPass));
-      setMonthlyAttendanceRequest(nextMonthlyAttendanceRequest);
-      setIsCommuterPassDirty(false);
-
-      if (hasBreakLoadError) {
-        setPageMessage("勤怠情報を取得しました。一部の日付の休憩取得に失敗しました。");
-        setPageMessageVariant("warning");
-        return;
-      }
-
-      setPageMessage("対象月の勤怠を入力できます。");
-      setPageMessageVariant("info");
-    } catch (error) {
-      setPageMessage(
-        error instanceof Error
-          ? error.message
-          : "勤怠情報の取得中に予期しないエラーが発生しました。",
-      );
-      setPageMessageVariant("error");
-    } finally {
-      setIsPageLoading(false);
-    }
-  }, [targetMonthValue, targetYear, user]);
-
-  useEffect(() => {
-    if (isLoading || !user) {
-      return;
-    }
-
-    const timerId = window.setTimeout(() => {
-      void loadPageData();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timerId);
-    };
-  }, [isLoading, loadPageData, user]);
+    },
+    [targetMonthValue, targetYear],
+  );
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -286,6 +283,17 @@ export default function UserAttendancePage() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [hasUnsavedChanges]);
+
+  const handleSelectUser = (targetUser: UserResponse) => {
+    if (hasUnsavedChanges) {
+      setPageMessage("未保存の変更があります。先に保存するか、変更を破棄してください。");
+      setPageMessageVariant("warning");
+      return;
+    }
+
+    setSelectedUser(targetUser);
+    void loadPageData(targetUser);
+  };
 
   const updateRow = <K extends keyof AttendanceViewRow>(
     workDate: string,
@@ -328,6 +336,12 @@ export default function UserAttendancePage() {
   };
 
   const handleResetCommuterPass = () => {
+    if (!loadedUser) {
+      setPageMessage("先に対象ユーザーの勤怠を読み込んでください。");
+      setPageMessageVariant("error");
+      return;
+    }
+
     setCommuterPass(resetCommuterPassViewForm());
     setIsCommuterPassDirty(true);
     setPageMessage("月次通勤定期を初期値に戻しました。全体保存で反映されます。");
@@ -342,7 +356,17 @@ export default function UserAttendancePage() {
       return;
     }
 
+    const nextParsedMonth = parseTargetMonth(nextTargetMonth);
+
     setTargetMonth(nextTargetMonth);
+
+    if (loadedUser) {
+      void loadPageData(
+        loadedUser,
+        nextParsedMonth.targetYear,
+        nextParsedMonth.targetMonthValue,
+      );
+    }
   };
 
   const handlePreviousMonth = () => {
@@ -366,6 +390,12 @@ export default function UserAttendancePage() {
   };
 
   const handleSaveAllAttendanceDays = async () => {
+    if (!loadedUser) {
+      setPageMessage("先に対象ユーザーの勤怠を読み込んでください。");
+      setPageMessageVariant("error");
+      return false;
+    }
+
     const saveTargetRows = attendanceRows.filter(
       (row) => row.isDirty || row.breaks.some((breakRow) => breakRow.isDirty),
     );
@@ -414,13 +444,14 @@ export default function UserAttendancePage() {
       }
     }
 
-    setPageMessage("月次勤怠を全体保存しています。");
+    setPageMessage("管理者として月次勤怠を全体保存しています。");
     setPageMessageVariant("info");
 
     let request;
 
     try {
       request = buildUpdateMonthlyAttendanceSaveRequest(
+        loadedUser.id,
         targetYear,
         targetMonthValue,
         commuterPass,
@@ -448,13 +479,13 @@ export default function UserAttendancePage() {
     setPageMessage(result.message || "月次勤怠を全体保存しました。");
     setPageMessageVariant("success");
 
-    await loadPageData();
+    await loadPageData(loadedUser);
 
     return true;
   };
 
   const handleSaveAllAndMove = async () => {
-    if (!pendingTargetMonth) {
+    if (!pendingTargetMonth || !loadedUser) {
       return;
     }
 
@@ -464,20 +495,44 @@ export default function UserAttendancePage() {
       return;
     }
 
+    const nextParsedMonth = parseTargetMonth(pendingTargetMonth);
+
     setPendingTargetMonth(null);
     setTargetMonth(pendingTargetMonth);
+
+    await loadPageData(
+      loadedUser,
+      nextParsedMonth.targetYear,
+      nextParsedMonth.targetMonthValue,
+    );
   };
 
-  const handleDiscardAndMove = () => {
+  const handleDiscardAndMove = async () => {
     if (!pendingTargetMonth) {
       return;
     }
 
+    const nextParsedMonth = parseTargetMonth(pendingTargetMonth);
+
     setPendingTargetMonth(null);
     setTargetMonth(pendingTargetMonth);
+
+    if (loadedUser) {
+      await loadPageData(
+        loadedUser,
+        nextParsedMonth.targetYear,
+        nextParsedMonth.targetMonthValue,
+      );
+    }
   };
 
   const handleResetAttendanceDay = (row: AttendanceViewRow) => {
+    if (!loadedUser) {
+      setPageMessage("先に対象ユーザーの勤怠を読み込んでください。");
+      setPageMessageVariant("error");
+      return;
+    }
+
     setAttendanceRows((currentRows) =>
       currentRows.map((currentRow) =>
         currentRow.workDate === row.workDate ? resetAttendanceViewRow(currentRow) : currentRow,
@@ -546,18 +601,26 @@ export default function UserAttendancePage() {
   };
 
   const handleMonthlySubmit = async () => {
+    if (!loadedUser) {
+      setPageMessage("先に対象ユーザーの勤怠を読み込んでください。");
+      setPageMessageVariant("error");
+      return;
+    }
+
     if (hasUnsavedChanges) {
       setPageMessage("未保存の変更があります。先に全体保存してください。");
       setPageMessageVariant("warning");
       return;
     }
 
-    setPageMessage("月次申請しています。");
+    setPageMessage("管理者として月次申請しています。");
     setPageMessageVariant("info");
 
     const result = await submitMonthlyAttendanceRequest({
+      targetUserId: loadedUser.id,
       targetYear,
       targetMonth: targetMonthValue,
+      requestMemo: null,
     });
 
     if (result.error || !result.data) {
@@ -566,26 +629,36 @@ export default function UserAttendancePage() {
       return;
     }
 
-    setMonthlyAttendanceRequest(result.data.monthlyAttendanceRequest);
+    const data = result.data;
+
+    setMonthlyAttendanceRequest(data.monthlyAttendanceRequest);
     setPageMessage(result.message || "月次申請しました。");
     setPageMessageVariant("success");
 
-    await loadPageData();
+    await loadPageData(loadedUser);
   };
 
   const handleMonthlyWithdraw = async () => {
+    if (!loadedUser) {
+      setPageMessage("先に対象ユーザーの勤怠を読み込んでください。");
+      setPageMessageVariant("error");
+      return;
+    }
+
     if (hasUnsavedChanges) {
       setPageMessage("未保存の変更があります。先に全体保存するか、変更を破棄してください。");
       setPageMessageVariant("warning");
       return;
     }
 
-    setPageMessage("月次申請を取り下げています。");
+    setPageMessage("管理者として月次申請を取り下げています。");
     setPageMessageVariant("info");
 
     const result = await withdrawMonthlyAttendanceRequest({
+      targetUserId: loadedUser.id,
       targetYear,
       targetMonth: targetMonthValue,
+      canceledReason: null,
     });
 
     if (result.error || !result.data) {
@@ -594,20 +667,105 @@ export default function UserAttendancePage() {
       return;
     }
 
-    setMonthlyAttendanceRequest(result.data.monthlyAttendanceRequest);
+    const data = result.data;
+
+    setMonthlyAttendanceRequest(data.monthlyAttendanceRequest);
     setPageMessage(result.message || "月次申請を取り下げました。");
     setPageMessageVariant("success");
 
-    await loadPageData();
+    await loadPageData(loadedUser);
+  };
+
+  const handleApproveMonthlyAttendanceRequest = async () => {
+    if (!loadedUser || !monthlyAttendanceRequest?.id) {
+      setPageMessage("承認対象の月次申請がありません。");
+      setPageMessageVariant("error");
+      return;
+    }
+
+    if (hasUnsavedChanges) {
+      setPageMessage("未保存の変更があります。先に全体保存してください。");
+      setPageMessageVariant("warning");
+      return;
+    }
+
+    setPageMessage("月次申請を承認しています。");
+    setPageMessageVariant("info");
+
+    const result = await approveMonthlyAttendanceRequest({
+      targetRequestId: monthlyAttendanceRequest.id,
+    });
+
+    if (result.error || !result.data) {
+      setPageMessage(result.message || "月次申請の承認に失敗しました。");
+      setPageMessageVariant("error");
+      return;
+    }
+
+    const data = result.data;
+
+    setMonthlyAttendanceRequest(data.monthlyAttendanceRequest);
+    setPageMessage(result.message || "月次申請を承認しました。");
+    setPageMessageVariant("success");
+
+    await loadPageData(loadedUser);
+  };
+
+  const handleRejectMonthlyAttendanceRequest = async () => {
+    if (!loadedUser || !monthlyAttendanceRequest?.id) {
+      setPageMessage("否認対象の月次申請がありません。");
+      setPageMessageVariant("error");
+      return;
+    }
+
+    if (hasUnsavedChanges) {
+      setPageMessage("未保存の変更があります。先に全体保存してください。");
+      setPageMessageVariant("warning");
+      return;
+    }
+
+    const rejectedReason = window.prompt("否認理由を入力してください。");
+
+    if (rejectedReason === null) {
+      return;
+    }
+
+    if (rejectedReason.trim() === "") {
+      setPageMessage("否認理由を入力してください。");
+      setPageMessageVariant("error");
+      return;
+    }
+
+    setPageMessage("月次申請を否認しています。");
+    setPageMessageVariant("info");
+
+    const result = await rejectMonthlyAttendanceRequest({
+      targetRequestId: monthlyAttendanceRequest.id,
+      rejectedReason: rejectedReason.trim(),
+    });
+
+    if (result.error || !result.data) {
+      setPageMessage(result.message || "月次申請の否認に失敗しました。");
+      setPageMessageVariant("error");
+      return;
+    }
+
+    const data = result.data;
+
+    setMonthlyAttendanceRequest(data.monthlyAttendanceRequest);
+    setPageMessage(result.message || "月次申請を否認しました。");
+    setPageMessageVariant("success");
+
+    await loadPageData(loadedUser);
   };
 
   if (isLoading || !user) {
     return (
       <PageContainer>
-        <UserSideMenu />
+        <AdminSideMenu />
 
         <section className={styles.loadingCard}>
-          <PageTitle title="勤怠入力" description="ログイン情報を確認しています。" />
+          <PageTitle title="管理者 勤怠編集" description="ログイン情報を確認しています。" />
           <MessageBox variant="info">{message}</MessageBox>
         </section>
       </PageContainer>
@@ -616,22 +774,32 @@ export default function UserAttendancePage() {
 
   return (
     <PageContainer>
-      <UserSideMenu />
+      <AdminSideMenu />
 
       <div className={styles.pageWrap}>
         <section className={styles.pageCard}>
+          <AdminUserSearch
+            selectedUser={selectedUser}
+            disabled={hasUnsavedChanges || isPageLoading}
+            onSelectUser={handleSelectUser}
+          />
+
           <AttendanceMonthHeader
             targetMonth={targetMonth}
             monthlyStatus={monthlyStatus}
-            monthlySubmitDisabled={isUserMonthlySubmitDisabled(
-              monthlyStatus,
-              hasUnsavedChanges,
-            )}
-            monthlyWithdrawDisabled={isUserMonthlyWithdrawDisabled(
-              monthlyStatus,
-              hasUnsavedChanges,
-            )}
-            saveDisabled={!hasUnsavedChanges}
+            monthlySubmitDisabled={
+              !loadedUser ||
+              hasUnsavedChanges ||
+              isPageLoading ||
+              monthlyAttendanceRequest?.canSubmit !== true
+            }
+            monthlyWithdrawDisabled={
+              !loadedUser ||
+              hasUnsavedChanges ||
+              isPageLoading ||
+              monthlyAttendanceRequest?.canCancel !== true
+            }
+            saveDisabled={!loadedUser || !hasUnsavedChanges || isPageLoading}
             onChangeMonth={handleChangeMonth}
             onPreviousMonth={handlePreviousMonth}
             onNextMonth={handleNextMonth}
@@ -704,9 +872,19 @@ export default function UserAttendancePage() {
             </div>
           </div>
 
+          <AdminApprovalActions
+            monthlyStatus={monthlyStatus}
+            monthlyRequestId={monthlyAttendanceRequest?.id ?? null}
+            disabled={!loadedUser || hasUnsavedChanges || isPageLoading}
+            canApprove={monthlyAttendanceRequest?.canApprove === true}
+            canReject={monthlyAttendanceRequest?.canReject === true}
+            onApprove={handleApproveMonthlyAttendanceRequest}
+            onReject={handleRejectMonthlyAttendanceRequest}
+          />
+
           <MonthlyCommuterPassForm
             commuterPass={commuterPass}
-            disabled={isUserMonthlyCommuterPassLocked(monthlyStatus)}
+            disabled={!loadedUser || isPageLoading}
             onChange={updateCommuterPassForm}
             onReset={handleResetCommuterPass}
           />
@@ -714,7 +892,7 @@ export default function UserAttendancePage() {
           <AttendanceTable
             rows={attendanceRows}
             attendanceTypes={attendanceTypes}
-            getRowLocked={() => isUserAttendanceRowLocked(monthlyStatus)}
+            getRowLocked={() => !loadedUser || isPageLoading}
             onChangeRow={updateRow}
             onDeleteRow={handleResetAttendanceDay}
             onAddBreak={handleAddBreak}

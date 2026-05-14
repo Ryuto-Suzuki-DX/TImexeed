@@ -3,7 +3,7 @@
 import Button from "@/components/atoms/Button";
 import Input from "@/components/atoms/Input";
 import PageTitle from "@/components/atoms/PageTitle";
-import styles from "@/app/user/attendance/page.module.css";
+import styles from "./AttendanceMonthHeader.module.css";
 
 type AttendanceMonthHeaderProps = {
   targetMonth: string;

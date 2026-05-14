@@ -1,0 +1,73 @@
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.sectionTitle {
+  margin: 0 0 4px;
+  font-size: 18px;
+  color: #ea580c;
+}
+
+.sectionDescription {
+  margin: 0;
+  font-size: 12px;
+  color: #666666;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid #fed7aa;
+}
+
+.table {
+  width: 100%;
+  min-width: 1580px;
+  border-collapse: collapse;
+}
+
+.tableHeadRow {
+  background-color: #ffedd5;
+}
+
+.th {
+  padding: 10px;
+  border-bottom: 1px solid #fed7aa;
+  text-align: left;
+  font-size: 12px;
+  color: #9a3412;
+  white-space: nowrap;
+}
+
+.dateColumn {
+  width: 72px;
+}
+
+.planColumn {
+  width: 250px;
+}
+
+.actualColumn {
+  width: 330px;
+}
+
+.breakColumn {
+  width: 420px;
+}
+
+.transportColumn {
+  width: 300px;
+}
+
+.statusColumn {
+  width: 220px;
+}
+
+.actionColumn {
+  width: 110px;
+  min-width: 110px;
+}

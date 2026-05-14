@@ -1,0 +1,40 @@
+.statusBadge {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: bold;
+  border: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.statusDraft {
+  color: #6b7280;
+  background-color: #f9fafb;
+}
+
+.statusPending {
+  color: #1d4ed8;
+  background-color: #eff6ff;
+}
+
+.statusApproved {
+  color: #15803d;
+  background-color: #f0fdf4;
+}
+
+.statusRejected {
+  color: #b91c1c;
+  background-color: #fef2f2;
+}
+
+.statusRequiresRequest {
+  color: #b45309;
+  background-color: #fffbeb;
+}
+
+.statusNone {
+  color: #6b7280;
+  background-color: #f9fafb;
+}

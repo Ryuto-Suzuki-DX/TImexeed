@@ -7,8 +7,8 @@ import type {
   AttendanceBreakViewRow,
   AttendanceViewRow,
 } from "@/types/user/attendanceView";
-import AttendanceLockedText from "@/components/attendance/AttendanceLockedText";
-import styles from "@/app/user/attendance/page.module.css";
+import AttendanceLockedText from "@/components/attendance/lockedText/AttendanceLockedText";
+import styles from "./AttendanceRowItem.module.css";
 
 type AttendanceRowItemProps = {
   row: AttendanceViewRow;

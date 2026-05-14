@@ -1,7 +1,7 @@
 "use client";
 
 import { getStatusLabel } from "@/utils/attendance/attendanceStatus";
-import styles from "@/app/user/attendance/page.module.css";
+import styles from "./AttendanceStatusBadge.module.css";
 
 type AttendanceStatusBadgeProps = {
   status: string;
@@ -32,6 +32,13 @@ function getStatusClass(status: string, requiresRequest: boolean) {
   return styles.statusNone;
 }
 
-export default function AttendanceStatusBadge({ status, requiresRequest = false }: AttendanceStatusBadgeProps) {
-  return <span className={`${styles.statusBadge} ${getStatusClass(status, requiresRequest)}`}>{getStatusLabel(status)}</span>;
+export default function AttendanceStatusBadge({
+  status,
+  requiresRequest = false,
+}: AttendanceStatusBadgeProps) {
+  return (
+    <span className={`${styles.statusBadge} ${getStatusClass(status, requiresRequest)}`}>
+      {getStatusLabel(status)}
+    </span>
+  );
 }

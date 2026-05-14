@@ -1,0 +1,39 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.monthControl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.monthInput {
+  width: 170px;
+}
+
+@media (max-width: 960px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .monthControl {
+    width: 100%;
+    align-items: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  .monthControl {
+    align-items: stretch;
+  }
+
+  .monthInput {
+    width: 100%;
+  }
+}

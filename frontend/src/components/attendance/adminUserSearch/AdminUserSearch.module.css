@@ -1,0 +1,178 @@
+.searchSection {
+  margin-bottom: 20px;
+  padding: 18px;
+  border-radius: 16px;
+  background-color: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.sectionTitle {
+  margin: 0 0 4px;
+  font-size: 18px;
+  color: #ea580c;
+}
+
+.sectionDescription {
+  margin: 0;
+  font-size: 12px;
+  color: #666666;
+}
+
+.searchControl {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 90px;
+  gap: 10px;
+  align-items: end;
+}
+
+.searchMessage {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.selectedUserBox {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background-color: #ffffff;
+  border: 1px solid #fed7aa;
+}
+
+.selectedUserLabel {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #9a3412;
+}
+
+.selectedUserName {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: bold;
+  color: #111827;
+}
+
+.selectedUserSubText {
+  font-size: 11px;
+  font-weight: bold;
+  color: #6b7280;
+}
+
+.selectedUserEmail {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.resultList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.resultItem {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) 80px;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #fed7aa;
+  background-color: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.resultItem:hover {
+  background-color: #fff7ed;
+}
+
+.resultItem:disabled {
+  cursor: not-allowed;
+  color: #9ca3af;
+  background-color: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.resultItemSelected {
+  background-color: #ffedd5;
+  border-color: #fb923c;
+}
+
+.resultMain {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.resultName {
+  font-size: 13px;
+  font-weight: bold;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resultMeta {
+  font-size: 11px;
+  font-weight: bold;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.resultEmail {
+  font-size: 12px;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resultRole {
+  justify-self: end;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid #fed7aa;
+  background-color: #fff7ed;
+  font-size: 10px;
+  font-weight: bold;
+  color: #9a3412;
+  white-space: nowrap;
+}
+
+.loadMoreArea {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+@media (max-width: 960px) {
+  .searchControl {
+    grid-template-columns: 1fr;
+  }
+
+  .resultItem {
+    grid-template-columns: 1fr;
+  }
+
+  .resultRole {
+    justify-self: start;
+  }
+}

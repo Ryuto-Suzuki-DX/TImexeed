@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "src/app/admin/paid-leave-requests"  ],
+, "src/app/admin/paid-leave-requests", "src/components/attendance/adminApprovalActions"  ],
   "exclude": ["node_modules"]
 }

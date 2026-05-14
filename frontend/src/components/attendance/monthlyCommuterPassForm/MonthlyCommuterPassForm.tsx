@@ -3,7 +3,7 @@
 import Button from "@/components/atoms/Button";
 import Input from "@/components/atoms/Input";
 import type { CommuterPassViewForm } from "@/types/user/attendanceView";
-import styles from "@/app/user/attendance/page.module.css";
+import styles from "./MonthlyCommuterPassForm.module.css";
 
 type MonthlyCommuterPassFormProps = {
   commuterPass: CommuterPassViewForm;
