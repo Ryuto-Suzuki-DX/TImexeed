@@ -1,10 +1,13 @@
 package routes
 
 import (
+	"context"
+
 	"timexeed/backend/internal/modules/admin/builders"
 	"timexeed/backend/internal/modules/admin/controllers"
 	"timexeed/backend/internal/modules/admin/repositories"
 	"timexeed/backend/internal/modules/admin/services"
+	"timexeed/backend/internal/storage"
 
 	"timexeed/backend/internal/middlewares"
 
@@ -105,6 +108,24 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	externalStorageLinkService := services.NewExternalStorageLinkService(externalStorageLinkBuilder, externalStorageLinkRepository)
 	externalStorageLinkController := controllers.NewExternalStorageLinkController(externalStorageLinkService)
 
+	// Google Drive
+	//
+	// 注意：
+	// ・環境変数が未設定でもアプリ起動自体は止めない
+	// ・未設定の場合、領収書アップロード/表示時にService側でエラーを返す
+	googleDriveService, _ := storage.NewGoogleDriveServiceFromEnv(context.Background())
+
+	// 経費
+	expenseBuilder := builders.NewExpenseBuilder(db)
+	expenseRepository := repositories.NewExpenseRepository(db)
+	expenseService := services.NewExpenseService(
+		expenseBuilder,
+		expenseRepository,
+		externalStorageLinkRepository,
+		googleDriveService,
+	)
+	expenseController := controllers.NewExpenseController(expenseService)
+
 	// お知らせ
 	notificationBuilder := builders.NewNotificationBuilder(db)
 	notificationRepository := repositories.NewNotificationRepository(db)
@@ -189,10 +210,15 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 
 		// 外部ストレージリンク
 		admin.POST("/external-storage-links/search", externalStorageLinkController.SearchExternalStorageLinks)
-		admin.POST("/external-storage-links/detail", externalStorageLinkController.GetExternalStorageLinkDetail)
-		admin.POST("/external-storage-links/create", externalStorageLinkController.CreateExternalStorageLink)
 		admin.POST("/external-storage-links/update", externalStorageLinkController.UpdateExternalStorageLink)
-		admin.POST("/external-storage-links/delete", externalStorageLinkController.DeleteExternalStorageLink)
+
+		// 経費
+		admin.POST("/expenses/search", expenseController.SearchExpenses)
+		admin.POST("/expenses/detail", expenseController.GetExpenseDetail)
+		admin.POST("/expenses/create", expenseController.CreateExpense)
+		admin.POST("/expenses/update", expenseController.UpdateExpense)
+		admin.POST("/expenses/delete", expenseController.DeleteExpense)
+		admin.POST("/expenses/receipt/view", expenseController.ViewExpenseReceipt)
 
 		// お知らせ
 		admin.POST("/notifications/search", notificationController.SearchNotifications)

@@ -13,12 +13,11 @@ import (
  * 管理者用外部ストレージリンクController
  *
  * 役割：
- * ・リクエストJSONをRequest型にbindする
- * ・bind失敗時はControllerでcode/message/detailsを作って返す
- * ・Serviceを呼び出す
- * ・Service結果を共通レスポンス形式で返す
+ * ・固定された外部ストレージリンク一覧を取得する
+ * ・固定された外部ストレージリンクのURL/説明/メモを更新する
  *
  * 注意：
+ * ・管理者が任意にリンクを新規作成/削除する運用にはしない
  * ・DB処理はしない
  * ・業務ルールは書かない
  * ・Requestを別の型へ詰め直さない
@@ -59,48 +58,6 @@ func (controller *ExternalStorageLinkController) SearchExternalStorageLinks(c *g
 }
 
 /*
- * 取得
- *
- * POST /admin/external-storage-links/detail
- */
-func (controller *ExternalStorageLinkController) GetExternalStorageLinkDetail(c *gin.Context) {
-	var req types.ExternalStorageLinkDetailRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		responses.JSON(c, results.BadRequest(
-			"GET_EXTERNAL_STORAGE_LINK_DETAIL_INVALID_REQUEST",
-			"外部ストレージリンク詳細取得のリクエスト形式が正しくありません",
-			err.Error(),
-		))
-		return
-	}
-
-	result := controller.externalStorageLinkService.GetExternalStorageLinkDetail(req)
-	responses.JSON(c, result)
-}
-
-/*
- * 新規作成
- *
- * POST /admin/external-storage-links/create
- */
-func (controller *ExternalStorageLinkController) CreateExternalStorageLink(c *gin.Context) {
-	var req types.CreateExternalStorageLinkRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		responses.JSON(c, results.BadRequest(
-			"CREATE_EXTERNAL_STORAGE_LINK_INVALID_REQUEST",
-			"外部ストレージリンク作成のリクエスト形式が正しくありません",
-			err.Error(),
-		))
-		return
-	}
-
-	result := controller.externalStorageLinkService.CreateExternalStorageLink(req)
-	responses.JSON(c, result)
-}
-
-/*
  * 更新
  *
  * POST /admin/external-storage-links/update
@@ -118,26 +75,5 @@ func (controller *ExternalStorageLinkController) UpdateExternalStorageLink(c *gi
 	}
 
 	result := controller.externalStorageLinkService.UpdateExternalStorageLink(req)
-	responses.JSON(c, result)
-}
-
-/*
- * 論理削除
- *
- * POST /admin/external-storage-links/delete
- */
-func (controller *ExternalStorageLinkController) DeleteExternalStorageLink(c *gin.Context) {
-	var req types.DeleteExternalStorageLinkRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		responses.JSON(c, results.BadRequest(
-			"DELETE_EXTERNAL_STORAGE_LINK_INVALID_REQUEST",
-			"外部ストレージリンク削除のリクエスト形式が正しくありません",
-			err.Error(),
-		))
-		return
-	}
-
-	result := controller.externalStorageLinkService.DeleteExternalStorageLink(req)
 	responses.JSON(c, result)
 }

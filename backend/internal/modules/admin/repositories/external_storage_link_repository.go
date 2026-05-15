@@ -16,7 +16,6 @@ type ExternalStorageLinkRepository interface {
 	FindExternalStorageLinks(query *gorm.DB) ([]models.ExternalStorageLink, results.Result)
 	FindExternalStorageLink(query *gorm.DB) (models.ExternalStorageLink, results.Result)
 	CountExternalStorageLinks(query *gorm.DB) (int64, results.Result)
-	CreateExternalStorageLink(externalStorageLink models.ExternalStorageLink) (models.ExternalStorageLink, results.Result)
 	SaveExternalStorageLink(externalStorageLink models.ExternalStorageLink) (models.ExternalStorageLink, results.Result)
 }
 
@@ -106,26 +105,6 @@ func (repository *externalStorageLinkRepository) CountExternalStorageLinks(query
 		nil,
 		"COUNT_EXTERNAL_STORAGE_LINKS_SUCCESS",
 		"外部ストレージリンク件数を取得しました",
-		nil,
-	)
-}
-
-/*
- * 新規作成
- */
-func (repository *externalStorageLinkRepository) CreateExternalStorageLink(externalStorageLink models.ExternalStorageLink) (models.ExternalStorageLink, results.Result) {
-	if err := repository.db.Create(&externalStorageLink).Error; err != nil {
-		return models.ExternalStorageLink{}, results.InternalServerError(
-			"CREATE_EXTERNAL_STORAGE_LINK_FAILED",
-			"外部ストレージリンクの作成に失敗しました",
-			err.Error(),
-		)
-	}
-
-	return externalStorageLink, results.OK(
-		nil,
-		"CREATE_EXTERNAL_STORAGE_LINK_SUCCESS",
-		"外部ストレージリンクを作成しました",
 		nil,
 	)
 }

@@ -16,10 +16,7 @@ import (
  */
 type ExternalStorageLinkService interface {
 	SearchExternalStorageLinks(req types.SearchExternalStorageLinksRequest) results.Result
-	GetExternalStorageLinkDetail(req types.ExternalStorageLinkDetailRequest) results.Result
-	CreateExternalStorageLink(req types.CreateExternalStorageLinkRequest) results.Result
 	UpdateExternalStorageLink(req types.UpdateExternalStorageLinkRequest) results.Result
-	DeleteExternalStorageLink(req types.DeleteExternalStorageLinkRequest) results.Result
 }
 
 /*
@@ -39,6 +36,7 @@ type ExternalStorageLinkService interface {
  * ・Serviceではc.JSONしない
  * ・DBへの直接アクセスはRepositoryに任せる
  * ・Builder/Repositoryのエラー文言をServiceで作り直さない
+ * ・管理者が任意に外部ストレージリンクを作成/削除する運用にはしない
  */
 type externalStorageLinkService struct {
 	externalStorageLinkBuilder    builders.ExternalStorageLinkBuilder
@@ -143,75 +141,10 @@ func (service *externalStorageLinkService) SearchExternalStorageLinks(req types.
 }
 
 /*
- * 詳細
- */
-func (service *externalStorageLinkService) GetExternalStorageLinkDetail(req types.ExternalStorageLinkDetailRequest) results.Result {
-	query, buildResult := service.externalStorageLinkBuilder.BuildFindExternalStorageLinkByIDQuery(req.ExternalStorageLinkID)
-	if buildResult.Error {
-		return buildResult
-	}
-
-	externalStorageLink, findResult := service.externalStorageLinkRepository.FindExternalStorageLink(query)
-	if findResult.Error {
-		return findResult
-	}
-
-	return results.OK(
-		types.ExternalStorageLinkDetailResponse{
-			ExternalStorageLink: toExternalStorageLinkResponse(externalStorageLink),
-		},
-		"GET_EXTERNAL_STORAGE_LINK_DETAIL_SUCCESS",
-		"外部ストレージリンク詳細を取得しました",
-		nil,
-	)
-}
-
-/*
- * 新規作成
- */
-func (service *externalStorageLinkService) CreateExternalStorageLink(req types.CreateExternalStorageLinkRequest) results.Result {
-	linkTypeCountQuery, buildLinkTypeCountResult := service.externalStorageLinkBuilder.BuildCountActiveExternalStorageLinkByLinkTypeQuery(req.LinkType)
-	if buildLinkTypeCountResult.Error {
-		return buildLinkTypeCountResult
-	}
-
-	linkTypeCount, linkTypeCountResult := service.externalStorageLinkRepository.CountExternalStorageLinks(linkTypeCountQuery)
-	if linkTypeCountResult.Error {
-		return linkTypeCountResult
-	}
-
-	if linkTypeCount > 0 {
-		return results.Conflict(
-			"CREATE_EXTERNAL_STORAGE_LINK_TYPE_ALREADY_EXISTS",
-			"このリンク種別は既に使用されています",
-			map[string]any{
-				"linkType": req.LinkType,
-			},
-		)
-	}
-
-	externalStorageLink, buildExternalStorageLinkResult := service.externalStorageLinkBuilder.BuildCreateExternalStorageLinkModel(req)
-	if buildExternalStorageLinkResult.Error {
-		return buildExternalStorageLinkResult
-	}
-
-	createdExternalStorageLink, createResult := service.externalStorageLinkRepository.CreateExternalStorageLink(externalStorageLink)
-	if createResult.Error {
-		return createResult
-	}
-
-	return results.Created(
-		types.CreateExternalStorageLinkResponse{
-			ExternalStorageLink: toExternalStorageLinkResponse(createdExternalStorageLink),
-		},
-		"CREATE_EXTERNAL_STORAGE_LINK_SUCCESS",
-		"外部ストレージリンクを作成しました",
-		nil,
-	)
-}
-
-/*
  * 更新
+ *
+ * 固定されたリンク種別/リンク名は更新しない。
+ * 管理者が変更できるのは URL / 説明 / 管理メモ のみ。
  */
 func (service *externalStorageLinkService) UpdateExternalStorageLink(req types.UpdateExternalStorageLinkRequest) results.Result {
 	findQuery, buildFindResult := service.externalStorageLinkBuilder.BuildFindExternalStorageLinkByIDQuery(req.ExternalStorageLinkID)
@@ -222,27 +155,6 @@ func (service *externalStorageLinkService) UpdateExternalStorageLink(req types.U
 	currentExternalStorageLink, findResult := service.externalStorageLinkRepository.FindExternalStorageLink(findQuery)
 	if findResult.Error {
 		return findResult
-	}
-
-	linkTypeCountQuery, buildLinkTypeCountResult := service.externalStorageLinkBuilder.BuildCountActiveExternalStorageLinkByLinkTypeExceptIDQuery(req.LinkType, req.ExternalStorageLinkID)
-	if buildLinkTypeCountResult.Error {
-		return buildLinkTypeCountResult
-	}
-
-	linkTypeCount, linkTypeCountResult := service.externalStorageLinkRepository.CountExternalStorageLinks(linkTypeCountQuery)
-	if linkTypeCountResult.Error {
-		return linkTypeCountResult
-	}
-
-	if linkTypeCount > 0 {
-		return results.Conflict(
-			"UPDATE_EXTERNAL_STORAGE_LINK_TYPE_ALREADY_EXISTS",
-			"このリンク種別は既に使用されています",
-			map[string]any{
-				"linkType":              req.LinkType,
-				"externalStorageLinkId": req.ExternalStorageLinkID,
-			},
-		)
 	}
 
 	updatedExternalStorageLink, buildUpdateResult := service.externalStorageLinkBuilder.BuildUpdateExternalStorageLinkModel(
@@ -264,40 +176,6 @@ func (service *externalStorageLinkService) UpdateExternalStorageLink(req types.U
 		},
 		"UPDATE_EXTERNAL_STORAGE_LINK_SUCCESS",
 		"外部ストレージリンクを更新しました",
-		nil,
-	)
-}
-
-/*
- * 論理削除
- */
-func (service *externalStorageLinkService) DeleteExternalStorageLink(req types.DeleteExternalStorageLinkRequest) results.Result {
-	findQuery, buildFindResult := service.externalStorageLinkBuilder.BuildFindExternalStorageLinkByIDQuery(req.ExternalStorageLinkID)
-	if buildFindResult.Error {
-		return buildFindResult
-	}
-
-	currentExternalStorageLink, findResult := service.externalStorageLinkRepository.FindExternalStorageLink(findQuery)
-	if findResult.Error {
-		return findResult
-	}
-
-	deletedExternalStorageLink, buildDeleteResult := service.externalStorageLinkBuilder.BuildDeleteExternalStorageLinkModel(currentExternalStorageLink)
-	if buildDeleteResult.Error {
-		return buildDeleteResult
-	}
-
-	_, saveResult := service.externalStorageLinkRepository.SaveExternalStorageLink(deletedExternalStorageLink)
-	if saveResult.Error {
-		return saveResult
-	}
-
-	return results.OK(
-		types.DeleteExternalStorageLinkResponse{
-			ExternalStorageLinkID: req.ExternalStorageLinkID,
-		},
-		"DELETE_EXTERNAL_STORAGE_LINK_SUCCESS",
-		"外部ストレージリンクを削除しました",
 		nil,
 	)
 }

@@ -26,3 +26,7 @@ postgres-data/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# シークレット
+secrets/
+.env

@@ -7,13 +7,7 @@ import PageContainer from "@/components/atoms/PageContainer";
 import PageTitle from "@/components/atoms/PageTitle";
 import AdminSideMenu from "@/components/sideMenu/AdminSideMenu";
 import { useRequireRole } from "@/hooks/useRequireRole";
-import {
-  createExternalStorageLink,
-  deleteExternalStorageLink,
-  getExternalStorageLinkDetail,
-  searchExternalStorageLinks,
-  updateExternalStorageLink,
-} from "@/api/admin/externalStorageLink";
+import { searchExternalStorageLinks, updateExternalStorageLink } from "@/api/admin/externalStorageLink";
 import type { ExternalStorageLinkResponse } from "@/types/admin/externalStorageLink";
 import styles from "./page.module.css";
 
@@ -72,7 +66,6 @@ export default function AdminExternalStorageLinksPage() {
   const [linkType, setLinkType] = useState("");
   const [searchedKeyword, setSearchedKeyword] = useState("");
   const [searchedLinkType, setSearchedLinkType] = useState("");
-  const [includeDeleted, setIncludeDeleted] = useState(false);
 
   const [externalStorageLinks, setExternalStorageLinks] = useState<ExternalStorageLinkResponse[]>([]);
   const [externalStorageLinkOffset, setExternalStorageLinkOffset] = useState(0);
@@ -81,20 +74,22 @@ export default function AdminExternalStorageLinksPage() {
   const [form, setForm] = useState<ExternalStorageLinkForm>(initialForm);
   const [isEditing, setIsEditing] = useState(false);
 
-  const [pageMessage, setPageMessage] = useState("外部ストレージリンクを検索・作成・編集できます。");
+  const [pageMessage, setPageMessage] = useState(
+    "固定された外部ストレージリンクのURL、説明、管理メモを編集できます。"
+  );
   const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
 
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [isExternalStorageLinkSearching, setIsExternalStorageLinkSearching] = useState(false);
 
   const formTitle = useMemo(() => {
-    return isEditing ? "外部ストレージリンク編集" : "外部ストレージリンク新規作成";
+    return isEditing ? "外部ストレージリンク編集" : "外部ストレージリンク設定";
   }, [isEditing]);
 
   const formDescription = useMemo(() => {
     return isEditing
-      ? "選択した外部ストレージリンクを更新します。"
-      : "Google DriveなどのフォルダURL・ファイルURLを登録します。";
+      ? "選択した固定リンクのURL、説明、管理メモを更新します。"
+      : "左側の一覧から編集するリンクを選択してください。";
   }, [isEditing]);
 
   const resetForm = () => {
@@ -104,8 +99,7 @@ export default function AdminExternalStorageLinksPage() {
 
   const handleSearchExternalStorageLinks = async (
     nextOffset: number,
-    append: boolean,
-    includeDeletedValue = includeDeleted
+    append: boolean
   ) => {
     setIsExternalStorageLinkSearching(true);
     setPageMessage("外部ストレージリンクを検索しています。");
@@ -117,7 +111,7 @@ export default function AdminExternalStorageLinksPage() {
     const result = await searchExternalStorageLinks({
       keyword: searchKeyword,
       linkType: searchLinkType,
-      includeDeleted: includeDeletedValue,
+      includeDeleted: false,
       offset: nextOffset,
       limit: 50,
     });
@@ -148,123 +142,44 @@ export default function AdminExternalStorageLinksPage() {
     setIsExternalStorageLinkSearching(false);
   };
 
-  const handleToggleIncludeDeleted = async () => {
-    const nextIncludeDeleted = !includeDeleted;
-
-    setIncludeDeleted(nextIncludeDeleted);
-    resetForm();
-    await handleSearchExternalStorageLinks(0, false, nextIncludeDeleted);
-  };
-
   const handleLoadMoreExternalStorageLinks = async () => {
     await handleSearchExternalStorageLinks(externalStorageLinkOffset, true);
   };
 
-  const handleStartCreate = () => {
-    resetForm();
-    setPageMessage("外部ストレージリンク情報を入力してください。");
-    setPageMessageVariant("info");
-  };
-
-  const handleStartEdit = async (externalStorageLink: ExternalStorageLinkResponse) => {
+  const handleStartEdit = (externalStorageLink: ExternalStorageLinkResponse) => {
     if (externalStorageLink.isDeleted) {
       setPageMessage("削除済みの外部ストレージリンクは編集できません。");
       setPageMessageVariant("warning");
       return;
     }
 
-    setIsPageLoading(true);
-    setPageMessage("外部ストレージリンク詳細を取得しています。");
-    setPageMessageVariant("info");
-
-    const result = await getExternalStorageLinkDetail({
-      externalStorageLinkId: externalStorageLink.id,
-    });
-
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "外部ストレージリンク詳細の取得に失敗しました。");
-      setPageMessageVariant("error");
-      setIsPageLoading(false);
-      return;
-    }
-
-    const detailData = result.data;
-    const externalStorageLinkDetail = detailData.externalStorageLink;
-
     setForm({
-      externalStorageLinkId: externalStorageLinkDetail.id,
-      linkType: externalStorageLinkDetail.linkType,
-      linkName: externalStorageLinkDetail.linkName,
-      url: externalStorageLinkDetail.url,
-      description: externalStorageLinkDetail.description ?? "",
-      memo: externalStorageLinkDetail.memo ?? "",
+      externalStorageLinkId: externalStorageLink.id,
+      linkType: externalStorageLink.linkType,
+      linkName: externalStorageLink.linkName,
+      url: externalStorageLink.url,
+      description: externalStorageLink.description ?? "",
+      memo: externalStorageLink.memo ?? "",
     });
 
     setIsEditing(true);
     setPageMessage("外部ストレージリンク情報を編集できます。");
     setPageMessageVariant("info");
-    setIsPageLoading(false);
   };
 
-  const validateForm = () => {
-    if (!form.linkType.trim()) {
-      setPageMessage("リンク種別を入力してください。");
-      setPageMessageVariant("error");
-      return false;
-    }
+  const handleOpenLink = (url: string) => {
+    const trimmedUrl = url.trim();
 
-    if (!form.linkName.trim()) {
-      setPageMessage("リンク名を入力してください。");
-      setPageMessageVariant("error");
-      return false;
-    }
-
-    if (!form.url.trim()) {
-      setPageMessage("URLを入力してください。");
-      setPageMessageVariant("error");
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleCreateExternalStorageLink = async () => {
-    if (!validateForm()) {
+    if (!trimmedUrl) {
+      setPageMessage("URLが設定されていません。");
+      setPageMessageVariant("warning");
       return;
     }
 
-    setIsPageLoading(true);
-    setPageMessage("外部ストレージリンクを作成しています。");
-    setPageMessageVariant("info");
-
-    const result = await createExternalStorageLink({
-      linkType: form.linkType,
-      linkName: form.linkName,
-      url: form.url,
-      description: toNullableText(form.description),
-      memo: toNullableText(form.memo),
-    });
-
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "外部ストレージリンクの作成に失敗しました。");
-      setPageMessageVariant("error");
-      setIsPageLoading(false);
-      return;
-    }
-
-    resetForm();
-    await handleSearchExternalStorageLinks(0, false);
-
-    setPageMessage(result.message || "外部ストレージリンクを作成しました。");
-    setPageMessageVariant("success");
-    setIsPageLoading(false);
+    window.open(trimmedUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleUpdateExternalStorageLink = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
     if (form.externalStorageLinkId === null) {
       setPageMessage("更新対象の外部ストレージリンクが選択されていません。");
       setPageMessageVariant("error");
@@ -277,9 +192,7 @@ export default function AdminExternalStorageLinksPage() {
 
     const result = await updateExternalStorageLink({
       externalStorageLinkId: form.externalStorageLinkId,
-      linkType: form.linkType,
-      linkName: form.linkName,
-      url: form.url,
+      url: form.url.trim(),
       description: toNullableText(form.description),
       memo: toNullableText(form.memo),
     });
@@ -291,49 +204,24 @@ export default function AdminExternalStorageLinksPage() {
       return;
     }
 
-    resetForm();
-    await handleSearchExternalStorageLinks(0, false);
+    const updatedExternalStorageLink = result.data.externalStorageLink;
 
-    setPageMessage(result.message || "外部ストレージリンクを更新しました。");
-    setPageMessageVariant("success");
-    setIsPageLoading(false);
-  };
+    setExternalStorageLinks((current) =>
+      current.map((externalStorageLink) =>
+        externalStorageLink.id === updatedExternalStorageLink.id ? updatedExternalStorageLink : externalStorageLink
+      )
+    );
 
-  const handleDeleteExternalStorageLink = async (externalStorageLink: ExternalStorageLinkResponse) => {
-    if (externalStorageLink.isDeleted) {
-      setPageMessage("この外部ストレージリンクはすでに削除済みです。");
-      setPageMessageVariant("warning");
-      return;
-    }
-
-    const confirmed = window.confirm(`${externalStorageLink.linkName} を削除しますか？`);
-
-    if (!confirmed) {
-      return;
-    }
-
-    setIsPageLoading(true);
-    setPageMessage("外部ストレージリンクを削除しています。");
-    setPageMessageVariant("info");
-
-    const result = await deleteExternalStorageLink({
-      externalStorageLinkId: externalStorageLink.id,
+    setForm({
+      externalStorageLinkId: updatedExternalStorageLink.id,
+      linkType: updatedExternalStorageLink.linkType,
+      linkName: updatedExternalStorageLink.linkName,
+      url: updatedExternalStorageLink.url,
+      description: updatedExternalStorageLink.description ?? "",
+      memo: updatedExternalStorageLink.memo ?? "",
     });
 
-    if (result.error) {
-      setPageMessage(result.message || "外部ストレージリンクの削除に失敗しました。");
-      setPageMessageVariant("error");
-      setIsPageLoading(false);
-      return;
-    }
-
-    if (form.externalStorageLinkId === externalStorageLink.id) {
-      resetForm();
-    }
-
-    await handleSearchExternalStorageLinks(0, false);
-
-    setPageMessage(result.message || "外部ストレージリンクを削除しました。");
+    setPageMessage(result.message || "外部ストレージリンクを更新しました。");
     setPageMessageVariant("success");
     setIsPageLoading(false);
   };
@@ -377,7 +265,7 @@ export default function AdminExternalStorageLinksPage() {
           <div className={styles.headerArea}>
             <PageTitle
               title="外部ストレージリンク管理"
-              description="Google DriveなどのフォルダURL・ファイルURLを管理します。"
+              description="Google Driveなど、用途ごとに固定された外部ストレージリンクを設定します。"
             />
 
             <MessageBox variant={pageMessageVariant}>{isPageLoading ? "処理中..." : pageMessage}</MessageBox>
@@ -387,13 +275,11 @@ export default function AdminExternalStorageLinksPage() {
             <section className={styles.searchPanel}>
               <div className={styles.sectionHeader}>
                 <div>
-                  <h2 className={styles.sectionTitle}>外部ストレージリンク検索</h2>
-                  <p className={styles.sectionDescription}>リンク名、リンク種別、URLなどで検索できます。</p>
+                  <h2 className={styles.sectionTitle}>リンク一覧</h2>
+                  <p className={styles.sectionDescription}>
+                    固定された用途ごとのリンクを表示します。編集ボタンからURL、説明、管理メモを変更できます。
+                  </p>
                 </div>
-
-                <Button type="button" variant="secondary" onClick={handleStartCreate}>
-                  新規作成
-                </Button>
               </div>
 
               <div className={styles.searchForm}>
@@ -401,6 +287,7 @@ export default function AdminExternalStorageLinksPage() {
                   className={styles.searchInput}
                   value={keyword}
                   placeholder="リンク名・URLなどで検索"
+                  aria-label="リンク名・URLなどで検索"
                   onChange={(event) => setKeyword(event.target.value)}
                 />
 
@@ -408,6 +295,7 @@ export default function AdminExternalStorageLinksPage() {
                   className={styles.searchInput}
                   value={linkType}
                   placeholder="リンク種別で絞り込み"
+                  aria-label="リンク種別で絞り込み"
                   onChange={(event) => setLinkType(event.target.value)}
                 />
 
@@ -421,70 +309,62 @@ export default function AdminExternalStorageLinksPage() {
                 </Button>
               </div>
 
-              <button type="button" className={styles.switchRow} onClick={handleToggleIncludeDeleted}>
-                <span className={`${styles.switch} ${includeDeleted ? styles.switchOn : ""}`}>
-                  <span className={styles.switchThumb} />
-                </span>
-
-                <span className={styles.switchText}>削除済みリンクも含める</span>
-              </button>
-
-              <div className={styles.departmentList}>
+              <div className={styles.linkList}>
                 {externalStorageLinks.map((externalStorageLink) => (
                   <article
                     key={externalStorageLink.id}
-                    className={`${styles.departmentRow} ${externalStorageLink.isDeleted ? styles.departmentRowDeleted : ""}`}
+                    className={`${styles.linkRow} ${
+                      form.externalStorageLinkId === externalStorageLink.id ? styles.linkRowSelected : ""
+                    } ${externalStorageLink.isDeleted ? styles.linkRowDeleted : ""}`}
                   >
-                    <div className={styles.departmentRowMain}>
-                      <div>
-                        <div className={styles.departmentNameLine}>
-                          <p className={styles.departmentName}>{externalStorageLink.linkName}</p>
+                    <div className={styles.linkRowMain}>
+                      <div className={styles.linkInfo}>
+                        <div className={styles.linkNameLine}>
+                          <p className={styles.linkName}>{externalStorageLink.linkName}</p>
+
+                          <span className={styles.linkTypeBadge}>{externalStorageLink.linkType}</span>
 
                           {externalStorageLink.isDeleted && <span className={styles.deletedBadge}>削除済み</span>}
                         </div>
 
-                        <p className={styles.departmentMeta}>リンク種別：{externalStorageLink.linkType}</p>
-
-                        <p className={styles.departmentMeta}>URL：{externalStorageLink.url}</p>
+                        <p className={styles.linkUrl}>{externalStorageLink.url || "URL未設定"}</p>
 
                         {externalStorageLink.description && (
-                          <p className={styles.departmentMeta}>説明：{externalStorageLink.description}</p>
+                          <p className={styles.linkMeta}>説明：{externalStorageLink.description}</p>
                         )}
 
-                        <p className={styles.departmentMeta}>
+                        <p className={styles.linkMeta}>
                           ID：{externalStorageLink.id} / 作成日：{formatDate(externalStorageLink.createdAt)} / 更新日：
                           {formatDate(externalStorageLink.updatedAt)}
                         </p>
-
-                        {externalStorageLink.deletedAt && (
-                          <p className={styles.departmentMeta}>削除日：{formatDate(externalStorageLink.deletedAt)}</p>
-                        )}
                       </div>
 
                       <div className={styles.rowActions}>
                         <Button
                           type="button"
                           variant="secondary"
-                          onClick={() => handleStartEdit(externalStorageLink)}
-                          disabled={externalStorageLink.isDeleted}
+                          onClick={() => handleOpenLink(externalStorageLink.url)}
+                          disabled={!externalStorageLink.url.trim()}
                         >
-                          編集
+                          開く
                         </Button>
 
                         <Button
                           type="button"
-                          variant="danger"
-                          onClick={() => handleDeleteExternalStorageLink(externalStorageLink)}
+                          variant="primary"
+                          onClick={() => handleStartEdit(externalStorageLink)}
                           disabled={externalStorageLink.isDeleted}
                         >
-                          削除
+                          編集
                         </Button>
                       </div>
                     </div>
                   </article>
                 ))}
 
-                {externalStorageLinks.length === 0 && <p className={styles.emptyText}>外部ストレージリンクが見つかりません。</p>}
+                {externalStorageLinks.length === 0 && (
+                  <p className={styles.emptyText}>外部ストレージリンクが見つかりません。</p>
+                )}
               </div>
 
               {externalStorageLinkHasMore && (
@@ -515,69 +395,66 @@ export default function AdminExternalStorageLinksPage() {
                 )}
               </div>
 
-              <div className={styles.formGrid}>
-                <label className={styles.fieldWide}>
-                  <span className={styles.fieldLabel}>リンク種別</span>
-                  <input
-                    className={styles.input}
-                    value={form.linkType}
-                    placeholder="例：EXPENSE_RECEIPT_BOX"
-                    onChange={(event) => setForm((current) => ({ ...current, linkType: event.target.value }))}
-                  />
-                </label>
+              {!isEditing && (
+                <div className={styles.notSelectedBox}>
+                  <p className={styles.notSelectedTitle}>編集対象が選択されていません</p>
+                  <p className={styles.notSelectedText}>左側のリンク一覧から「編集」を押してください。</p>
+                </div>
+              )}
 
-                <label className={styles.fieldWide}>
-                  <span className={styles.fieldLabel}>リンク名</span>
-                  <input
-                    className={styles.input}
-                    value={form.linkName}
-                    placeholder="例：経費レシート格納先"
-                    onChange={(event) => setForm((current) => ({ ...current, linkName: event.target.value }))}
-                  />
-                </label>
+              {isEditing && (
+                <>
+                  <div className={styles.readOnlyBox}>
+                    <div>
+                      <p className={styles.readOnlyLabel}>リンク名</p>
+                      <p className={styles.readOnlyValue}>{form.linkName}</p>
+                    </div>
 
-                <label className={styles.fieldWide}>
-                  <span className={styles.fieldLabel}>URL</span>
-                  <input
-                    className={styles.input}
-                    value={form.url}
-                    placeholder="例：https://drive.google.com/..."
-                    onChange={(event) => setForm((current) => ({ ...current, url: event.target.value }))}
-                  />
-                </label>
+                    <div>
+                      <p className={styles.readOnlyLabel}>リンク種別</p>
+                      <p className={styles.readOnlyValue}>{form.linkType}</p>
+                    </div>
+                  </div>
 
-                <label className={styles.fieldWide}>
-                  <span className={styles.fieldLabel}>説明</span>
-                  <textarea
-                    className={styles.input}
-                    value={form.description}
-                    placeholder="このリンクの用途を入力"
-                    onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                  />
-                </label>
+                  <div className={styles.formGrid}>
+                    <label className={styles.fieldWide}>
+                      <span className={styles.fieldLabel}>URL</span>
+                      <input
+                        className={styles.input}
+                        value={form.url}
+                        placeholder="例：https://drive.google.com/..."
+                        onChange={(event) => setForm((current) => ({ ...current, url: event.target.value }))}
+                      />
+                    </label>
 
-                <label className={styles.fieldWide}>
-                  <span className={styles.fieldLabel}>管理メモ</span>
-                  <textarea
-                    className={styles.input}
-                    value={form.memo}
-                    placeholder="管理者用メモ"
-                    onChange={(event) => setForm((current) => ({ ...current, memo: event.target.value }))}
-                  />
-                </label>
-              </div>
+                    <label className={styles.fieldWide}>
+                      <span className={styles.fieldLabel}>説明</span>
+                      <textarea
+                        className={`${styles.input} ${styles.textarea}`}
+                        value={form.description}
+                        placeholder="このリンクの用途を入力"
+                        onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                      />
+                    </label>
 
-              <div className={styles.formActions}>
-                {isEditing ? (
-                  <Button type="button" variant="primary" onClick={handleUpdateExternalStorageLink} disabled={isPageLoading}>
-                    更新
-                  </Button>
-                ) : (
-                  <Button type="button" variant="primary" onClick={handleCreateExternalStorageLink} disabled={isPageLoading}>
-                    作成
-                  </Button>
-                )}
-              </div>
+                    <label className={styles.fieldWide}>
+                      <span className={styles.fieldLabel}>管理メモ</span>
+                      <textarea
+                        className={`${styles.input} ${styles.textarea}`}
+                        value={form.memo}
+                        placeholder="管理者用メモ"
+                        onChange={(event) => setForm((current) => ({ ...current, memo: event.target.value }))}
+                      />
+                    </label>
+                  </div>
+
+                  <div className={styles.formActions}>
+                    <Button type="button" variant="primary" onClick={handleUpdateExternalStorageLink} disabled={isPageLoading}>
+                      更新
+                    </Button>
+                  </div>
+                </>
+              )}
             </section>
           </div>
         </section>

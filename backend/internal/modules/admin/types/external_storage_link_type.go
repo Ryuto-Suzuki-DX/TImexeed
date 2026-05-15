@@ -4,6 +4,11 @@ import "time"
 
 /*
  * 外部ストレージリンク検索Request
+ *
+ * 固定された外部ストレージリンク一覧を取得する。
+ *
+ * 管理者が自由に追加/削除するものではないため、
+ * create/delete/detail 用のRequestは持たない。
  */
 type SearchExternalStorageLinksRequest struct {
 	Keyword        string `json:"keyword"`
@@ -14,40 +19,16 @@ type SearchExternalStorageLinksRequest struct {
 }
 
 /*
- * 外部ストレージリンク詳細Request
- */
-type ExternalStorageLinkDetailRequest struct {
-	ExternalStorageLinkID uint `json:"externalStorageLinkId" binding:"required"`
-}
-
-/*
- * 外部ストレージリンク作成Request
- */
-type CreateExternalStorageLinkRequest struct {
-	LinkType    string  `json:"linkType" binding:"required"`
-	LinkName    string  `json:"linkName" binding:"required"`
-	URL         string  `json:"url" binding:"required"`
-	Description *string `json:"description"`
-	Memo        *string `json:"memo"`
-}
-
-/*
  * 外部ストレージリンク更新Request
+ *
+ * 固定されたリンク種別/リンク名は更新対象にしない。
+ * 管理者が変更できるのはURL、説明、管理メモのみ。
  */
 type UpdateExternalStorageLinkRequest struct {
 	ExternalStorageLinkID uint    `json:"externalStorageLinkId" binding:"required"`
-	LinkType              string  `json:"linkType" binding:"required"`
-	LinkName              string  `json:"linkName" binding:"required"`
-	URL                   string  `json:"url" binding:"required"`
+	URL                   string  `json:"url"`
 	Description           *string `json:"description"`
 	Memo                  *string `json:"memo"`
-}
-
-/*
- * 外部ストレージリンク削除Request
- */
-type DeleteExternalStorageLinkRequest struct {
-	ExternalStorageLinkID uint `json:"externalStorageLinkId" binding:"required"`
 }
 
 /*
@@ -78,29 +59,8 @@ type SearchExternalStorageLinksResponse struct {
 }
 
 /*
- * 外部ストレージリンク詳細Response
- */
-type ExternalStorageLinkDetailResponse struct {
-	ExternalStorageLink ExternalStorageLinkResponse `json:"externalStorageLink"`
-}
-
-/*
- * 外部ストレージリンク作成Response
- */
-type CreateExternalStorageLinkResponse struct {
-	ExternalStorageLink ExternalStorageLinkResponse `json:"externalStorageLink"`
-}
-
-/*
  * 外部ストレージリンク更新Response
  */
 type UpdateExternalStorageLinkResponse struct {
 	ExternalStorageLink ExternalStorageLinkResponse `json:"externalStorageLink"`
-}
-
-/*
- * 外部ストレージリンク削除Response
- */
-type DeleteExternalStorageLinkResponse struct {
-	ExternalStorageLinkID uint `json:"externalStorageLinkId"`
 }

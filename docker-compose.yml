@@ -18,6 +18,8 @@ services:
     container_name: timexeed-backend
     ports:
       - "8080:8080"
+    env_file:
+      - ./backend/.env
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -27,6 +29,7 @@ services:
       DB_SSLMODE: disable
     volumes:
       - ./backend:/app
+      - ./backend/secrets/google-service-account.json:/app/secrets/google-service-account.json:ro
     depends_on:
       - db
 

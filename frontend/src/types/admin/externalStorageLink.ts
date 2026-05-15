@@ -2,6 +2,10 @@
  * 外部ストレージリンク
  *
  * Google Driveなど、外部ストレージ上のフォルダURL / ファイルURLを管理する。
+ *
+ * 注意：
+ * ・管理者が任意にリンクを新規作成/削除する運用にはしない
+ * ・固定されたリンク種別/リンク名に対して、URL/説明/管理メモだけを更新する
  */
 
 export type SearchExternalStorageLinksRequest = {
@@ -12,29 +16,11 @@ export type SearchExternalStorageLinksRequest = {
   limit: number;
 };
 
-export type ExternalStorageLinkDetailRequest = {
-  externalStorageLinkId: number;
-};
-
-export type CreateExternalStorageLinkRequest = {
-  linkType: string;
-  linkName: string;
-  url: string;
-  description: string | null;
-  memo: string | null;
-};
-
 export type UpdateExternalStorageLinkRequest = {
   externalStorageLinkId: number;
-  linkType: string;
-  linkName: string;
   url: string;
   description: string | null;
   memo: string | null;
-};
-
-export type DeleteExternalStorageLinkRequest = {
-  externalStorageLinkId: number;
 };
 
 export type ExternalStorageLinkResponse = {
@@ -58,18 +44,6 @@ export type SearchExternalStorageLinksResponse = {
   hasMore: boolean;
 };
 
-export type ExternalStorageLinkDetailResponse = {
-  externalStorageLink: ExternalStorageLinkResponse;
-};
-
-export type CreateExternalStorageLinkResponse = {
-  externalStorageLink: ExternalStorageLinkResponse;
-};
-
 export type UpdateExternalStorageLinkResponse = {
   externalStorageLink: ExternalStorageLinkResponse;
-};
-
-export type DeleteExternalStorageLinkResponse = {
-  externalStorageLinkId: number;
 };

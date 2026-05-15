@@ -1,0 +1,413 @@
+.pageWrap {
+  width: 100%;
+  min-height: 100vh;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.pageCard {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  background: #f5f5f5;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.loadingCard {
+  width: min(720px, calc(100% - 48px));
+  margin: 48px auto;
+  background: #f5f5f5;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.headerArea {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.expenseGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.expenseCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 190px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.expenseCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.expenseCardTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.expenseCardDescription {
+  margin: 10px 0 0;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.statusBadge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.expenseCardFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+  .pageWrap {
+    padding: 16px;
+  }
+
+  .pageCard {
+    min-height: calc(100vh - 32px);
+    padding: 18px;
+    border-radius: 14px;
+  }
+.pageWrap {
+  width: 100%;
+  min-height: 100vh;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.pageCard {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  background: #f5f5f5;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.loadingCard {
+  width: min(720px, calc(100% - 48px));
+  margin: 48px auto;
+  background: #f5f5f5;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.headerArea {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.formCard,
+.searchCard {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sectionDescription {
+  margin: 8px 0 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.editBadge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.expenseForm,
+.searchForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.twoColumn {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.input,
+.textarea,
+.fileInput {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.input,
+.fileInput {
+  min-height: 42px;
+  padding: 9px 11px;
+}
+
+.textarea {
+  min-height: 92px;
+  padding: 10px 11px;
+  resize: vertical;
+}
+
+.input:focus,
+.textarea:focus,
+.fileInput:focus {
+  outline: 2px solid #fed7aa;
+  border-color: #fb923c;
+}
+
+.fileNameText {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.resultHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 12px;
+}
+
+.resultCount {
+  margin: 0;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+}
+
+.table {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px;
+  vertical-align: top;
+  text-align: left;
+  color: #111827;
+  font-size: 13px;
+}
+
+.table th {
+  background: #f9fafb;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.emptyCell {
+  text-align: center;
+  color: #6b7280;
+  padding: 28px 12px;
+}
+
+.userCell,
+.descriptionCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.userName {
+  color: #111827;
+  font-weight: 700;
+}
+
+.userEmail,
+.memoText {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.amountCell {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.noReceiptText {
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rowActions {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1120px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .pageWrap {
+    padding: 16px;
+  }
+
+  .pageCard {
+    min-height: calc(100vh - 32px);
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .loadingCard {
+    width: calc(100% - 32px);
+    margin: 24px auto;
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .twoColumn {
+    grid-template-columns: 1fr;
+  }
+
+  .formActions,
+  .resultHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rowActions {
+    flex-direction: column;
+  }
+}
+
+  .loadingCard {
+    width: calc(100% - 32px);
+    margin: 24px auto;
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .expenseGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .expenseCardHeader {
+    flex-direction: column;
+  }
+
+  .expenseCardFooter {
+    justify-content: stretch;
+  }
+}
