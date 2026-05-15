@@ -1,0 +1,374 @@
+.pageWrap {
+  width: 100%;
+  min-height: 100vh;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.pageCard {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  background: #f5f5f5;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.loadingCard {
+  width: min(720px, calc(100% - 48px));
+  margin: 48px auto;
+  background: #f5f5f5;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.headerArea {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.searchPanel,
+.formPanel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sectionDescription {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.searchForm {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.searchInput,
+.input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #111827;
+  font-size: 14px;
+}
+
+.searchInput:focus,
+.input:focus,
+.textarea:focus {
+  outline: 2px solid #fed7aa;
+  border-color: #fb923c;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 78px;
+  resize: vertical;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.switchRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0 0 16px;
+  cursor: pointer;
+}
+
+.switchRow:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: #d1d5db;
+  transition: background 0.2s ease;
+}
+
+.switchOn {
+  background: #f97316;
+}
+
+.switchThumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ffffff;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+}
+
+.switchOn .switchThumb {
+  transform: translateX(20px);
+}
+
+.switchText {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.userList,
+.salaryDetailList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.userRow,
+.salaryDetailRow {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+.userRowSelected {
+  border-color: #fb923c;
+  background: #fff7ed;
+}
+
+.salaryDetailRowDeleted {
+  background: #f9fafb;
+  opacity: 0.78;
+}
+
+.userRowMain,
+.salaryDetailRowMain {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.userName,
+.salaryDetailTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.userMeta,
+.salaryDetailMeta {
+  margin: 7px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.salaryDetailNameLine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.deletedBadge,
+.warningBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  box-sizing: border-box;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.deletedBadge {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.warningBadge {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.rowActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.emptyText {
+  margin: 0;
+  padding: 24px;
+  color: #6b7280;
+  font-size: 14px;
+  text-align: center;
+}
+
+.moreButtonArea {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.salarySectionDivider {
+  height: 1px;
+  margin: 22px 0;
+  background: #e5e7eb;
+}
+
+.selectedUserBox {
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff7ed;
+  padding: 14px;
+  box-sizing: border-box;
+  margin-bottom: 16px;
+}
+
+.selectedUserLabel {
+  margin: 0;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.selectedUserName {
+  margin: 6px 0 0;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.selectedUserMeta {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.fieldWide {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.checkboxRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+@media (max-width: 1180px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .pageWrap {
+    padding: 16px;
+  }
+
+  .pageCard {
+    min-height: calc(100vh - 32px);
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .loadingCard {
+    width: calc(100% - 32px);
+    margin: 24px auto;
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .sectionHeader,
+  .userRowMain,
+  .salaryDetailRowMain {
+    flex-direction: column;
+  }
+
+  .searchForm {
+    flex-direction: column;
+  }
+
+  .rowActions,
+  .formActions {
+    width: 100%;
+    justify-content: stretch;
+  }
+}

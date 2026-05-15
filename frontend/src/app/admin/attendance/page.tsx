@@ -52,6 +52,8 @@ import {
   resetAttendanceViewRow,
   resetCommuterPassViewForm,
 } from "@/utils/attendance/adminAttendance/adminAttendanceMapper";
+import { getUserDetail } from "@/api/admin/user";
+import type { AdminAttendanceInitialSearch } from "@/types/admin/adminAttendanceInitialSearch";
 import styles from "./page.module.css";
 
 function formatPaidLeaveDays(value: number | null | undefined) {
@@ -266,6 +268,97 @@ export default function AdminAttendancePage() {
     },
     [targetMonthValue, targetYear],
   );
+
+  const loadInitialSearchFromStorage = useCallback(async () => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const initialKey = searchParams.get("initialKey");
+
+    if (!initialKey) {
+      return;
+    }
+
+    const storageKey = `adminAttendanceInitialSearch:${initialKey}`;
+    const savedInitialSearch = localStorage.getItem(storageKey);
+
+    if (!savedInitialSearch) {
+      setPageMessage("申請一覧からの遷移情報が見つかりません。");
+      setPageMessageVariant("error");
+      return;
+    }
+
+    localStorage.removeItem(storageKey);
+
+    let initialSearch: AdminAttendanceInitialSearch;
+
+    try {
+      initialSearch = JSON.parse(savedInitialSearch) as AdminAttendanceInitialSearch;
+    } catch {
+      setPageMessage("申請一覧からの遷移情報の読み取りに失敗しました。");
+      setPageMessageVariant("error");
+      return;
+    }
+
+    if (
+      !initialSearch.targetUserId ||
+      !initialSearch.targetYear ||
+      !initialSearch.targetMonth
+    ) {
+      setPageMessage("申請一覧からの遷移情報が不足しています。");
+      setPageMessageVariant("error");
+      return;
+    }
+
+    setPageMessage("申請一覧で選択したユーザーの勤怠を読み込んでいます。");
+    setPageMessageVariant("info");
+
+    try {
+      const result = await getUserDetail({
+        targetUserId: initialSearch.targetUserId,
+      });
+
+      if (result.error || !result.data) {
+        setPageMessage(result.message || "対象ユーザー情報の取得に失敗しました。");
+        setPageMessageVariant("error");
+        return;
+      }
+
+      const targetUser = result.data.user;
+      const nextTargetMonth = buildTargetMonth(
+        initialSearch.targetYear,
+        initialSearch.targetMonth,
+      );
+
+      setSelectedUser(targetUser);
+      setTargetMonth(nextTargetMonth);
+
+      await loadPageData(
+        targetUser,
+        initialSearch.targetYear,
+        initialSearch.targetMonth,
+      );
+    } catch (error) {
+      setPageMessage(
+        error instanceof Error
+          ? error.message
+          : "申請一覧からの勤怠読み込み中に予期しないエラーが発生しました。",
+      );
+      setPageMessageVariant("error");
+    }
+  }, [loadPageData]);
+
+  useEffect(() => {
+    if (isLoading || !user) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      void loadInitialSearchFromStorage();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [isLoading, user, loadInitialSearchFromStorage]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {

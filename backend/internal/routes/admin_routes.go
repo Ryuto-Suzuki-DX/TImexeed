@@ -51,6 +51,12 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	userService := services.NewUserService(userBuilder, userRepository)
 	userController := controllers.NewUserController(userService)
 
+	// ユーザー給与詳細
+	userSalaryDetailBuilder := builders.NewUserSalaryDetailBuilder(db)
+	userSalaryDetailRepository := repositories.NewUserSalaryDetailRepository(db)
+	userSalaryDetailService := services.NewUserSalaryDetailService(userSalaryDetailBuilder, userSalaryDetailRepository)
+	userSalaryDetailController := controllers.NewUserSalaryDetailController(userSalaryDetailService)
+
 	// 勤怠区分マスタ
 	attendanceTypeBuilder := builders.NewAttendanceTypeBuilder(db)
 	attendanceTypeRepository := repositories.NewAttendanceTypeRepository(db)
@@ -92,6 +98,12 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	holidayDateRepository := repositories.NewHolidayDateRepository(db)
 	holidayDateService := services.NewHolidayDateService(holidayDateBuilder, holidayDateRepository)
 	holidayDateController := controllers.NewHolidayDateController(holidayDateService)
+
+	// 外部ストレージリンク管理
+	externalStorageLinkBuilder := builders.NewExternalStorageLinkBuilder(db)
+	externalStorageLinkRepository := repositories.NewExternalStorageLinkRepository(db)
+	externalStorageLinkService := services.NewExternalStorageLinkService(externalStorageLinkBuilder, externalStorageLinkRepository)
+	externalStorageLinkController := controllers.NewExternalStorageLinkController(externalStorageLinkService)
 
 	// お知らせ
 	notificationBuilder := builders.NewNotificationBuilder(db)
@@ -137,6 +149,13 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		admin.POST("/users/update", userController.UpdateUser)
 		admin.POST("/users/delete", userController.DeleteUser)
 
+		// ユーザー給与詳細
+		admin.POST("/user-salary-details/search", userSalaryDetailController.SearchUserSalaryDetails)
+		admin.POST("/user-salary-details/get", userSalaryDetailController.GetUserSalaryDetail)
+		admin.POST("/user-salary-details/create", userSalaryDetailController.CreateUserSalaryDetail)
+		admin.POST("/user-salary-details/update", userSalaryDetailController.UpdateUserSalaryDetail)
+		admin.POST("/user-salary-details/delete", userSalaryDetailController.DeleteUserSalaryDetail)
+
 		// 勤怠区分マスタ（検索のみ）
 		admin.POST("/attendance-types/search", attendanceTypeController.SearchAttendanceTypes)
 
@@ -167,6 +186,13 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		// 祝日
 		admin.POST("/holiday-dates/import", holidayDateController.ImportHolidayDates)
 		admin.POST("/holiday-dates/search", holidayDateController.SearchHolidayDates)
+
+		// 外部ストレージリンク
+		admin.POST("/external-storage-links/search", externalStorageLinkController.SearchExternalStorageLinks)
+		admin.POST("/external-storage-links/detail", externalStorageLinkController.GetExternalStorageLinkDetail)
+		admin.POST("/external-storage-links/create", externalStorageLinkController.CreateExternalStorageLink)
+		admin.POST("/external-storage-links/update", externalStorageLinkController.UpdateExternalStorageLink)
+		admin.POST("/external-storage-links/delete", externalStorageLinkController.DeleteExternalStorageLink)
 
 		// お知らせ
 		admin.POST("/notifications/search", notificationController.SearchNotifications)

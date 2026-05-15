@@ -1,0 +1,125 @@
+.pageWrap {
+  width: 100%;
+  min-height: 100vh;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.pageCard {
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  background: #f5f5f5;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.loadingCard {
+  width: min(720px, calc(100% - 48px));
+  margin: 48px auto;
+  background: #f5f5f5;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.headerArea {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.salaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.salaryCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 190px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.salaryCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.salaryCardTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.salaryCardDescription {
+  margin: 10px 0 0;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.statusBadge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.salaryCardFooter {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+  .pageWrap {
+    padding: 16px;
+  }
+
+  .pageCard {
+    min-height: calc(100vh - 32px);
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .loadingCard {
+    width: calc(100% - 32px);
+    margin: 24px auto;
+    padding: 18px;
+    border-radius: 14px;
+  }
+
+  .salaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .salaryCardHeader {
+    flex-direction: column;
+  }
+
+  .salaryCardFooter {
+    justify-content: stretch;
+  }
+}

@@ -22,6 +22,7 @@ import {
   parseTargetMonth,
 } from "@/utils/attendance/attendanceDate";
 import { getStatusLabel } from "@/utils/attendance/attendanceStatus";
+import type { AdminAttendanceInitialSearch } from "@/types/admin/adminAttendanceInitialSearch";
 import styles from "./page.module.css";
 
 type PageMessageVariant = "info" | "success" | "warning" | "error";
@@ -267,11 +268,20 @@ export default function AdminMonthlyAttendanceRequestsPage() {
   };
 
   const handleOpenAttendancePage = (row: MonthlyAttendanceRequestListRow) => {
-    window.open(
-      `/admin/attendance?targetUserId=${row.targetUserId}&targetMonth=${targetMonth}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
+    const initialSearch: AdminAttendanceInitialSearch = {
+      targetUserId: row.targetUserId,
+      targetUserName: row.userName,
+      targetYear: row.targetYear,
+      targetMonth: row.targetMonth,
+      monthlyRequestId: row.monthlyAttendanceRequest.id,
+    };
+
+    const initialKey = crypto.randomUUID();
+    const storageKey = `adminAttendanceInitialSearch:${initialKey}`;
+
+    localStorage.setItem(storageKey, JSON.stringify(initialSearch));
+
+    window.open(`/admin/attendance?initialKey=${initialKey}`, "_blank", "noopener,noreferrer");
   };
 
   const handleApprove = async (row: MonthlyAttendanceRequestListRow) => {

@@ -18,6 +18,8 @@ func RunMigrations(db *gorm.DB) error {
 		&models.Department{},
 		// ユーザー
 		&models.User{},
+		// 各ユーザーの給与詳細
+		&models.UserSalaryDetail{},
 		// 勤怠区分マスタ
 		&models.AttendanceType{},
 		// 勤怠/日
@@ -36,5 +38,7 @@ func RunMigrations(db *gorm.DB) error {
 		&models.NotificationReminder{},
 		// 祝日
 		&models.HolidayDate{},
+		// 外部ストレージリンク
+		&models.ExternalStorageLink{},
 	)
 }

@@ -23,6 +23,18 @@ const settingMenuItems: SettingMenuItem[] = [
     href: "/admin/settings/paid_leave_usages",
     statusLabel: "管理者向け",
   },
+  {
+    title: "祝日CSV管理",
+    description: "国民の祝日CSVを取り込み、登録済み祝日を対象年月ごとに確認できます。",
+    href: "/admin/settings/holiday_dates",
+    statusLabel: "勤怠設定",
+  },
+  {
+    title: "外部ストレージリンク管理",
+    description: "Google Driveなどの外部ストレージにあるフォルダURLやファイルURLを管理できます。",
+    href: "/admin/settings/external_storage_links",
+    statusLabel: "共通設定",
+  },
 ];
 
 export default function AdminSettingsPage() {
