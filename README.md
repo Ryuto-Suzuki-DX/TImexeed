@@ -1,214 +1,151 @@
-Timexeed 開発環境・作成ファイルまとめ
-現在の構成
-Timexeed/
-├─ docker-compose.yml
-├─ frontend/
-│  ├─ package.json
-│  ├─ package-lock.json
-│  ├─ .env.local
-│  └─ src/
-│     ├─ api/
-│     │  └─ auth.ts
-│     ├─ lib/
-│     │  └─ auth.ts
-│     └─ app/
-│        ├─ page.tsx
-│        ├─ login/
-│        │  └─ page.tsx
-│        └─ mypage/
-│           └─ page.tsx
-└─ backend/
-   ├─ go.mod
-   ├─ go.sum
-   ├─ main.go
-   ├─ .air.toml
-   └─ internal/
-      ├─ auth/
-      │  └─ jwt.go
-      ├─ database/
-      │  └─ database.go
-      ├─ handlers/
-      │  ├─ auth_handler.go
-      │  └─ health_handler.go
-      ├─ middlewares/
-      │  └─ auth_middleware.go
-      ├─ models/
-      │  └─ user.go
-      └─ routes/
-         └─ routes.go
+0. まず決めること
 
+保存先にするGoogleアカウントをこれに統一します。
 
+社長のGoogleアカウント
 
-作成ファイルの役割
-ルート直下
-docker-compose.yml
+以後、全部これに合わせます。
 
-PostgreSQLをDockerで起動するための設定ファイル。
-DB名、ユーザー名、パスワード、ポート、永続化ボリュームを定義する。
+OAuthのテストユーザー
+=
+OAuth認可でログインするアカウント
+=
+Google Drive保存先フォルダを持つアカウント
+1. 社長アカウント側でDriveフォルダを作る
 
-backend
-backend/go.mod
+社長のGoogleアカウントでGoogle Driveにログイン。
 
-Goプロジェクトのモジュール名と依存ライブラリを管理する。
+フォルダを作成。
 
-backend/go.sum
+TimexeedExpenseReceipts
 
-依存ライブラリの整合性を管理する。
-基本的に手動編集しない。
+そのフォルダURLをコピー。
 
-backend/.air.toml
+例：
 
-Airの設定ファイル。
-Goファイル変更時に自動ビルド・自動再起動する。
+https://drive.google.com/drive/folders/xxxxxxxxxxxxxxxxxxxx
 
-backend/main.go
+このURLをあとでDBに入れます。
 
-バックエンドの起動ファイル。
-DB接続、CORS設定、ルーティング登録、サーバー起動を行う。
+2. DBの保存先URLを更新
 
-backend/internal/database/database.go
+新しいフォルダURL を社長アカウント側のフォルダURLに差し替えて実行。
 
-PostgreSQLへの接続処理を管理する。
-GORMの初期化とAutoMigrateもここで行う。
+docker compose exec db psql -U timexeed -d timexeed_db -c "update external_storage_links set url = '新しいフォルダURL', updated_at = now() where link_type = 'EXPENSE_RECEIPT_BOX' and is_deleted = false;"
 
-backend/internal/models/user.go
+確認。
 
-Userモデルを定義する。
-users テーブルの元になるファイル。
+docker compose exec db psql -U timexeed -d timexeed_db -c "select id, link_type, url, is_deleted, updated_at from external_storage_links where link_type = 'EXPENSE_RECEIPT_BOX';"
+3. Google Cloud Consoleでテストユーザーに社長アカウントを追加
 
-backend/internal/routes/routes.go
+Google Cloud Consoleで、Timexeedのプロジェクトを開く。
 
-APIのURLとhandlerを紐づける。
-/health、/auth/login などのルートを定義する。
+Google Auth Platform
+↓
+対象
+↓
+テストユーザー
 
-backend/internal/handlers/health_handler.go
+または、
 
-ヘルスチェック用APIを処理する。
-/health と /db-health を担当する。
+APIとサービス
+↓
+OAuth 同意画面
+↓
+テストユーザー
 
-backend/internal/handlers/auth_handler.go
+ここに 社長のGoogleアカウントのメールアドレス を追加。
 
-認証系APIを処理する。
-ユーザー登録、ログイン、ログイン中ユーザー取得を担当する。
+これをやらないと、テスト公開状態では社長アカウントでOAuth認可できません。
 
-backend/internal/auth/jwt.go
+4. .env のrefresh tokenを一旦削除
 
-JWTの発行と検証を担当する。
-ログイン成功時のaccessToken発行に使う。
+対象：
 
-backend/internal/middlewares/auth_middleware.go
+C:\Users\zukis\Desktop\Timexeed\backend\.env
 
-JWT認証ミドルウェア。
-Authorization: Bearer トークン を検証し、認証済みAPIを保護する。
+今あるこれを一旦消す、または空にする。
 
-frontend
-frontend/.env.local
+GOOGLE_OAUTH_REFRESH_TOKEN=...
 
-フロント用の環境変数ファイル。
-APIの接続先などを管理する。
+CLIENT_ID と CLIENT_SECRET は同じOAuthクライアントを使うならそのままでOK。
 
-frontend/src/lib/auth.ts
+GOOGLE_OAUTH_CLIENT_ID=...
+GOOGLE_OAUTH_CLIENT_SECRET=...
+GOOGLE_DRIVE_EXPENSE_RECEIPT_LINK_TYPE=EXPENSE_RECEIPT_BOX
+5. backend再起動
 
-accessTokenをlocalStorageに保存・取得・削除する。
+.env とコマンド実行環境を揃えるため。
 
-frontend/src/api/auth.ts
+docker compose down
+docker compose up -d --build
+6. 社長アカウントでrefresh tokenを取り直す
 
-認証APIを呼び出すファイル。
-ログインAPIと認証確認APIを担当する。
+CMDでこれ。
 
-frontend/src/app/page.tsx
+docker compose exec backend go run /app/cmd/google_oauth_token/main.go
 
-トップページ。
-開発初期のAPI疎通確認用ページ。
+表示されたURLをブラウザで開く。
 
-frontend/src/app/login/page.tsx
+https://accounts.google.com/o/oauth2/auth?...
 
-ログイン画面。
-ログイン成功後、accessTokenを保存して /mypage に遷移する。
+ブラウザでは、必ず社長のGoogleアカウントを選択。
 
-frontend/src/app/mypage/page.tsx
+許可後、ページは失敗してOK。
+URL欄にこういうURLが出ます。
 
-ログイン後のマイページ。
-/auth/me を呼び出してログイン中ユーザー情報を表示する。
+http://localhost/?state=timexeed-google-drive-token&code=4/xxxx&scope=...
 
+このURL全体をコピーして、ターミナルのここへ貼る。
 
+code またはリダイレクトURLを貼り付け:
 
+成功するとこれが出ます。
 
+GOOGLE_OAUTH_REFRESH_TOKEN=...
+7. .env に社長アカウント用refresh tokenを設定
 
+対象：
 
-作業手順
-1. Next.js作成
-cd C:\Users\zukis\Desktop\Timexeed
-npx create-next-app@latest frontend
-2. Gin backend作成
-mkdir backend
-cd backend
-go mod init timexeed/backend
-go get github.com/gin-gonic/gin
-3. Air導入
-go install github.com/air-verse/air@latest
+C:\Users\zukis\Desktop\Timexeed\backend\.env
 
-.air.toml を作成し、Goのホットリロードを有効化。
+こうする。
 
-4. PostgreSQL起動
+GOOGLE_OAUTH_CLIENT_ID=あなたのOAuthクライアントID
+GOOGLE_OAUTH_CLIENT_SECRET=あなたのOAuthクライアントシークレット
+GOOGLE_OAUTH_REFRESH_TOKEN=社長アカウントで取得したrefresh_token
+GOOGLE_DRIVE_EXPENSE_RECEIPT_LINK_TYPE=EXPENSE_RECEIPT_BOX
 
-ルート直下に docker-compose.yml を作成。
+GOOGLE_APPLICATION_CREDENTIALS は不要です。
 
-cd C:\Users\zukis\Desktop\Timexeed
-docker compose up -d
+# GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/google-service-account.json
+8. backend再起動
+docker compose down
+docker compose up -d --build
+9. 単体アップロード確認
 
-今回はホスト側ポートを 15432 に設定。
+この前作った drivecheck を実行。
 
-5. GinからPostgreSQL接続
-cd backend
-go get gorm.io/gorm
-go get gorm.io/driver/postgres
+docker compose exec backend go run /app/cmd/drivecheck/main.go
 
-database.go を作成し、GORMでDB接続。
+成功ならこう出ます。
 
-6. backend構成を分離
+OK: id=... name=timexeed_drive_check.txt url=...
 
-以下のように分離。
+Google Drive APIはDriveへのアップロード/ダウンロードを扱えます。今の drivecheck は、OAuthで認可したアカウントの権限で、DBに入れたフォルダIDへファイル作成を試す確認です。
 
-database → DB接続
-models → DBモデル
-routes → ルーティング
-handlers → API処理
-auth → JWT処理
-middlewares → 認証ミドルウェア
-7. Userモデル作成
+10. 経費画面で領収書付き登録
 
-internal/models/user.go を作成。
-AutoMigrate で users テーブルを作成。
+最後に、管理者経費画面で領収書付き登録。
 
-8. 認証API作成
+成功すれば完了。
 
-作成したAPI。
+社長アカウントに切り替えるたびに必要な作業
 
-POST /auth/register
-POST /auth/login
-GET  /auth/me
-9. JWT対応
-go get github.com/golang-jwt/jwt/v5
+毎回全部ではなく、基本はこの3つだけです。
 
-ログイン成功時にaccessTokenを返すようにした。
+1. 社長アカウントをOAuthテストユーザーに追加
+2. 社長アカウントでrefresh tokenを取り直す
+3. backend/.env の GOOGLE_OAUTH_REFRESH_TOKEN を差し替える
 
-10. フロントAuth作成
-
-作成した画面・処理。
-
-/login  → ログイン画面
-/mypage → ログイン後ページ
-
-localStorage にaccessTokenを保存し、/auth/me で認証確認する。
-
-起動手順
-DB起動
-cd C:\Users\zukis\Desktop\Timexeed
-docker compose up -d
-backend起動
-cd C:\Users\zukis\Desktop\Timexeed\backend
-air
-frontend起動
-cd C:\Users\zukis\Desktop\Timexeed\frontend
-npm run dev
+保存先フォルダも変えるなら、DBの external_storage_links.url も更新します。
