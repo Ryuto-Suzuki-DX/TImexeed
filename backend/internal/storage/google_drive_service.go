@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
 )
@@ -27,15 +28,14 @@ import (
  * ・Controllerで受け取ったmultipart.Fileを、このServiceへ渡してDriveへ送る
  * ・DBへ保存するのは DriveFileID / FileURL / OriginalFileName / StoredFileName / MimeType / SizeBytes
  *
+ * 認証方式：
+ * ・OAuth 2.0 refresh token 方式
+ * ・サービスアカウント方式は使わない
+ *
  * 環境変数：
- * 1. GOOGLE_SERVICE_ACCOUNT_JSON
- *    - サービスアカウントJSONの中身をそのまま入れる
- *    - または base64 エンコードしたJSONを入れる
- *
- * 2. GOOGLE_APPLICATION_CREDENTIALS
- *    - サービスアカウントJSONファイルのパスを入れる
- *
- * どちらかが必要。
+ * ・GOOGLE_OAUTH_CLIENT_ID
+ * ・GOOGLE_OAUTH_CLIENT_SECRET
+ * ・GOOGLE_OAUTH_REFRESH_TOKEN
  */
 type GoogleDriveService interface {
 	UploadFile(ctx context.Context, folderID string, storedFileName string, mimeType string, reader io.Reader) (GoogleDriveUploadedFile, error)
@@ -47,6 +47,15 @@ type GoogleDriveService interface {
 
 type googleDriveService struct {
 	driveService *drive.Service
+}
+
+/*
+ * OAuth認証情報
+ */
+type googleDriveOAuthConfig struct {
+	ClientID     string
+	ClientSecret string
+	RefreshToken string
 }
 
 /*
@@ -85,26 +94,52 @@ type GoogleDriveFileMetadata struct {
  * 環境変数からGoogle Drive Serviceを生成する。
  */
 func NewGoogleDriveServiceFromEnv(ctx context.Context) (GoogleDriveService, error) {
-	credentialJSON, err := loadGoogleCredentialJSONFromEnv()
+	oauthConfig, err := loadGoogleDriveOAuthConfigFromEnv()
 	if err != nil {
 		return nil, err
 	}
 
-	return NewGoogleDriveService(ctx, credentialJSON)
+	return NewGoogleDriveServiceWithOAuth(ctx, oauthConfig)
 }
 
 /*
- * サービスアカウントJSONからGoogle Drive Serviceを生成する。
+ * OAuth refresh tokenからGoogle Drive Serviceを生成する。
  */
-func NewGoogleDriveService(ctx context.Context, credentialJSON []byte) (GoogleDriveService, error) {
-	if len(credentialJSON) == 0 {
-		return nil, errors.New("google credential json is empty")
+func NewGoogleDriveServiceWithOAuth(ctx context.Context, oauthConfig googleDriveOAuthConfig) (GoogleDriveService, error) {
+	clientID := strings.TrimSpace(oauthConfig.ClientID)
+	clientSecret := strings.TrimSpace(oauthConfig.ClientSecret)
+	refreshToken := strings.TrimSpace(oauthConfig.RefreshToken)
+
+	if clientID == "" {
+		return nil, errors.New("GOOGLE_OAUTH_CLIENT_ID is empty")
 	}
+
+	if clientSecret == "" {
+		return nil, errors.New("GOOGLE_OAUTH_CLIENT_SECRET is empty")
+	}
+
+	if refreshToken == "" {
+		return nil, errors.New("GOOGLE_OAUTH_REFRESH_TOKEN is empty")
+	}
+
+	config := &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		Endpoint:     google.Endpoint,
+		Scopes: []string{
+			drive.DriveScope,
+		},
+	}
+
+	token := &oauth2.Token{
+		RefreshToken: refreshToken,
+	}
+
+	httpClient := config.Client(ctx, token)
 
 	driveService, err := drive.NewService(
 		ctx,
-		option.WithCredentialsJSON(credentialJSON),
-		option.WithScopes(drive.DriveScope),
+		option.WithHTTPClient(httpClient),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create google drive service: %w", err)
@@ -373,32 +408,28 @@ func extractFileExtension(fileName string) string {
 }
 
 /*
- * 環境変数からサービスアカウントJSONを読み込む。
+ * 環境変数からOAuth認証情報を読み込む。
  */
-func loadGoogleCredentialJSONFromEnv() ([]byte, error) {
-	rawJSON := strings.TrimSpace(os.Getenv("GOOGLE_SERVICE_ACCOUNT_JSON"))
-	if rawJSON != "" {
-		if strings.HasPrefix(rawJSON, "{") {
-			return []byte(rawJSON), nil
-		}
+func loadGoogleDriveOAuthConfigFromEnv() (googleDriveOAuthConfig, error) {
+	clientID := strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID"))
+	clientSecret := strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"))
+	refreshToken := strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_REFRESH_TOKEN"))
 
-		decodedJSON, err := base64.StdEncoding.DecodeString(rawJSON)
-		if err == nil && len(decodedJSON) > 0 {
-			return decodedJSON, nil
-		}
-
-		return nil, errors.New("GOOGLE_SERVICE_ACCOUNT_JSON is not valid json or base64 json")
+	if clientID == "" {
+		return googleDriveOAuthConfig{}, errors.New("GOOGLE_OAUTH_CLIENT_ID is required")
 	}
 
-	credentialPath := strings.TrimSpace(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-	if credentialPath != "" {
-		credentialJSON, err := os.ReadFile(credentialPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read GOOGLE_APPLICATION_CREDENTIALS file: %w", err)
-		}
-
-		return credentialJSON, nil
+	if clientSecret == "" {
+		return googleDriveOAuthConfig{}, errors.New("GOOGLE_OAUTH_CLIENT_SECRET is required")
 	}
 
-	return nil, errors.New("GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS is required")
+	if refreshToken == "" {
+		return googleDriveOAuthConfig{}, errors.New("GOOGLE_OAUTH_REFRESH_TOKEN is required")
+	}
+
+	return googleDriveOAuthConfig{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RefreshToken: refreshToken,
+	}, nil
 }

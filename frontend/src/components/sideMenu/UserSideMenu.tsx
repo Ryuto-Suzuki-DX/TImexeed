@@ -26,6 +26,7 @@ export default function UserSideMenu() {
     { label: "マイページ", href: "/user/mypage" },
     { label: "勤怠入力", href: "/user/attendance" },
     { label: "勤怠履歴", href: "/user/attendance/history" },
+    { label: "経費登録", href: "/user/expenses" },
     { label: "設定", href: "/user/settings" },
     {
       label: unreadNotificationCount > 0 ? "お知らせ NEW!" : "お知らせ",

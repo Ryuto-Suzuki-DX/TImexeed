@@ -5,20 +5,20 @@ import Button from "@/components/atoms/Button";
 import MessageBox from "@/components/atoms/MessageBox";
 import PageContainer from "@/components/atoms/PageContainer";
 import PageTitle from "@/components/atoms/PageTitle";
-import AdminSideMenu from "@/components/sideMenu/AdminSideMenu";
+import UserSideMenu from "@/components/sideMenu/UserSideMenu";
 import {
   createExpense,
   deleteExpense,
   openExpenseReceiptInNewTab,
   searchExpenses,
   updateExpense,
-} from "@/api/admin/expense";
+} from "@/api/user/expense";
 import type {
   CreateExpenseRequest,
   ExpenseListItemResponse,
   SearchExpensesResponse,
   UpdateExpenseRequest,
-} from "@/types/admin/expense";
+} from "@/types/user/expense";
 import { useRequireRole } from "@/hooks/useRequireRole";
 import styles from "./page.module.css";
 
@@ -38,37 +38,11 @@ type ExpenseFormState = {
 };
 
 type SearchFormState = {
-  keyword: string;
   targetMonthFrom: string;
   targetMonthTo: string;
 };
 
-type TargetUserCandidate = {
-  id: number;
-  name: string;
-  email: string;
-  role?: string;
-  isDeleted?: boolean;
-};
-
-type SearchUsersResponse = {
-  users: TargetUserCandidate[];
-  total?: number;
-  offset?: number;
-  limit?: number;
-  hasMore?: boolean;
-};
-
-type ApiResponse<TData> = {
-  data: TData | null;
-  error: boolean;
-  code: string;
-  message: string;
-  details?: unknown;
-};
-
 const PAGE_LIMIT = 50;
-const TARGET_USER_SEARCH_LIMIT = 10;
 
 const initialExpenseForm: ExpenseFormState = {
   expenseId: null,
@@ -81,20 +55,15 @@ const initialExpenseForm: ExpenseFormState = {
 };
 
 const initialSearchForm: SearchFormState = {
-  keyword: "",
   targetMonthFrom: getCurrentMonthText(),
   targetMonthTo: getCurrentMonthText(),
 };
 
-export default function AdminExpensesPage() {
-  const { user, isLoading, message: authMessage } = useRequireRole("ADMIN");
+export default function UserExpensesPage() {
+  const { user, isLoading, message: authMessage } = useRequireRole("USER");
 
   const [searchForm, setSearchForm] = useState<SearchFormState>(initialSearchForm);
   const [expenseForm, setExpenseForm] = useState<ExpenseFormState>(initialExpenseForm);
-
-  const [targetUserKeyword, setTargetUserKeyword] = useState("");
-  const [targetUserCandidates, setTargetUserCandidates] = useState<TargetUserCandidate[]>([]);
-  const [selectedTargetUser, setSelectedTargetUser] = useState<TargetUserCandidate | null>(null);
 
   const [expenses, setExpenses] = useState<ExpenseListItemResponse[]>([]);
   const [total, setTotal] = useState(0);
@@ -103,10 +72,9 @@ export default function AdminExpensesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState<number | null>(null);
   const [isViewingReceiptId, setIsViewingReceiptId] = useState<number | null>(null);
-  const [isTargetUserSearching, setIsTargetUserSearching] = useState(false);
   const [pageMessage, setPageMessage] = useState<PageMessage>({
     variant: "info",
-    text: "対象月の期間と従業員キーワードで経費を検索できます。",
+    text: "自分の経費を登録し、対象月の期間で検索できます。",
   });
 
   const isEditMode = expenseForm.expenseId !== null;
@@ -132,7 +100,7 @@ export default function AdminExpensesPage() {
   if (isLoading || !user) {
     return (
       <PageContainer>
-        <AdminSideMenu />
+        <UserSideMenu />
 
         <section className={styles.loadingCard}>
           <PageTitle title="経費管理" description="ログイン情報を確認しています。" />
@@ -151,7 +119,6 @@ export default function AdminExpensesPage() {
 
     try {
       const response = await searchExpenses({
-        keyword: searchForm.keyword.trim(),
         targetMonthFrom: searchForm.targetMonthFrom,
         targetMonthTo: searchForm.targetMonthTo,
         offset,
@@ -178,69 +145,15 @@ export default function AdminExpensesPage() {
     }
   }
 
-  async function handleSearchTargetUsers() {
-    const keyword = targetUserKeyword.trim();
-    if (!keyword) {
-      setPageMessage({
-        variant: "warning",
-        text: "対象従業員を検索するキーワードを入力してください。",
-      });
-      return;
-    }
-
-    setIsTargetUserSearching(true);
-    setTargetUserCandidates([]);
-    setPageMessage({
-      variant: "info",
-      text: "対象従業員を検索しています。",
-    });
-
-    try {
-      const response = await searchTargetUsers({
-        keyword,
-        includeDeleted: false,
-        offset: 0,
-        limit: TARGET_USER_SEARCH_LIMIT,
-      });
-
-      const candidates = response.users.filter((candidate) => !candidate.isDeleted);
-      setTargetUserCandidates(candidates);
-
-      if (candidates.length === 0) {
-        setPageMessage({
-          variant: "warning",
-          text: "該当する従業員が見つかりませんでした。",
-        });
-        return;
-      }
-
-      setPageMessage({
-        variant: "success",
-        text: "対象従業員の候補を取得しました。登録対象を選択してください。",
-      });
-    } catch (error) {
-      setPageMessage({
-        variant: "error",
-        text: error instanceof Error ? error.message : "対象従業員の検索に失敗しました。",
-      });
-    } finally {
-      setIsTargetUserSearching(false);
-    }
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const validationMessage = validateExpenseForm(expenseForm, selectedTargetUser);
+    const validationMessage = validateExpenseForm(expenseForm);
     if (validationMessage) {
       setPageMessage({
         variant: "warning",
         text: validationMessage,
       });
-      return;
-    }
-
-    if (!selectedTargetUser) {
       return;
     }
 
@@ -254,7 +167,6 @@ export default function AdminExpensesPage() {
       if (isEditMode) {
         const request: UpdateExpenseRequest = {
           expenseId: expenseForm.expenseId as number,
-          targetUserId: selectedTargetUser.id,
           targetMonth: expenseForm.targetMonth,
           expenseDate: expenseForm.expenseDate,
           amount: Number(expenseForm.amount),
@@ -269,7 +181,6 @@ export default function AdminExpensesPage() {
         }
       } else {
         const request: CreateExpenseRequest = {
-          targetUserId: selectedTargetUser.id,
           targetMonth: expenseForm.targetMonth,
           expenseDate: expenseForm.expenseDate,
           amount: Number(expenseForm.amount),
@@ -284,7 +195,7 @@ export default function AdminExpensesPage() {
         }
       }
 
-      resetExpenseInputState();
+      setExpenseForm(initialExpenseForm);
       setPageMessage({
         variant: "success",
         text: isEditMode ? "経費を更新しました。" : "経費を登録しました。",
@@ -303,7 +214,7 @@ export default function AdminExpensesPage() {
 
   async function handleDelete(expense: ExpenseListItemResponse) {
     const confirmed = window.confirm(
-      `経費を削除します。\n\n対象者：${expense.userName}\n発生日：${expense.expenseDate}\n金額：${formatYen(expense.amount)}\n\nよろしいですか？`
+      `経費を削除します。\n\n発生日：${expense.expenseDate}\n金額：${formatYen(expense.amount)}\n内容：${expense.description}\n\nよろしいですか？`
     );
 
     if (!confirmed) {
@@ -323,7 +234,7 @@ export default function AdminExpensesPage() {
       }
 
       if (expenseForm.expenseId === expense.id) {
-        resetExpenseInputState();
+        setExpenseForm(initialExpenseForm);
       }
 
       setPageMessage({
@@ -369,23 +280,7 @@ export default function AdminExpensesPage() {
     }
   }
 
-  function handleSelectTargetUser(candidate: TargetUserCandidate) {
-    setSelectedTargetUser(candidate);
-    setTargetUserKeyword(`${candidate.name} ${candidate.email}`);
-    setTargetUserCandidates([]);
-    setPageMessage({
-      variant: "info",
-      text: "登録対象の従業員を選択しました。",
-    });
-  }
-
   function handleEdit(expense: ExpenseListItemResponse) {
-    const targetUser = {
-      id: expense.userId,
-      name: expense.userName,
-      email: expense.email,
-    };
-
     setExpenseForm({
       expenseId: expense.id,
       targetMonth: expense.targetMonth,
@@ -395,9 +290,6 @@ export default function AdminExpensesPage() {
       memo: expense.memo ?? "",
       receiptFile: null,
     });
-    setSelectedTargetUser(targetUser);
-    setTargetUserKeyword(`${targetUser.name} ${targetUser.email}`);
-    setTargetUserCandidates([]);
 
     setPageMessage({
       variant: "info",
@@ -408,18 +300,11 @@ export default function AdminExpensesPage() {
   }
 
   function handleResetForm() {
-    resetExpenseInputState();
+    setExpenseForm(initialExpenseForm);
     setPageMessage({
       variant: "info",
       text: "入力フォームを新規登録状態に戻しました。",
     });
-  }
-
-  function resetExpenseInputState() {
-    setExpenseForm(initialExpenseForm);
-    setTargetUserKeyword("");
-    setTargetUserCandidates([]);
-    setSelectedTargetUser(null);
   }
 
   function setSearchResult(data: SearchExpensesResponse, append: boolean) {
@@ -430,14 +315,14 @@ export default function AdminExpensesPage() {
 
   return (
     <PageContainer>
-      <AdminSideMenu />
+      <UserSideMenu />
 
       <div className={styles.pageWrap}>
         <section className={styles.pageCard}>
           <div className={styles.headerArea}>
             <PageTitle
               title="経費管理"
-              description="上長確認済みの経費を登録し、従業員キーワードと対象月の期間で検索します。"
+              description="自分の経費を登録し、対象月の期間で検索します。"
             />
 
             <MessageBox variant={pageMessage.variant}>{pageMessage.text}</MessageBox>
@@ -449,7 +334,7 @@ export default function AdminExpensesPage() {
                 <div>
                   <h2 className={styles.sectionTitle}>{isEditMode ? "経費更新" : "経費登録"}</h2>
                   <p className={styles.sectionDescription}>
-                    従業員を検索して登録対象に選択します。領収書画像またはPDFを添付できます。
+                    領収書画像またはPDFを添付できます。更新時はファイルを選ばなければ既存領収書を維持します。
                   </p>
                 </div>
 
@@ -457,53 +342,6 @@ export default function AdminExpensesPage() {
               </div>
 
               <form className={styles.expenseForm} onSubmit={handleSubmit}>
-                <div className={styles.userSearchArea}>
-                  <label className={styles.fieldLabel}>
-                    対象従業員検索
-                    <input
-                      className={styles.input}
-                      type="text"
-                      value={targetUserKeyword}
-                      onChange={(event) => {
-                        setTargetUserKeyword(event.target.value);
-                        setSelectedTargetUser(null);
-                      }}
-                      placeholder="名前またはメールアドレスで検索"
-                    />
-                  </label>
-
-                  <Button type="button" variant="secondary" onClick={handleSearchTargetUsers} disabled={isTargetUserSearching}>
-                    {isTargetUserSearching ? "検索中..." : "従業員検索"}
-                  </Button>
-                </div>
-
-                {selectedTargetUser && (
-                  <div className={styles.selectedUserBox}>
-                    <p className={styles.selectedUserTitle}>選択中の従業員</p>
-                    <p className={styles.selectedUserName}>{selectedTargetUser.name}</p>
-                    <p className={styles.selectedUserMeta}>
-                      ID：{selectedTargetUser.id} / {selectedTargetUser.email}
-                    </p>
-                  </div>
-                )}
-
-                {targetUserCandidates.length > 0 && (
-                  <div className={styles.userCandidateList}>
-                    {targetUserCandidates.map((candidate) => (
-                      <button
-                        key={candidate.id}
-                        type="button"
-                        className={styles.userCandidateRow}
-                        onClick={() => handleSelectTargetUser(candidate)}
-                      >
-                        <span className={styles.userCandidateName}>{candidate.name}</span>
-                        <span className={styles.userCandidateEmail}>{candidate.email}</span>
-                        <span className={styles.userCandidateMeta}>ID：{candidate.id}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
                 <div className={styles.twoColumn}>
                   <label className={styles.fieldLabel}>
                     対象月
@@ -621,7 +459,7 @@ export default function AdminExpensesPage() {
                 <div>
                   <h2 className={styles.sectionTitle}>経費検索</h2>
                   <p className={styles.sectionDescription}>
-                    従業員名・メールアドレスのフリーワードと、対象月の期間で検索します。
+                    自分の経費を対象月の期間で検索します。
                   </p>
                 </div>
               </div>
@@ -633,22 +471,6 @@ export default function AdminExpensesPage() {
                   void handleSearch(0, false);
                 }}
               >
-                <label className={styles.fieldLabel}>
-                  従業員キーワード
-                  <input
-                    className={styles.input}
-                    type="text"
-                    value={searchForm.keyword}
-                    onChange={(event) =>
-                      setSearchForm((current) => ({
-                        ...current,
-                        keyword: event.target.value,
-                      }))
-                    }
-                    placeholder="名前またはメールアドレス"
-                  />
-                </label>
-
                 <div className={styles.twoColumn}>
                   <label className={styles.fieldLabel}>
                     対象月From
@@ -709,7 +531,6 @@ export default function AdminExpensesPage() {
                     <tr>
                       <th>対象月</th>
                       <th>発生日</th>
-                      <th>従業員</th>
                       <th>金額</th>
                       <th>内容</th>
                       <th>領収書</th>
@@ -719,7 +540,7 @@ export default function AdminExpensesPage() {
                   <tbody>
                     {expenses.length === 0 ? (
                       <tr>
-                        <td className={styles.emptyCell} colSpan={7}>
+                        <td className={styles.emptyCell} colSpan={6}>
                           経費がありません。
                         </td>
                       </tr>
@@ -728,12 +549,6 @@ export default function AdminExpensesPage() {
                         <tr key={expense.id}>
                           <td>{expense.targetMonth}</td>
                           <td>{expense.expenseDate}</td>
-                          <td>
-                            <div className={styles.userCell}>
-                              <span className={styles.userName}>{expense.userName}</span>
-                              <span className={styles.userEmail}>{expense.email}</span>
-                            </div>
-                          </td>
                           <td className={styles.amountCell}>{formatYen(expense.amount)}</td>
                           <td>
                             <div className={styles.descriptionCell}>
@@ -784,11 +599,7 @@ export default function AdminExpensesPage() {
   );
 }
 
-function validateExpenseForm(form: ExpenseFormState, selectedTargetUser: TargetUserCandidate | null) {
-  if (!selectedTargetUser) {
-    return "対象従業員を検索して選択してください。";
-  }
-
+function validateExpenseForm(form: ExpenseFormState) {
   if (!form.targetMonth) {
     return "対象月を入力してください。";
   }
@@ -818,34 +629,6 @@ function normalizeNullableText(value: string) {
   return trimmedValue;
 }
 
-async function searchTargetUsers(request: {
-  keyword: string;
-  includeDeleted: boolean;
-  offset: number;
-  limit: number;
-}) {
-  const response = await fetch(buildApiUrl("/admin/users/search"), {
-    method: "POST",
-    headers: {
-      ...buildAuthHeaders(),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(request),
-  });
-
-  const payload = (await response.json()) as ApiResponse<SearchUsersResponse>;
-
-  if (!response.ok || payload.error) {
-    throw new Error(payload.message || "従業員検索に失敗しました。");
-  }
-
-  if (!payload.data) {
-    throw new Error("従業員検索の取得結果が空です。");
-  }
-
-  return payload.data;
-}
-
 function formatYen(value: number) {
   return new Intl.NumberFormat("ja-JP", {
     style: "currency",
@@ -869,32 +652,4 @@ function getCurrentMonthText() {
   const month = String(now.getMonth() + 1).padStart(2, "0");
 
   return `${year}-${month}`;
-}
-
-function buildApiUrl(path: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-  const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-
-  return `${normalizedBaseUrl}${normalizedPath}`;
-}
-
-function buildAuthHeaders(): HeadersInit {
-  const token = getAccessToken();
-
-  if (!token) {
-    return {};
-  }
-
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-function getAccessToken() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return window.localStorage.getItem("accessToken");
 }

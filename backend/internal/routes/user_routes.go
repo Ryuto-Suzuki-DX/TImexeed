@@ -1,7 +1,10 @@
 package routes
 
 import (
+	"context"
+
 	"timexeed/backend/internal/middlewares"
+	"timexeed/backend/internal/storage"
 
 	"timexeed/backend/internal/modules/user/builders"
 	"timexeed/backend/internal/modules/user/controllers"
@@ -14,30 +17,6 @@ import (
 
 /*
  * 〇 従業員用APIルート登録
- *
- * 一般ユーザー、つまり従業員だけが使うAPIをここにまとめる。
- *
- * 重要：
- * 	管理者APIと従業員APIは完全に分離する。
- * 	管理者画面から使うAPIはここには書かない。
- *
- * ルール：
- * 	URLにIDを載せない。
- * 	userId は request body にも載せない。
- *
- * 従業員APIで扱うID：
- * 	ログイン中ユーザー本人のID
- * 		→ JWTから取得する
- *
- * 	attendanceId などの対象データID
- * 		→ request body で受け取る
- *
- * 注意：
- * 	従業員APIでは、必ず
- * 	「JWTから取得したログイン中ユーザーID」
- * 	と
- * 	「対象データの所有者 user_id」
- * 	が一致することを確認する。
  */
 func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 
@@ -93,6 +72,19 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository)
 	notificationController := controllers.NewNotificationController(notificationService)
 
+	// Google Drive
+	//
+	// 注意：
+	// ・環境変数が未設定でもアプリ起動自体は止めない
+	// ・未設定の場合、領収書アップロード/表示時にService側でエラーを返す
+	googleDriveService, _ := storage.NewGoogleDriveServiceFromEnv(context.Background())
+
+	// 経費
+	expenseBuilder := builders.NewExpenseBuilder(db)
+	expenseRepository := repositories.NewExpenseRepository(db)
+	expenseService := services.NewExpenseService(expenseBuilder, expenseRepository, googleDriveService)
+	expenseController := controllers.NewExpenseController(expenseService)
+
 	user := r.Group("/user")
 
 	/*
@@ -137,5 +129,13 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 		user.POST("/notifications/search", notificationController.SearchNotifications)
 		user.POST("/notifications/read", notificationController.ReadNotification)
 		user.POST("/notifications/unread-count", notificationController.CountUnreadNotifications)
+
+		// 経費
+		user.POST("/expenses/search", expenseController.SearchExpenses)
+		user.POST("/expenses/detail", expenseController.GetExpenseDetail)
+		user.POST("/expenses/create", expenseController.CreateExpense)
+		user.POST("/expenses/update", expenseController.UpdateExpense)
+		user.POST("/expenses/delete", expenseController.DeleteExpense)
+		user.POST("/expenses/receipt/view", expenseController.ViewExpenseReceipt)
 	}
 }

@@ -32,10 +32,6 @@
   margin-bottom: 24px;
 }
 
-/*
- * 経費管理は一覧テーブルが横に広いので、
- * 左に登録フォーム、右に検索・一覧を広く取る。
- */
 .contentGrid {
   display: grid;
   grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
@@ -143,83 +139,6 @@
   border-color: #fb923c;
 }
 
-.userSearchArea {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: flex-end;
-}
-
-.selectedUserBox {
-  border: 1px solid #fed7aa;
-  border-radius: 12px;
-  background: #fff7ed;
-  padding: 12px;
-  box-sizing: border-box;
-}
-
-.selectedUserTitle {
-  margin: 0 0 6px;
-  color: #9a3412;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.selectedUserName {
-  margin: 0;
-  color: #111827;
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.5;
-}
-
-.selectedUserMeta {
-  margin: 4px 0 0;
-  color: #6b7280;
-  font-size: 12px;
-  line-height: 1.5;
-  word-break: break-all;
-}
-
-.userCandidateList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.userCandidateRow {
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #ffffff;
-  padding: 10px 12px;
-  box-sizing: border-box;
-  text-align: left;
-  cursor: pointer;
-}
-
-.userCandidateRow:hover {
-  border-color: #fb923c;
-  background: #fff7ed;
-}
-
-.userCandidateName {
-  display: block;
-  color: #111827;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.userCandidateEmail,
-.userCandidateMeta {
-  display: block;
-  margin-top: 4px;
-  color: #6b7280;
-  font-size: 12px;
-  line-height: 1.5;
-  word-break: break-all;
-}
-
 .fileNameText {
   margin: 0;
   color: #4b5563;
@@ -261,7 +180,7 @@
 
 .table {
   width: 100%;
-  min-width: 960px;
+  min-width: 820px;
   border-collapse: collapse;
   background: #ffffff;
 }
@@ -294,19 +213,12 @@
   padding: 28px 12px;
 }
 
-.userCell,
 .descriptionCell {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.userName {
-  color: #111827;
-  font-weight: 800;
-}
-
-.userEmail,
 .memoText {
   color: #6b7280;
   font-size: 12px;
@@ -360,8 +272,7 @@
     flex-direction: column;
   }
 
-  .twoColumn,
-  .userSearchArea {
+  .twoColumn {
     grid-template-columns: 1fr;
   }
 
