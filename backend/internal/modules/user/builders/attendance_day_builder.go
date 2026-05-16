@@ -186,7 +186,7 @@ func (builder *attendanceDayBuilder) BuildFindAttendanceDayByUserIDAndWorkDateQu
  *
  * 注意：
  * ・commonStartAt / commonEndAt はModelに持たせない
- * ・Service側で syncPlanActual を見て plan / actual へ変換済みの値を受け取る
+ * ・Service側で保存用の plan / actual 時刻へ変換済みの値を受け取る
  * ・AttendanceDay には申請状態を保存しない
  * ・AttendanceDay には画面表示用SystemMessageを保存しない
  */
@@ -243,10 +243,7 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 		PlanEndAt:               planEndAt,
 		ActualStartAt:           actualStartAt,
 		ActualEndAt:             actualEndAt,
-		LateFlag:                req.LateFlag,
-		EarlyLeaveFlag:          req.EarlyLeaveFlag,
-		AbsenceFlag:             req.AbsenceFlag,
-		SickLeaveFlag:           req.SickLeaveFlag,
+		ScheduledWorkMinutes:    req.ScheduledWorkMinutes,
 		RemoteWorkAllowanceFlag: req.RemoteWorkAllowanceFlag,
 		TransportFrom:           req.TransportFrom,
 		TransportTo:             req.TransportTo,
@@ -270,7 +267,7 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
  *
  * 注意：
  * ・commonStartAt / commonEndAt はModelに持たせない
- * ・Service側で syncPlanActual を見て plan / actual へ変換済みの値を受け取る
+ * ・Service側で保存用の plan / actual 時刻へ変換済みの値を受け取る
  * ・AttendanceDay には申請状態を保存しない
  * ・AttendanceDay には画面表示用SystemMessageを保存しない
  */
@@ -323,10 +320,7 @@ func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 	currentAttendanceDay.PlanEndAt = planEndAt
 	currentAttendanceDay.ActualStartAt = actualStartAt
 	currentAttendanceDay.ActualEndAt = actualEndAt
-	currentAttendanceDay.LateFlag = req.LateFlag
-	currentAttendanceDay.EarlyLeaveFlag = req.EarlyLeaveFlag
-	currentAttendanceDay.AbsenceFlag = req.AbsenceFlag
-	currentAttendanceDay.SickLeaveFlag = req.SickLeaveFlag
+	currentAttendanceDay.ScheduledWorkMinutes = req.ScheduledWorkMinutes
 	currentAttendanceDay.RemoteWorkAllowanceFlag = req.RemoteWorkAllowanceFlag
 	currentAttendanceDay.TransportFrom = req.TransportFrom
 	currentAttendanceDay.TransportTo = req.TransportTo

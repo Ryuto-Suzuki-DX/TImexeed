@@ -198,10 +198,7 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 				ActualStartAt: attendanceDayReq.ActualStartAt,
 				ActualEndAt:   attendanceDayReq.ActualEndAt,
 
-				LateFlag:       attendanceDayReq.LateFlag,
-				EarlyLeaveFlag: attendanceDayReq.EarlyLeaveFlag,
-				AbsenceFlag:    attendanceDayReq.AbsenceFlag,
-				SickLeaveFlag:  attendanceDayReq.SickLeaveFlag,
+				ScheduledWorkMinutes: attendanceDayReq.ScheduledWorkMinutes,
 
 				RemoteWorkAllowanceFlag: attendanceDayReq.RemoteWorkAllowanceFlag,
 

@@ -20,11 +20,11 @@ import "time"
  * ・user側はPENDING / APPROVEDなどの月次申請状態で編集ロックする
  * ・admin側は月次申請状態を表示には使うが、編集ロックには使わない
  *
- * 勤務区分と実績状態の整理：
+ * 勤務区分の整理：
  * ・PlanAttendanceTypeID は attendance_types のIDを使う
  * ・ActualAttendanceTypeID も attendance_types のIDを保存する
- * ・ただし、通常勤務ではバックエンド側で PlanAttendanceTypeID と同じ値を保存する
- * ・欠勤、病欠、遅刻、早退は attendance_types ではなく各Flagで表現する
+ * ・通常勤務など、実績区分IDが未指定の場合はService側で PlanAttendanceTypeID と同じ値を保存する
+ * ・遅刻、早退などの表示は保存フラグではなく、予定/実績時刻などから画面表示時に判断する
  * ・夜勤は勤務区分ではなく、実績時間から集計時に深夜時間として計算する
  */
 
@@ -66,49 +66,37 @@ type UpdateAttendanceDayRequest struct {
 	PlanAttendanceTypeID uint `json:"planAttendanceTypeId" binding:"required"`
 
 	// 実績区分ID
-	// 現在はフロントからの送信必須ではない。
-	// 通常勤務、休日、予定・実績同期区分では、Service側で PlanAttendanceTypeID と同じ値を保存する。
-	//
-	// 注意：
-	// 欠勤、病欠、遅刻、早退をここに入れない。
-	// それらは AbsenceFlag / SickLeaveFlag / LateFlag / EarlyLeaveFlag で表現する。
+	// フロントから未指定の場合は、Service側で PlanAttendanceTypeID と同じ値を保存する。
+	// 予定と実績で勤務区分が変わる場合はここで表現する。
 	ActualAttendanceTypeID *uint `json:"actualAttendanceTypeId"`
 
 	// 予定開始日時
+	// 通常勤務など、予定時間帯を持たせたい場合に使う。
+	// 有給、休職、介護休業、育児休業など、開始/終了ではなく時間数で扱う日は未入力可。
 	PlanStartAt *string `json:"planStartAt"`
 
 	// 予定終了日時
 	PlanEndAt *string `json:"planEndAt"`
 
 	// 実績開始日時
+	// 実勤務時間帯を持つ場合に使う。
 	ActualStartAt *string `json:"actualStartAt"`
 
 	// 実績終了日時
 	ActualEndAt *string `json:"actualEndAt"`
 
 	// 共通開始日時
-	// 有給、特別休暇、休職、介護休業、育児休業など、予定・実績を同期する区分で使う。
+	// 互換用に一旦残す。
+	// 今後は有給、休職、介護休業、育児休業などでは使用せず、scheduledWorkMinutes で扱う。
 	CommonStartAt *string `json:"commonStartAt"`
 
 	// 共通終了日時
-	// 有給、特別休暇、休職、介護休業、育児休業など、予定・実績を同期する区分で使う。
+	// 互換用に一旦残す。
 	CommonEndAt *string `json:"commonEndAt"`
 
-	// 遅刻フラグ
-	// 出勤日にだけ使用する。
-	LateFlag bool `json:"lateFlag"`
-
-	// 早退フラグ
-	// 出勤日にだけ使用する。
-	EarlyLeaveFlag bool `json:"earlyLeaveFlag"`
-
-	// 欠勤フラグ
-	// 出勤日にだけ使用する。
-	AbsenceFlag bool `json:"absenceFlag"`
-
-	// 病欠フラグ
-	// 出勤日にだけ使用する。
-	SickLeaveFlag bool `json:"sickLeaveFlag"`
+	// 派遣先所定労働時間（分）
+	// 例：8時間 = 480、7時間30分 = 450
+	ScheduledWorkMinutes *int `json:"scheduledWorkMinutes"`
 
 	// 在宅勤務補助対象フラグ
 	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
@@ -160,8 +148,6 @@ type AttendanceDayResponse struct {
 	PlanAttendanceTypeID uint `json:"planAttendanceTypeId"`
 
 	// 実績区分ID
-	// 基本的に予定区分IDと同じ勤務区分IDが入る。
-	// 欠勤、病欠、遅刻、早退は各Flagで表現する。
 	ActualAttendanceTypeID uint `json:"actualAttendanceTypeId"`
 
 	// 予定開始日時
@@ -176,17 +162,8 @@ type AttendanceDayResponse struct {
 	// 実績終了日時
 	ActualEndAt *time.Time `json:"actualEndAt"`
 
-	// 遅刻フラグ
-	LateFlag bool `json:"lateFlag"`
-
-	// 早退フラグ
-	EarlyLeaveFlag bool `json:"earlyLeaveFlag"`
-
-	// 欠勤フラグ
-	AbsenceFlag bool `json:"absenceFlag"`
-
-	// 病欠フラグ
-	SickLeaveFlag bool `json:"sickLeaveFlag"`
+	// 派遣先所定労働時間（分）
+	ScheduledWorkMinutes *int `json:"scheduledWorkMinutes"`
 
 	// 在宅勤務補助対象フラグ
 	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`

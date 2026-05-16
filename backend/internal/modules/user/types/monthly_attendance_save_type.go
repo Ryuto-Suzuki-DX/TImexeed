@@ -60,9 +60,14 @@ type UpdateMonthlyAttendanceDayRequest struct {
 	ActualAttendanceTypeID *uint `json:"actualAttendanceTypeId"`
 
 	// 共通開始日時
+	//
+	// 互換用に一旦残す。
+	// 今後、有給・休職などは開始/終了ではなく ScheduledWorkMinutes で扱う。
 	CommonStartAt *string `json:"commonStartAt"`
 
 	// 共通終了日時
+	//
+	// 互換用に一旦残す。
 	CommonEndAt *string `json:"commonEndAt"`
 
 	// 予定開始日時
@@ -77,22 +82,21 @@ type UpdateMonthlyAttendanceDayRequest struct {
 	// 実績終了日時
 	ActualEndAt *string `json:"actualEndAt"`
 
-	// 遅刻フラグ
-	LateFlag bool `json:"lateFlag"`
-
-	// 早退フラグ
-	EarlyLeaveFlag bool `json:"earlyLeaveFlag"`
-
-	// 欠勤フラグ
-	AbsenceFlag bool `json:"absenceFlag"`
-
-	// 病欠フラグ
-	SickLeaveFlag bool `json:"sickLeaveFlag"`
+	// 派遣先所定労働時間（分）
+	//
+	// 例：
+	// ・8時間 = 480
+	// ・7時間30分 = 450
+	ScheduledWorkMinutes *int `json:"scheduledWorkMinutes"`
 
 	// 在宅勤務補助対象フラグ
 	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
 
 	// 申請メモ
+	//
+	// 注意：
+	// ・現時点では AttendanceDay には申請メモを保存しない
+	// ・Service側では使わない
 	RequestMemo *string `json:"requestMemo"`
 
 	// 日別交通費：出発地

@@ -93,6 +93,7 @@ func NewAttendanceDayService(
  * 注意：
  * ・AttendanceDay model から SystemMessage は削除済み
  * ・ここでは SystemMessage を詰めない
+ * ・遅刻/早退/欠勤/病欠のフラグは保存しない
  */
 func toAttendanceDayResponse(attendanceDay models.AttendanceDay) types.AttendanceDayResponse {
 	return types.AttendanceDayResponse{
@@ -107,10 +108,7 @@ func toAttendanceDayResponse(attendanceDay models.AttendanceDay) types.Attendanc
 		ActualStartAt: attendanceDay.ActualStartAt,
 		ActualEndAt:   attendanceDay.ActualEndAt,
 
-		LateFlag:       attendanceDay.LateFlag,
-		EarlyLeaveFlag: attendanceDay.EarlyLeaveFlag,
-		AbsenceFlag:    attendanceDay.AbsenceFlag,
-		SickLeaveFlag:  attendanceDay.SickLeaveFlag,
+		ScheduledWorkMinutes: attendanceDay.ScheduledWorkMinutes,
 
 		RemoteWorkAllowanceFlag: attendanceDay.RemoteWorkAllowanceFlag,
 
@@ -294,10 +292,11 @@ func (service *attendanceDayService) SearchAttendanceDays(
  * ・userID + workDate で既存勤怠を検索する
  * ・存在しなければ新規作成する
  * ・存在すれば更新する
- * ・休日は予定・実績ともに時間を保存しない
- * ・syncPlanActual = true の勤務区分は、commonStartAt / commonEndAt を plan / actual の両方へ反映する
- * ・通常勤務は actualAttendanceTypeId をフロントに要求せず、予定区分IDと同じ値を実績区分IDとして保存する
- * ・欠勤、病欠、遅刻、早退は actualAttendanceTypeId ではなく各Flagで表現する
+ * ・休日は予定・実績・派遣先所定労働時間を保存しない
+ * ・syncPlanActual = true の勤務区分は、開始/終了ではなく派遣先所定労働時間で扱う
+ * ・通常勤務などは予定/実績の開始終了を任意で保存できる
+ * ・予定/実績の開始終了が未入力でも保存可能
+ * ・遅刻/早退/欠勤/病欠のフラグは保存しない
  * ・夜勤は勤務区分ではなく、actualStartAt / actualEndAt から集計時に深夜時間として計算する
  * ・更新可否は MonthlyAttendanceRequest を見て判断する
  */
@@ -346,16 +345,20 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 	var actualStartAt *time.Time
 	var actualEndAt *time.Time
 
+	if req.ActualAttendanceTypeID != nil && *req.ActualAttendanceTypeID != 0 {
+		actualAttendanceTypeID = *req.ActualAttendanceTypeID
+	} else {
+		actualAttendanceTypeID = req.PlanAttendanceTypeID
+	}
+
 	/*
 	 * 休日の場合
 	 *
 	 * 休日だけは予定にも実績にも時間を保存しない。
-	 * syncPlanActual=true でも commonStartAt / commonEndAt は要求しない。
-	 * 実績区分IDは予定区分IDと同じ値を保存する。
+	 * 派遣先所定労働時間も保存しない。
+	 * 日別交通費、在宅勤務補助も保存しない。
 	 */
 	if attendanceType.Code == "HOLIDAY" {
-		actualAttendanceTypeID = req.PlanAttendanceTypeID
-
 		planStartAt = nil
 		planEndAt = nil
 		actualStartAt = nil
@@ -372,10 +375,7 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		req.ActualStartAt = nil
 		req.ActualEndAt = nil
 
-		req.LateFlag = false
-		req.EarlyLeaveFlag = false
-		req.AbsenceFlag = false
-		req.SickLeaveFlag = false
+		req.ScheduledWorkMinutes = nil
 
 		req.RemoteWorkAllowanceFlag = false
 
@@ -388,63 +388,29 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		 * 予定・実績同期対象の場合
 		 *
 		 * 有給、特別休暇、休職、介護休業、育児休業などは、
-		 * commonStartAt / commonEndAt を plan / actual の両方へ反映する。
+		 * 開始/終了ではなく派遣先所定労働時間で扱う。
 		 *
-		 * 欠勤、病欠、遅刻、早退は勤務区分ではなく実績状態なので、
-		 * ここには含めない。
+		 * そのため commonStartAt / commonEndAt を plan / actual へコピーしない。
 		 */
-		commonStartAt, err := utils.ParseOptionalDateTime(req.CommonStartAt)
-		if err != nil {
-			return results.BadRequest(
-				"UPDATE_ATTENDANCE_DAY_INVALID_COMMON_START_AT",
-				"共通開始日時の形式が正しくありません",
-				map[string]any{
-					"commonStartAt": req.CommonStartAt,
-					"format":        "RFC3339",
-				},
-			)
-		}
+		planStartAt = nil
+		planEndAt = nil
+		actualStartAt = nil
+		actualEndAt = nil
 
-		commonEndAt, err := utils.ParseOptionalDateTime(req.CommonEndAt)
-		if err != nil {
-			return results.BadRequest(
-				"UPDATE_ATTENDANCE_DAY_INVALID_COMMON_END_AT",
-				"共通終了日時の形式が正しくありません",
-				map[string]any{
-					"commonEndAt": req.CommonEndAt,
-					"format":      "RFC3339",
-				},
-			)
-		}
+		req.CommonStartAt = nil
+		req.CommonEndAt = nil
 
-		if commonStartAt == nil || commonEndAt == nil {
-			return results.BadRequest(
-				"UPDATE_ATTENDANCE_DAY_EMPTY_COMMON_TIME",
-				"共通時間を入力してください",
-				nil,
-			)
-		}
+		req.PlanStartAt = nil
+		req.PlanEndAt = nil
 
-		actualAttendanceTypeID = req.PlanAttendanceTypeID
-		planStartAt = commonStartAt
-		planEndAt = commonEndAt
-		actualStartAt = commonStartAt
-		actualEndAt = commonEndAt
-
-		req.LateFlag = false
-		req.EarlyLeaveFlag = false
-		req.AbsenceFlag = false
-		req.SickLeaveFlag = false
+		req.ActualStartAt = nil
+		req.ActualEndAt = nil
 	} else {
 		/*
-		 * 通常勤務の場合
+		 * 通常勤務など、開始/終了を持てる勤務区分の場合
 		 *
-		 * 実績区分は予定区分と同じ勤務区分IDを保存する。
-		 * 欠勤、病欠、遅刻、早退は actualAttendanceTypeId ではなく、
-		 * LateFlag / EarlyLeaveFlag / AbsenceFlag / SickLeaveFlag で表現する。
-		 *
-		 * 夜勤は勤務区分ではない。
-		 * 深夜時間は actualStartAt / actualEndAt から集計時に計算する。
+		 * 予定/実績時刻は任意。
+		 * 派遣先所定労働時間を残業・不足などの基準として扱う。
 		 */
 		parsedPlanStartAt, err := utils.ParseOptionalDateTime(req.PlanStartAt)
 		if err != nil {
@@ -494,23 +460,6 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 			)
 		}
 
-		if parsedPlanStartAt == nil || parsedPlanEndAt == nil {
-			return results.BadRequest(
-				"UPDATE_ATTENDANCE_DAY_EMPTY_PLAN_TIME",
-				"予定時間を入力してください",
-				nil,
-			)
-		}
-
-		if parsedActualStartAt == nil || parsedActualEndAt == nil {
-			return results.BadRequest(
-				"UPDATE_ATTENDANCE_DAY_EMPTY_ACTUAL_TIME",
-				"実績時間を入力してください",
-				nil,
-			)
-		}
-
-		actualAttendanceTypeID = req.PlanAttendanceTypeID
 		planStartAt = parsedPlanStartAt
 		planEndAt = parsedPlanEndAt
 		actualStartAt = parsedActualStartAt
