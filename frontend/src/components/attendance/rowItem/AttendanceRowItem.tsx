@@ -30,26 +30,6 @@ type AttendanceRowItemProps = {
   onDeleteBreak: (row: AttendanceViewRow, breakIndex: number) => void;
 };
 
-function getWorkFlagValue(row: AttendanceViewRow) {
-  if (row.lateFlag) {
-    return "late";
-  }
-
-  if (row.earlyLeaveFlag) {
-    return "earlyLeave";
-  }
-
-  if (row.absenceFlag) {
-    return "absence";
-  }
-
-  if (row.sickLeaveFlag) {
-    return "sickLeave";
-  }
-
-  return "";
-}
-
 function getCalendarRowClass(row: AttendanceViewRow) {
   if (row.isHoliday) {
     return styles.holidayRow;
@@ -77,10 +57,7 @@ function hasRowInput(row: AttendanceViewRow) {
     row.planEndTime !== "" ||
     row.actualStartTime !== "" ||
     row.actualEndTime !== "" ||
-    row.lateFlag ||
-    row.earlyLeaveFlag ||
-    row.absenceFlag ||
-    row.sickLeaveFlag ||
+    row.scheduledWorkMinutes !== "" ||
     row.remoteWorkAllowanceFlag ||
     row.transportFrom !== "" ||
     row.transportTo !== "" ||
@@ -96,7 +73,7 @@ function hasRowInput(row: AttendanceViewRow) {
  * 注意：
  * ・DBには保存しない
  * ・表示専用
- * ・まずは既存UIを壊さないため最小限の表示にする
+ * ・遅刻/早退/欠勤/病欠のフラグは使わない
  */
 function buildRowSystemMessage(row: AttendanceViewRow, selectedPlanType: AttendanceType | undefined) {
   if (!selectedPlanType) {
@@ -107,24 +84,12 @@ function buildRowSystemMessage(row: AttendanceViewRow, selectedPlanType: Attenda
     return "休日";
   }
 
-  if (row.lateFlag) {
-    return "遅刻";
-  }
-
-  if (row.earlyLeaveFlag) {
-    return "早退";
-  }
-
-  if (row.absenceFlag) {
-    return "欠勤";
-  }
-
-  if (row.sickLeaveFlag) {
-    return "病欠";
-  }
-
   if (selectedPlanType.requiresRequest) {
     return "申請対象";
+  }
+
+  if (row.scheduledWorkMinutes !== "") {
+    return `所定 ${row.scheduledWorkMinutes}分`;
   }
 
   return "通常";
@@ -164,11 +129,10 @@ export default function AttendanceRowItem({
    * 勤務区分マスタの設定をもとに画面制御する。
    *
    * 重要：
-   * 休日だけは予定・実績の時間入力を出さない。
-   * 有給・休職などは syncPlanActual=true でも時間入力が必要なので、時間欄を出す。
-   *
-   * 実績側では attendanceTypes を選ばせない。
-   * 欠勤、病欠、遅刻、早退は実績区分ではなく flag で表現する。
+   * ・休日だけは予定・実績・所定労働時間を保存しない。
+   * ・有給・休職など syncPlanActual=true の区分は、開始/終了ではなく所定労働時間で扱う。
+   * ・通常勤務などは予定/実績の開始終了を任意入力できる。
+   * ・遅刻/早退/欠勤/病欠のフラグUIは使わない。
    */
   const isHolidayAttendanceType = selectedPlanType?.code === "HOLIDAY";
   const syncPlanActual = selectedPlanType?.syncPlanActual === true;
@@ -183,7 +147,7 @@ export default function AttendanceRowItem({
 
   /*
    * syncPlanActual=true かつ休日ではない区分は、
-   * 共通時間を入力して予定・実績に反映する。
+   * 開始/終了を入力しない。
    *
    * 例：
    * ・有給
@@ -192,33 +156,17 @@ export default function AttendanceRowItem({
    * ・介護休業
    * ・育児休業
    */
-  const showCommonTimeInput = syncPlanActual && !isHolidayAttendanceType;
-
-  /*
-   * 出勤など、予定と実績時間を分けて入力する区分。
-   *
-   * 注意：
-   * 実績状態の選択肢は attendanceTypes ではなく、
-   * lateFlag / earlyLeaveFlag / absenceFlag / sickLeaveFlag に反映する。
-   */
+  const showScheduledWorkMinutesInput = !isHolidayAttendanceType;
   const showActualWorkInput = !syncPlanActual && !isHolidayAttendanceType;
-
-  const handleWorkFlagChange = (value: string) => {
-    onChangeRow(row.workDate, "lateFlag", value === "late");
-    onChangeRow(row.workDate, "earlyLeaveFlag", value === "earlyLeave");
-    onChangeRow(row.workDate, "absenceFlag", value === "absence");
-    onChangeRow(row.workDate, "sickLeaveFlag", value === "sickLeave");
-  };
 
   /*
    * 予定区分変更時の制御
    *
    * 実績区分IDは、基本的に予定区分IDと同じ値にする。
-   * 欠勤、病欠、遅刻、早退は actualAttendanceTypeId ではなく各Flagで扱う。
    *
    * 休日の場合：
    * ・予定/実績/共通の時刻を全部クリア
-   * ・遅刻/早退/欠勤/病欠をクリア
+   * ・派遣先所定労働時間をクリア
    * ・交通費をクリア
    * ・在宅勤務補助ありをクリア
    */
@@ -241,6 +189,7 @@ export default function AttendanceRowItem({
       onChangeRow(row.workDate, "planEndTime", "");
       onChangeRow(row.workDate, "actualStartTime", "");
       onChangeRow(row.workDate, "actualEndTime", "");
+      onChangeRow(row.workDate, "scheduledWorkMinutes", "");
 
       onChangeRow(row.workDate, "lateFlag", false);
       onChangeRow(row.workDate, "earlyLeaveFlag", false);
@@ -257,27 +206,18 @@ export default function AttendanceRowItem({
     }
 
     if (nextType.syncPlanActual) {
-      onChangeRow(row.workDate, "lateFlag", false);
-      onChangeRow(row.workDate, "earlyLeaveFlag", false);
-      onChangeRow(row.workDate, "absenceFlag", false);
-      onChangeRow(row.workDate, "sickLeaveFlag", false);
+      onChangeRow(row.workDate, "commonStartTime", "");
+      onChangeRow(row.workDate, "commonEndTime", "");
+      onChangeRow(row.workDate, "planStartTime", "");
+      onChangeRow(row.workDate, "planEndTime", "");
+      onChangeRow(row.workDate, "actualStartTime", "");
+      onChangeRow(row.workDate, "actualEndTime", "");
     }
 
-    if (!nextType.allowLateFlag) {
-      onChangeRow(row.workDate, "lateFlag", false);
-    }
-
-    if (!nextType.allowEarlyLeaveFlag) {
-      onChangeRow(row.workDate, "earlyLeaveFlag", false);
-    }
-
-    if (!nextType.allowAbsenceFlag) {
-      onChangeRow(row.workDate, "absenceFlag", false);
-    }
-
-    if (!nextType.allowSickLeaveFlag) {
-      onChangeRow(row.workDate, "sickLeaveFlag", false);
-    }
+    onChangeRow(row.workDate, "lateFlag", false);
+    onChangeRow(row.workDate, "earlyLeaveFlag", false);
+    onChangeRow(row.workDate, "absenceFlag", false);
+    onChangeRow(row.workDate, "sickLeaveFlag", false);
 
     if (!nextType.allowTransportInput) {
       onChangeRow(row.workDate, "transportFrom", "");
@@ -319,21 +259,8 @@ export default function AttendanceRowItem({
 
           {isHolidayAttendanceType ? (
             <p className={styles.syncText}>時間入力なし</p>
-          ) : showCommonTimeInput ? (
-            <>
-              <Input
-                type="time"
-                value={row.commonStartTime}
-                onChange={(event) => onChangeRow(row.workDate, "commonStartTime", event.target.value)}
-                disabled={locked}
-              />
-              <Input
-                type="time"
-                value={row.commonEndTime}
-                onChange={(event) => onChangeRow(row.workDate, "commonEndTime", event.target.value)}
-                disabled={locked}
-              />
-            </>
+          ) : syncPlanActual ? (
+            <p className={styles.syncText}>開始/終了なし</p>
           ) : (
             <>
               <Input
@@ -355,7 +282,9 @@ export default function AttendanceRowItem({
         {isHolidayAttendanceType && (
           <p className={styles.subText}>休日は時間なしで予定・実績へ反映します。</p>
         )}
-        {showCommonTimeInput && <p className={styles.subText}>予定・実績へ同時反映</p>}
+        {syncPlanActual && !isHolidayAttendanceType && (
+          <p className={styles.subText}>開始/終了ではなく所定労働時間で扱います。</p>
+        )}
       </td>
 
       <td className={styles.td}>
@@ -388,27 +317,25 @@ export default function AttendanceRowItem({
           ) : (
             <p className={styles.syncText}>実績：未選択</p>
           )}
-
-          {showActualWorkInput && (
-            <select
-              aria-label={`${row.dayLabel}の勤怠状態`}
-              value={getWorkFlagValue(row)}
-              onChange={(event) => handleWorkFlagChange(event.target.value)}
-              className={styles.select}
-              disabled={locked}
-            >
-              <option value="">通常</option>
-              {(selectedPlanType?.allowLateFlag ?? true) && <option value="late">遅刻</option>}
-              {(selectedPlanType?.allowEarlyLeaveFlag ?? true) && (
-                <option value="earlyLeave">早退</option>
-              )}
-              {(selectedPlanType?.allowAbsenceFlag ?? true) && <option value="absence">欠勤</option>}
-              {(selectedPlanType?.allowSickLeaveFlag ?? true) && (
-                <option value="sickLeave">病欠</option>
-              )}
-            </select>
-          )}
         </div>
+      </td>
+
+      <td className={styles.td}>
+        {showScheduledWorkMinutesInput ? (
+          <label className={styles.scheduledField}>
+            <span className={styles.miniLabel}>分</span>
+            <Input
+              type="number"
+              placeholder="例：480"
+              value={row.scheduledWorkMinutes}
+              onChange={(event) => onChangeRow(row.workDate, "scheduledWorkMinutes", event.target.value)}
+              disabled={locked}
+            />
+            <span className={styles.scheduledHelp}>8時間=480</span>
+          </label>
+        ) : (
+          <p className={styles.noBreakText}>対象外</p>
+        )}
       </td>
 
       <td className={styles.td}>

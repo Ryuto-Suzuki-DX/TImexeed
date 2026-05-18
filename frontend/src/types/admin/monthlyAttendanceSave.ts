@@ -15,6 +15,7 @@
  * ・日別勤怠に申請メモは送らない
  * ・管理者APIなので操作対象ユーザーIDを targetUserId で送る
  * ・管理者側では月次申請状態による編集ロックは行わない
+ * ・遅刻/早退/欠勤/病欠のフラグは送らない
  */
 
 export type UpdateMonthlyAttendanceSaveRequest = {
@@ -50,10 +51,7 @@ export type UpdateMonthlyAttendanceSaveDayRequest = {
   actualStartAt: string | null;
   actualEndAt: string | null;
 
-  lateFlag: boolean;
-  earlyLeaveFlag: boolean;
-  absenceFlag: boolean;
-  sickLeaveFlag: boolean;
+  scheduledWorkMinutes: number | null;
 
   remoteWorkAllowanceFlag: boolean;
 

@@ -40,6 +40,8 @@ func RunMigrations(db *gorm.DB) error {
 		&models.HolidayDate{},
 		// 外部ストレージリンク
 		&models.ExternalStorageLink{},
+		// 個人情報Driveフォルダ
+		&models.PersonalInformationDriveFolder{},
 		// 経費
 		&models.Expense{},
 	)

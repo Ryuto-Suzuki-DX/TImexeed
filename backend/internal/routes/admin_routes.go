@@ -115,15 +115,16 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	// ・未設定の場合、領収書アップロード/表示時にService側でエラーを返す
 	googleDriveService, _ := storage.NewGoogleDriveServiceFromEnv(context.Background())
 
+	// 個人情報Driveフォルダ
+	personalInformationDriveFolderBuilder := builders.NewPersonalInformationDriveFolderBuilder(db)
+	personalInformationDriveFolderRepository := repositories.NewPersonalInformationDriveFolderRepository(db)
+	personalInformationDriveFolderService := services.NewPersonalInformationDriveFolderService(personalInformationDriveFolderBuilder, personalInformationDriveFolderRepository, googleDriveService)
+	personalInformationDriveFolderController := controllers.NewPersonalInformationDriveFolderController(personalInformationDriveFolderService)
+
 	// 経費
 	expenseBuilder := builders.NewExpenseBuilder(db)
 	expenseRepository := repositories.NewExpenseRepository(db)
-	expenseService := services.NewExpenseService(
-		expenseBuilder,
-		expenseRepository,
-		externalStorageLinkRepository,
-		googleDriveService,
-	)
+	expenseService := services.NewExpenseService(expenseBuilder, expenseRepository, externalStorageLinkRepository, googleDriveService)
 	expenseController := controllers.NewExpenseController(expenseService)
 
 	// お知らせ
@@ -142,6 +143,11 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	monthlyAttendanceSaveService := services.NewMonthlyAttendanceSaveService(attendanceDayService, attendanceBreakService, monthlyCommuterPassService, attendanceTypeService, paidLeaveUsageService)
 	monthlyAttendanceSaveController := controllers.NewMonthlyAttendanceSaveController(monthlyAttendanceSaveService)
 
+	// 月次勤怠集計CSV出力
+	monthlyAttendanceSummaryExportBuilder := builders.NewMonthlyAttendanceSummaryExportBuilder(db)
+	monthlyAttendanceSummaryExportRepository := repositories.NewMonthlyAttendanceSummaryExportRepository(db)
+	monthlyAttendanceSummaryExportService := services.NewMonthlyAttendanceSummaryExportService(monthlyAttendanceSummaryExportBuilder, monthlyAttendanceSummaryExportRepository)
+	monthlyAttendanceSummaryExportController := controllers.NewMonthlyAttendanceSummaryExportController(monthlyAttendanceSummaryExportService)
 	admin := r.Group("/admin")
 
 	/*
@@ -212,6 +218,11 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		admin.POST("/external-storage-links/search", externalStorageLinkController.SearchExternalStorageLinks)
 		admin.POST("/external-storage-links/update", externalStorageLinkController.UpdateExternalStorageLink)
 
+		// 個人情報ファイル
+		admin.POST("/personal-information-drive-folders/search", personalInformationDriveFolderController.SearchPersonalInformationDriveFolders)
+		admin.POST("/personal-information-drive-folders/sync", personalInformationDriveFolderController.SyncPersonalInformationDriveFolder)
+		admin.POST("/personal-information-drive-folders/view", personalInformationDriveFolderController.ViewPersonalInformationDriveFolder)
+
 		// 経費
 		admin.POST("/expenses/search", expenseController.SearchExpenses)
 		admin.POST("/expenses/detail", expenseController.GetExpenseDetail)
@@ -236,5 +247,8 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 
 		// 月次勤怠全体保存（勤怠・休憩・月次通勤定期）
 		admin.POST("/monthly-attendances/update", monthlyAttendanceSaveController.UpdateMonthlyAttendance)
+
+		// 月次勤怠集計CSV出力
+		admin.POST("/monthly-attendance-summary-exports/export", monthlyAttendanceSummaryExportController.ExportMonthlyAttendanceSummaryCsv)
 	}
 }

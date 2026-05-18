@@ -154,6 +154,28 @@
   gap: 8px;
 }
 
+.scheduledField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 104px;
+  min-width: 104px;
+}
+
+.scheduledField input {
+  width: 104px;
+  min-width: 104px;
+  height: 38px;
+  box-sizing: border-box;
+}
+
+.scheduledHelp {
+  font-size: 10px;
+  color: #6b7280;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .timeGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -26,7 +26,7 @@
 
 .table {
   width: 100%;
-  min-width: 1580px;
+  min-width: 1680px;
   border-collapse: collapse;
 }
 
@@ -52,7 +52,11 @@
 }
 
 .actualColumn {
-  width: 330px;
+  width: 300px;
+}
+
+.scheduledColumn {
+  width: 120px;
 }
 
 .breakColumn {

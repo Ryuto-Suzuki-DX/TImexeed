@@ -35,6 +35,12 @@ export type AttendanceBreakViewRow = {
  * ・日別勤怠に申請メモは持たせない
  * ・日別勤怠の削除はAPIでは行わず、画面stateを初期値に戻して全体保存する
  * ・祝日はHolidayDate APIから取得し、画面表示用に保持する
+ * ・遅刻/早退/欠勤/病欠のフラグはDBにもAPIにも送らない
+ *
+ * 互換メモ：
+ * ・AttendanceTable / AttendanceRowItem が現時点で旧フラグを参照する可能性があるため、
+ *   画面用Rowにだけ互換用として残す。
+ * ・mapperでは常に false を入れ、月次保存Requestには含めない。
  */
 export type AttendanceViewRow = {
   workDate: string;
@@ -57,6 +63,8 @@ export type AttendanceViewRow = {
 
   actualStartTime: string;
   actualEndTime: string;
+
+  scheduledWorkMinutes: string;
 
   lateFlag: boolean;
   earlyLeaveFlag: boolean;

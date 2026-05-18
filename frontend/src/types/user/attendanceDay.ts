@@ -9,6 +9,7 @@
  * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
  * ・systemMessage は保存せず、画面側で計算して表示する
  * ・日別勤怠に申請メモは持たせない
+ * ・遅刻/早退/欠勤/病欠のフラグは保存しない
  */
 
 export type AttendanceDay = {
@@ -25,10 +26,7 @@ export type AttendanceDay = {
   actualStartAt: string | null;
   actualEndAt: string | null;
 
-  lateFlag: boolean;
-  earlyLeaveFlag: boolean;
-  absenceFlag: boolean;
-  sickLeaveFlag: boolean;
+  scheduledWorkMinutes: number | null;
 
   remoteWorkAllowanceFlag: boolean;
 

@@ -11,6 +11,7 @@ const adminMenuItems: SideMenuItem[] = [
   { label: "有給確認", href: "/admin/paid-leave-check" },
   { label: "給与管理", href: "/admin/salary" },
   { label: "経費登録", href: "/admin/expenses" },
+  { label: "個人情報", href: "/admin/personal-information-drive-folders" },
   { label: "設定", href: "/admin/settings" },
 ];
 

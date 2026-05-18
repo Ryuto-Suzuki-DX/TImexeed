@@ -79,6 +79,12 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	// ・未設定の場合、領収書アップロード/表示時にService側でエラーを返す
 	googleDriveService, _ := storage.NewGoogleDriveServiceFromEnv(context.Background())
 
+	// 個人情報Driveフォルダ
+	personalInformationDriveFolderBuilder := builders.NewPersonalInformationDriveFolderBuilder(db)
+	personalInformationDriveFolderRepository := repositories.NewPersonalInformationDriveFolderRepository(db)
+	personalInformationDriveFolderService := services.NewPersonalInformationDriveFolderService(personalInformationDriveFolderBuilder, personalInformationDriveFolderRepository)
+	personalInformationDriveFolderController := controllers.NewPersonalInformationDriveFolderController(personalInformationDriveFolderService)
+
 	// 経費
 	expenseBuilder := builders.NewExpenseBuilder(db)
 	expenseRepository := repositories.NewExpenseRepository(db)
@@ -129,6 +135,9 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 		user.POST("/notifications/search", notificationController.SearchNotifications)
 		user.POST("/notifications/read", notificationController.ReadNotification)
 		user.POST("/notifications/unread-count", notificationController.CountUnreadNotifications)
+
+		// 個人情報Driveフォルダ
+		user.POST("/personal-information-drive-folders/get", personalInformationDriveFolderController.GetMyPersonalInformationDriveFolder)
 
 		// 経費
 		user.POST("/expenses/search", expenseController.SearchExpenses)

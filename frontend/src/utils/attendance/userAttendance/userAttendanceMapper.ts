@@ -30,6 +30,9 @@ import {
  * 従業員勤怠 Mapper
  *
  * API型と画面用型の変換をここに集約する。
+ *
+ * 注意：
+ * ・遅刻/早退/欠勤/病欠の旧フラグは保存Requestへ送らない
  */
 
 /*
@@ -85,6 +88,8 @@ export function buildBlankAttendanceViewRows(
       actualStartTime: "",
       actualEndTime: "",
 
+      scheduledWorkMinutes: "",
+
       lateFlag: false,
       earlyLeaveFlag: false,
       absenceFlag: false,
@@ -133,6 +138,8 @@ export function resetAttendanceViewRow(row: AttendanceViewRow): AttendanceViewRo
     actualStartTime: "",
     actualEndTime: "",
 
+    scheduledWorkMinutes: "",
+
     lateFlag: false,
     earlyLeaveFlag: false,
     absenceFlag: false,
@@ -175,10 +182,13 @@ export function applyAttendanceDayToViewRow(
     actualStartTime: toTimeText(attendanceDay.actualStartAt),
     actualEndTime: toTimeText(attendanceDay.actualEndAt),
 
-    lateFlag: attendanceDay.lateFlag,
-    earlyLeaveFlag: attendanceDay.earlyLeaveFlag,
-    absenceFlag: attendanceDay.absenceFlag,
-    sickLeaveFlag: attendanceDay.sickLeaveFlag,
+    scheduledWorkMinutes:
+      attendanceDay.scheduledWorkMinutes === null ? "" : String(attendanceDay.scheduledWorkMinutes),
+
+    lateFlag: false,
+    earlyLeaveFlag: false,
+    absenceFlag: false,
+    sickLeaveFlag: false,
 
     remoteWorkAllowanceFlag: attendanceDay.remoteWorkAllowanceFlag,
 
@@ -324,6 +334,25 @@ export function buildUpdateMonthlyAttendanceSaveBreakRequest(
 }
 
 /*
+ * 画面用の派遣先所定労働時間をAPI送信用のnumber|nullへ変換する
+ */
+function toScheduledWorkMinutes(value: string): number | null {
+  const trimmedValue = value.trim();
+
+  if (trimmedValue === "") {
+    return null;
+  }
+
+  const parsedValue = Number(trimmedValue);
+
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    return null;
+  }
+
+  return Math.trunc(parsedValue);
+}
+
+/*
  * 画面Rowから月次勤怠全体保存API用の日別勤怠Requestを作る
  */
 export function buildUpdateMonthlyAttendanceSaveDayRequest(
@@ -356,10 +385,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
       actualStartAt: null,
       actualEndAt: null,
 
-      lateFlag: false,
-      earlyLeaveFlag: false,
-      absenceFlag: false,
-      sickLeaveFlag: false,
+      scheduledWorkMinutes: null,
 
       remoteWorkAllowanceFlag: false,
 
@@ -396,10 +422,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
       actualStartAt: null,
       actualEndAt: null,
 
-      lateFlag: false,
-      earlyLeaveFlag: false,
-      absenceFlag: false,
-      sickLeaveFlag: false,
+      scheduledWorkMinutes: null,
 
       remoteWorkAllowanceFlag: false,
 
@@ -414,19 +437,19 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
   /*
    * 有給・特別休暇・休職など、予定と実績を同期する区分。
-   * 実績区分IDは予定区分IDと同じ値を送る。
+   *
+   * 開始/終了ではなく派遣先所定労働時間で扱うため、
+   * commonStartAt / commonEndAt は送らない。
    */
   if (selectedPlanType.syncPlanActual) {
-    const commonEndUsesNextDay = shouldUseNextDay(row.commonStartTime, row.commonEndTime);
-
     return {
       workDate: row.workDate,
 
       planAttendanceTypeId: row.planAttendanceTypeId,
-      actualAttendanceTypeId: row.planAttendanceTypeId,
+      actualAttendanceTypeId: row.actualAttendanceTypeId ?? row.planAttendanceTypeId,
 
-      commonStartAt: toRfc3339(row.workDate, row.commonStartTime, false),
-      commonEndAt: toRfc3339(row.workDate, row.commonEndTime, commonEndUsesNextDay),
+      commonStartAt: null,
+      commonEndAt: null,
 
       planStartAt: null,
       planEndAt: null,
@@ -434,10 +457,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
       actualStartAt: null,
       actualEndAt: null,
 
-      lateFlag: false,
-      earlyLeaveFlag: false,
-      absenceFlag: false,
-      sickLeaveFlag: false,
+      scheduledWorkMinutes: toScheduledWorkMinutes(row.scheduledWorkMinutes),
 
       remoteWorkAllowanceFlag: row.remoteWorkAllowanceFlag,
 
@@ -453,12 +473,8 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
   /*
    * 通常勤務など、予定時間と実績時間を分ける区分。
    *
-   * 実績区分IDは予定区分IDと同じ値を送る。
-   * 欠勤、病欠、遅刻、早退は actualAttendanceTypeId ではなく、
-   * lateFlag / earlyLeaveFlag / absenceFlag / sickLeaveFlag で表現する。
-   *
-   * 夜勤は勤務区分ではない。
-   * 深夜時間は actualStartAt / actualEndAt から集計時に計算する。
+   * 実績区分IDが未指定の場合は予定区分IDと同じ値を送る。
+   * 遅刻/早退/欠勤/病欠のフラグは送らない。
    */
   const planEndUsesNextDay = shouldUseNextDay(row.planStartTime, row.planEndTime);
   const actualEndUsesNextDay = shouldUseNextDay(row.actualStartTime, row.actualEndTime);
@@ -467,7 +483,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
     workDate: row.workDate,
 
     planAttendanceTypeId: row.planAttendanceTypeId,
-    actualAttendanceTypeId: row.planAttendanceTypeId,
+    actualAttendanceTypeId: row.actualAttendanceTypeId ?? row.planAttendanceTypeId,
 
     commonStartAt: null,
     commonEndAt: null,
@@ -478,10 +494,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
     actualStartAt: toRfc3339(row.workDate, row.actualStartTime, false),
     actualEndAt: toRfc3339(row.workDate, row.actualEndTime, actualEndUsesNextDay),
 
-    lateFlag: row.lateFlag,
-    earlyLeaveFlag: row.earlyLeaveFlag,
-    absenceFlag: row.absenceFlag,
-    sickLeaveFlag: row.sickLeaveFlag,
+    scheduledWorkMinutes: toScheduledWorkMinutes(row.scheduledWorkMinutes),
 
     remoteWorkAllowanceFlag: row.remoteWorkAllowanceFlag,
 

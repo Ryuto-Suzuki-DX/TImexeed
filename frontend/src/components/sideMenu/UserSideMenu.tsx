@@ -27,6 +27,7 @@ export default function UserSideMenu() {
     { label: "勤怠入力", href: "/user/attendance" },
     { label: "勤怠履歴", href: "/user/attendance/history" },
     { label: "経費登録", href: "/user/expenses" },
+    { label: "個人情報", href: "/user/personal-information-drive-folders" },
     { label: "設定", href: "/user/settings" },
     {
       label: unreadNotificationCount > 0 ? "お知らせ NEW!" : "お知らせ",

@@ -11,6 +11,7 @@
  * ・systemMessage は保存せず、画面側で計算して表示する
  * ・日別勤怠に申請メモは持たせない
  * ・管理者APIでは対象ユーザーIDを targetUserId で送る
+ * ・遅刻/早退/欠勤/病欠のフラグは保存しない
  */
 
 export type AttendanceDay = {
@@ -29,10 +30,7 @@ export type AttendanceDay = {
   actualStartAt: string | null;
   actualEndAt: string | null;
 
-  lateFlag: boolean;
-  earlyLeaveFlag: boolean;
-  absenceFlag: boolean;
-  sickLeaveFlag: boolean;
+  scheduledWorkMinutes: number | null;
 
   remoteWorkAllowanceFlag: boolean;
 
