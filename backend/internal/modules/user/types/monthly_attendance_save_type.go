@@ -13,6 +13,9 @@ package types
  * 注意：
  * ・userId / targetUserId は受け取らない
  * ・ログイン中ユーザーIDはControllerでJWTから取得してServiceへ渡す
+ * ・予定区分は PlanAttendanceTypeID
+ * ・実績状態は ActualWorkStatus
+ * ・ActualAttendanceTypeID は使わない
  */
 type UpdateMonthlyAttendanceRequest struct {
 	// 対象年
@@ -56,8 +59,14 @@ type UpdateMonthlyAttendanceDayRequest struct {
 	// 予定区分ID
 	PlanAttendanceTypeID uint `json:"planAttendanceTypeId" binding:"required"`
 
-	// 実績区分ID
-	ActualAttendanceTypeID *uint `json:"actualAttendanceTypeId"`
+	// 実績状態
+	// constants/attendance_status_constants.go の固定値を送る。
+	// 例：NORMAL, ABSENCE, SICK_LEAVE, LATE, EARLY_LEAVE
+	//
+	// 注意：
+	// ・これは attendance_types のIDではない
+	// ・未指定の場合はService側で NORMAL 扱い
+	ActualWorkStatus *string `json:"actualWorkStatus"`
 
 	// 共通開始日時
 	//

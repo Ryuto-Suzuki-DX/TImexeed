@@ -13,13 +13,11 @@ import "time"
  * ・月次申請状態は MonthlyAttendanceRequestResponse として返す
  * ・従業員APIでは userId / targetUserId をRequestで受け取らない
  *
- * 勤務区分と実績区分の整理：
+ * 予定区分と実績状態の整理：
  * ・PlanAttendanceTypeID は attendance_types のIDを使う
- * ・ActualAttendanceTypeID も attendance_types のIDを保存する
- * ・通常勤務など、実績区分が未指定の場合はService側で PlanAttendanceTypeID と同じ値を保存する
- * ・遅刻/早退は保存フラグではなく、予定/実績時刻の差から表示時に判断する
- * ・欠勤/病欠など、予定と実績で勤務区分が変わる場合は ActualAttendanceTypeID で表現する
- * ・夜勤は勤務区分ではなく、実績時間から集計時に深夜時間として計算する
+ * ・ActualWorkStatus は constants/attendance_status_constants.go の固定値を使う
+ * ・ActualAttendanceTypeID は使わない
+ * ・夜勤は実績状態ではなく、実績時間から集計時に深夜時間として計算する
  */
 
 /*
@@ -49,13 +47,14 @@ type UpdateAttendanceDayRequest struct {
 	// attendance_types のIDを指定する。
 	PlanAttendanceTypeID uint `json:"planAttendanceTypeId" binding:"required"`
 
-	// 実績区分ID
-	// フロントから未指定の場合は、Service側で PlanAttendanceTypeID と同じ値を保存する。
+	// 実績状態
+	// constants/attendance_status_constants.go の固定値を指定する。
+	// 例：NORMAL, ABSENCE, SICK_LEAVE, LATE, EARLY_LEAVE
 	//
 	// 注意：
-	// 欠勤、病欠、有給など、予定と実績で勤務区分が変わる場合はここで表現する。
-	// 遅刻・早退は保存フラグではなく、予定/実績時刻の差から表示時に判断する。
-	ActualAttendanceTypeID *uint `json:"actualAttendanceTypeId"`
+	// ・attendance_types のIDではない
+	// ・未指定の場合はService側で NORMAL として扱う
+	ActualWorkStatus *string `json:"actualWorkStatus"`
 
 	// 予定開始日時
 	// 通常勤務など、予定時間帯を持たせたい場合に使う。
@@ -133,8 +132,8 @@ type AttendanceDayResponse struct {
 	// 予定区分ID
 	PlanAttendanceTypeID uint `json:"planAttendanceTypeId"`
 
-	// 実績区分ID
-	ActualAttendanceTypeID uint `json:"actualAttendanceTypeId"`
+	// 実績状態
+	ActualWorkStatus string `json:"actualWorkStatus"`
 
 	// 予定開始日時
 	PlanStartAt *time.Time `json:"planStartAt"`

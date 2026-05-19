@@ -41,22 +41,10 @@ type MonthlyAttendanceSaveService interface {
  * 3. 日別勤怠
  * 4. 対象日の休憩差分保存
  *
- * 休憩保存方針：
- * ・削除 → 全新規作成ではない
- * ・attendanceBreakId がある休憩は更新する
- * ・attendanceBreakId がない休憩は新規作成する
- * ・DBに存在するがリクエストから消えた休憩は論理削除する
- * ・この差分保存は AttendanceBreakService.UpdateAttendanceBreaksByWorkDate に任せる
- *
- * 画面表示用メッセージ方針：
- * ・SystemMessage はDB保存しない
- * ・月次勤怠全体保存でも SystemMessage は受け渡ししない
- * ・残業、深夜勤務、有給申請中、承認済みなどは表示時に組み立てる
- *
  * 注意：
- * ・Controllerにはgin.Contextを渡さない
- * ・Serviceではc.JSONしない
- * ・各Serviceのエラー文言をここで作り直さない
+ * ・予定区分は attendance_types を使う
+ * ・実績状態は ActualWorkStatus を使う
+ * ・ActualAttendanceTypeID は使わない
  */
 type monthlyAttendanceSaveService struct {
 	attendanceDayService       AttendanceDayService
@@ -138,8 +126,8 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 	 * バックエンドでも保存前に確認する。
 	 *
 	 * 注意：
-	 * ・admin側では paid_leave_usage 側の GetPaidLeaveBalance を使う
-	 * ・このチェックは月次申請状態の編集ロックとは別物
+	 * ・有給判定は予定区分 PlanAttendanceTypeID で行う
+	 * ・ActualWorkStatus は 通常/欠勤/病欠/遅刻/早退 なので有給判定には使わない
 	 */
 	paidLeaveCheckResult := service.validatePaidLeaveBalanceBeforeMonthlySave(req)
 	if paidLeaveCheckResult.Error {
@@ -186,8 +174,8 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 
 				WorkDate: attendanceDayReq.WorkDate,
 
-				PlanAttendanceTypeID:   attendanceDayReq.PlanAttendanceTypeID,
-				ActualAttendanceTypeID: attendanceDayReq.ActualAttendanceTypeID,
+				PlanAttendanceTypeID: attendanceDayReq.PlanAttendanceTypeID,
+				ActualWorkStatus:     attendanceDayReq.ActualWorkStatus,
 
 				CommonStartAt: attendanceDayReq.CommonStartAt,
 				CommonEndAt:   attendanceDayReq.CommonEndAt,
@@ -284,6 +272,7 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
  * ・admin側では既存の PaidLeaveUsageService.GetPaidLeaveBalance を使う
  * ・ここでは有給残数だけを確認する
  * ・月次申請状態による編集ロックは行わない
+ * ・有給判定は予定区分 PlanAttendanceTypeID だけを見る
  */
 func (service *monthlyAttendanceSaveService) validatePaidLeaveBalanceBeforeMonthlySave(
 	req types.UpdateMonthlyAttendanceRequest,
@@ -382,11 +371,9 @@ func buildPaidLeaveAttendanceTypeIDMap(attendanceTypes []types.AttendanceTypeRes
 /*
  * 月次保存対象に有給区分が含まれているか判定する
  *
- * 予定区分・実績区分のどちらかが有給なら、有給ありと判定する。
- *
  * 注意：
- * ・PlanAttendanceTypeID は uint
- * ・ActualAttendanceTypeID は *uint のため nil チェックしてから判定する
+ * ・予定区分 PlanAttendanceTypeID だけを見る
+ * ・ActualWorkStatus は 通常/欠勤/病欠/遅刻/早退 の固定値なので、有給判定には使わない
  */
 func hasPaidLeaveAttendanceDay(
 	req types.UpdateMonthlyAttendanceRequest,
@@ -395,12 +382,6 @@ func hasPaidLeaveAttendanceDay(
 	for _, attendanceDayReq := range req.AttendanceDays {
 		if paidLeaveAttendanceTypeIDs[attendanceDayReq.PlanAttendanceTypeID] {
 			return true
-		}
-
-		if attendanceDayReq.ActualAttendanceTypeID != nil {
-			if paidLeaveAttendanceTypeIDs[*attendanceDayReq.ActualAttendanceTypeID] {
-				return true
-			}
 		}
 	}
 

@@ -3,6 +3,7 @@ package services
 import (
 	"time"
 
+	"timexeed/backend/internal/constants"
 	"timexeed/backend/internal/models"
 	"timexeed/backend/internal/modules/admin/builders"
 	"timexeed/backend/internal/modules/admin/repositories"
@@ -21,6 +22,8 @@ import (
  * ・ControllerではJWTのuserIdを対象ユーザーIDとして使わない
  * ・AttendanceDay は申請状態を持たない
  * ・管理者側では MonthlyAttendanceRequest の状態による編集ロックを行わない
+ * ・予定区分は attendance_types を使う
+ * ・実績状態は constants/attendance_status_constants.go の固定値を使う
  */
 type AttendanceDayService interface {
 	SearchAttendanceDays(req types.SearchAttendanceDaysRequest) results.Result
@@ -87,6 +90,40 @@ func NewAttendanceDayService(
 }
 
 /*
+ * 実績状態を取得する
+ *
+ * 未指定の場合は NORMAL とする。
+ * 指定された場合は constants.ActualWorkStatusLabels に存在する値だけ許可する。
+ */
+func normalizeActualWorkStatus(actualWorkStatus *string) (string, results.Result) {
+	if actualWorkStatus == nil || *actualWorkStatus == "" {
+		return constants.ActualWorkStatusNormal, results.OK(
+			nil,
+			"NORMALIZE_ACTUAL_WORK_STATUS_DEFAULT_NORMAL",
+			"",
+			nil,
+		)
+	}
+
+	if _, ok := constants.ActualWorkStatusLabels[*actualWorkStatus]; !ok {
+		return "", results.BadRequest(
+			"INVALID_ACTUAL_WORK_STATUS",
+			"実績状態が正しくありません",
+			map[string]any{
+				"actualWorkStatus": *actualWorkStatus,
+			},
+		)
+	}
+
+	return *actualWorkStatus, results.OK(
+		nil,
+		"NORMALIZE_ACTUAL_WORK_STATUS_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
  * models.AttendanceDayをフロント返却用AttendanceDayResponseへ変換する
  *
  * AttendanceDay は申請状態を持たない。
@@ -95,6 +132,8 @@ func NewAttendanceDayService(
  * 注意：
  * ・AttendanceDay model から SystemMessage は削除済み
  * ・ここでは SystemMessage を詰めない
+ * ・予定区分は PlanAttendanceTypeID
+ * ・実績状態は ActualWorkStatus
  */
 func toAttendanceDayResponse(attendanceDay models.AttendanceDay) types.AttendanceDayResponse {
 	return types.AttendanceDayResponse{
@@ -103,8 +142,8 @@ func toAttendanceDayResponse(attendanceDay models.AttendanceDay) types.Attendanc
 
 		WorkDate: attendanceDay.WorkDate,
 
-		PlanAttendanceTypeID:   attendanceDay.PlanAttendanceTypeID,
-		ActualAttendanceTypeID: attendanceDay.ActualAttendanceTypeID,
+		PlanAttendanceTypeID: attendanceDay.PlanAttendanceTypeID,
+		ActualWorkStatus:     attendanceDay.ActualWorkStatus,
 
 		PlanStartAt:   attendanceDay.PlanStartAt,
 		PlanEndAt:     attendanceDay.PlanEndAt,
@@ -260,12 +299,12 @@ func (service *attendanceDayService) SearchAttendanceDays(
  * ・targetUserId + workDate で既存勤怠を検索する
  * ・存在しなければ新規作成する
  * ・存在すれば更新する
- * ・休日は予定・実績ともに時間を保存しない
+ * ・休日は予定にも実績にも時間を保存しない
  * ・休日は派遣先所定労働時間、日別交通費、在宅勤務補助も保存しない
- * ・syncPlanActual = true の勤務区分は開始/終了ではなく派遣先所定労働時間で扱う
+ * ・syncPlanActual = true の予定区分は開始/終了ではなく派遣先所定労働時間で扱う
  * ・通常勤務でも予定/実績時刻は任意入力とする
- * ・実績区分IDが未指定の場合は予定区分IDと同じ値を保存する
- * ・夜勤は勤務区分ではなく、actualStartAt / actualEndAt から集計時に深夜時間として計算する
+ * ・実績状態が未指定の場合は NORMAL として保存する
+ * ・夜勤は実績状態ではなく、actualStartAt / actualEndAt から集計時に深夜時間として計算する
  * ・管理者側では MonthlyAttendanceRequest による編集ロックを行わない
  */
 func (service *attendanceDayService) UpdateAttendanceDay(
@@ -298,17 +337,15 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		return findAttendanceTypeResult
 	}
 
-	var actualAttendanceTypeID uint
+	actualWorkStatus, actualWorkStatusResult := normalizeActualWorkStatus(req.ActualWorkStatus)
+	if actualWorkStatusResult.Error {
+		return actualWorkStatusResult
+	}
+
 	var planStartAt *time.Time
 	var planEndAt *time.Time
 	var actualStartAt *time.Time
 	var actualEndAt *time.Time
-
-	if req.ActualAttendanceTypeID != nil && *req.ActualAttendanceTypeID != 0 {
-		actualAttendanceTypeID = *req.ActualAttendanceTypeID
-	} else {
-		actualAttendanceTypeID = req.PlanAttendanceTypeID
-	}
 
 	/*
 	 * 休日の場合
@@ -317,14 +354,14 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 	 * 派遣先所定労働時間、日別交通費、在宅勤務補助も保存しない。
 	 */
 	if attendanceType.Code == "HOLIDAY" {
-		actualAttendanceTypeID = req.PlanAttendanceTypeID
+		actualWorkStatus = constants.ActualWorkStatusNormal
 
 		planStartAt = nil
 		planEndAt = nil
 		actualStartAt = nil
 		actualEndAt = nil
 
-		req.ActualAttendanceTypeID = nil
+		req.ActualWorkStatus = nil
 
 		req.CommonStartAt = nil
 		req.CommonEndAt = nil
@@ -366,7 +403,7 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		req.ActualEndAt = nil
 	} else {
 		/*
-		 * 通常勤務など、開始/終了を持てる勤務区分の場合
+		 * 通常勤務など、開始/終了を持てる予定区分の場合
 		 *
 		 * 予定/実績時刻は任意。
 		 * 派遣先所定労働時間を残業・不足などの基準として扱う。
@@ -440,7 +477,7 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 			planEndAt,
 			actualStartAt,
 			actualEndAt,
-			actualAttendanceTypeID,
+			actualWorkStatus,
 		)
 		if buildCreateResult.Error {
 			return buildCreateResult
@@ -473,7 +510,7 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		planEndAt,
 		actualStartAt,
 		actualEndAt,
-		actualAttendanceTypeID,
+		actualWorkStatus,
 	)
 	if buildUpdateResult.Error {
 		return buildUpdateResult

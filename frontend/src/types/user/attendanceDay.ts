@@ -9,7 +9,9 @@
  * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
  * ・systemMessage は保存せず、画面側で計算して表示する
  * ・日別勤怠に申請メモは持たせない
- * ・遅刻/早退/欠勤/病欠のフラグは保存しない
+ * ・予定区分は planAttendanceTypeId
+ * ・実績状態は actualWorkStatus
+ * ・actualAttendanceTypeId は使わない
  */
 
 export type AttendanceDay = {
@@ -18,7 +20,14 @@ export type AttendanceDay = {
   workDate: string;
 
   planAttendanceTypeId: number;
-  actualAttendanceTypeId: number;
+
+  /*
+   * 実績状態
+   *
+   * バックエンド constants/attendance_status_constants.go の固定値。
+   * 例: NORMAL, ABSENCE, SICK_LEAVE, LATE, EARLY_LEAVE
+   */
+  actualWorkStatus: string;
 
   planStartAt: string | null;
   planEndAt: string | null;

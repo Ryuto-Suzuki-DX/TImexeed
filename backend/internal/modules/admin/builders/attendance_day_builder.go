@@ -20,7 +20,7 @@ type AttendanceDayBuilder interface {
 		planEndAt *time.Time,
 		actualStartAt *time.Time,
 		actualEndAt *time.Time,
-		actualAttendanceTypeID uint,
+		actualWorkStatus string,
 	) (models.AttendanceDay, results.Result)
 	BuildUpdateAttendanceDayModel(
 		currentAttendanceDay models.AttendanceDay,
@@ -30,7 +30,7 @@ type AttendanceDayBuilder interface {
 		planEndAt *time.Time,
 		actualStartAt *time.Time,
 		actualEndAt *time.Time,
-		actualAttendanceTypeID uint,
+		actualWorkStatus string,
 	) (models.AttendanceDay, results.Result)
 	BuildDeleteAttendanceDayModel(currentAttendanceDay models.AttendanceDay) (models.AttendanceDay, results.Result)
 }
@@ -53,6 +53,8 @@ type AttendanceDayBuilder interface {
  * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
  * ・管理者側では対象ユーザーIDを request body の targetUserId で受け取る
  * ・管理者側では月次申請状態による編集ロックを行わない
+ * ・予定区分は attendance_types を参照する
+ * ・実績状態は constants の固定値を保存する
  */
 type attendanceDayBuilder struct {
 	db *gorm.DB
@@ -73,6 +75,8 @@ func NewAttendanceDayBuilder(db *gorm.DB) AttendanceDayBuilder {
  * 注意：
  * ・targetUserId は管理者が選択した対象ユーザーID
  * ・論理削除済みの勤怠は対象外
+ * ・予定区分だけ Preload する
+ * ・実績状態はマスタではないので Preload しない
  */
 func (builder *attendanceDayBuilder) BuildSearchAttendanceDaysQuery(
 	req types.SearchAttendanceDaysRequest,
@@ -113,7 +117,6 @@ func (builder *attendanceDayBuilder) BuildSearchAttendanceDaysQuery(
 	query := builder.db.
 		Model(&models.AttendanceDay{}).
 		Preload("PlanAttendanceType").
-		Preload("ActualAttendanceType").
 		Where("user_id = ?", req.TargetUserID).
 		Where("work_date >= ?", startDate).
 		Where("work_date < ?", endDate).
@@ -138,6 +141,7 @@ func (builder *attendanceDayBuilder) BuildSearchAttendanceDaysQuery(
  * ・targetUserID は管理者が選択した対象ユーザーID
  * ・workDate はServiceで utils.ParseDate 済みの time.Time
  * ・論理削除済みの勤怠は対象外
+ * ・予定区分だけ Preload する
  */
 func (builder *attendanceDayBuilder) BuildFindAttendanceDayByUserIDAndWorkDateQuery(
 	targetUserID uint,
@@ -164,7 +168,6 @@ func (builder *attendanceDayBuilder) BuildFindAttendanceDayByUserIDAndWorkDateQu
 	query := builder.db.
 		Model(&models.AttendanceDay{}).
 		Preload("PlanAttendanceType").
-		Preload("ActualAttendanceType").
 		Where("user_id = ?", targetUserID).
 		Where("work_date = ?", workDate).
 		Where("is_deleted = ?", false)
@@ -187,6 +190,8 @@ func (builder *attendanceDayBuilder) BuildFindAttendanceDayByUserIDAndWorkDateQu
  * ・Service側で保存用の plan / actual 時刻へ変換済みの値を受け取る
  * ・AttendanceDay には申請状態を保存しない
  * ・AttendanceDay には画面表示用SystemMessageを保存しない
+ * ・予定区分は PlanAttendanceTypeID
+ * ・実績状態は ActualWorkStatus
  */
 func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 	req types.UpdateAttendanceDayRequest,
@@ -195,7 +200,7 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 	planEndAt *time.Time,
 	actualStartAt *time.Time,
 	actualEndAt *time.Time,
-	actualAttendanceTypeID uint,
+	actualWorkStatus string,
 ) (models.AttendanceDay, results.Result) {
 	if req.TargetUserID == 0 {
 		return models.AttendanceDay{}, results.BadRequest(
@@ -223,9 +228,9 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 		)
 	}
 
-	if actualAttendanceTypeID == 0 {
+	if actualWorkStatus == "" {
 		return models.AttendanceDay{}, results.BadRequest(
-			"BUILD_CREATE_ATTENDANCE_DAY_MODEL_EMPTY_ACTUAL_ATTENDANCE_TYPE_ID",
+			"BUILD_CREATE_ATTENDANCE_DAY_MODEL_EMPTY_ACTUAL_WORK_STATUS",
 			"勤怠作成データの作成に失敗しました",
 			nil,
 		)
@@ -235,7 +240,7 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 		UserID:                  req.TargetUserID,
 		WorkDate:                workDate,
 		PlanAttendanceTypeID:    req.PlanAttendanceTypeID,
-		ActualAttendanceTypeID:  actualAttendanceTypeID,
+		ActualWorkStatus:        actualWorkStatus,
 		PlanStartAt:             planStartAt,
 		PlanEndAt:               planEndAt,
 		ActualStartAt:           actualStartAt,
@@ -267,6 +272,8 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
  * ・Service側で保存用の plan / actual 時刻へ変換済みの値を受け取る
  * ・AttendanceDay には申請状態を保存しない
  * ・AttendanceDay には画面表示用SystemMessageを保存しない
+ * ・予定区分は PlanAttendanceTypeID
+ * ・実績状態は ActualWorkStatus
  */
 func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 	currentAttendanceDay models.AttendanceDay,
@@ -276,7 +283,7 @@ func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 	planEndAt *time.Time,
 	actualStartAt *time.Time,
 	actualEndAt *time.Time,
-	actualAttendanceTypeID uint,
+	actualWorkStatus string,
 ) (models.AttendanceDay, results.Result) {
 	if currentAttendanceDay.ID == 0 {
 		return models.AttendanceDay{}, results.BadRequest(
@@ -323,9 +330,9 @@ func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 		)
 	}
 
-	if actualAttendanceTypeID == 0 {
+	if actualWorkStatus == "" {
 		return models.AttendanceDay{}, results.BadRequest(
-			"BUILD_UPDATE_ATTENDANCE_DAY_MODEL_EMPTY_ACTUAL_ATTENDANCE_TYPE_ID",
+			"BUILD_UPDATE_ATTENDANCE_DAY_MODEL_EMPTY_ACTUAL_WORK_STATUS",
 			"勤怠更新データの作成に失敗しました",
 			nil,
 		)
@@ -333,7 +340,7 @@ func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 
 	currentAttendanceDay.WorkDate = workDate
 	currentAttendanceDay.PlanAttendanceTypeID = req.PlanAttendanceTypeID
-	currentAttendanceDay.ActualAttendanceTypeID = actualAttendanceTypeID
+	currentAttendanceDay.ActualWorkStatus = actualWorkStatus
 	currentAttendanceDay.PlanStartAt = planStartAt
 	currentAttendanceDay.PlanEndAt = planEndAt
 	currentAttendanceDay.ActualStartAt = actualStartAt

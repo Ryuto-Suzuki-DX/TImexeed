@@ -26,6 +26,8 @@ import {
   toTimeText,
 } from "@/utils/attendance/attendanceDate";
 
+const ACTUAL_WORK_STATUS_NORMAL = "NORMAL";
+
 /*
  * 管理者勤怠 Mapper
  *
@@ -35,6 +37,9 @@ import {
  * ・管理者APIでは targetUserId を request に含める
  * ・管理者側では月次申請状態による編集ロックを行わない
  * ・遅刻/早退/欠勤/病欠の旧フラグは保存Requestへ送らない
+ * ・予定区分は planAttendanceTypeId
+ * ・実績状態は actualWorkStatus
+ * ・actualAttendanceTypeId は使わない
  */
 
 /*
@@ -79,7 +84,7 @@ export function buildBlankAttendanceViewRows(
       attendanceDayId: null,
 
       planAttendanceTypeId: 0,
-      actualAttendanceTypeId: null,
+      actualWorkStatus: ACTUAL_WORK_STATUS_NORMAL,
 
       commonStartTime: "",
       commonEndTime: "",
@@ -129,7 +134,7 @@ export function resetAttendanceViewRow(row: AttendanceViewRow): AttendanceViewRo
     attendanceDayId: null,
 
     planAttendanceTypeId: 0,
-    actualAttendanceTypeId: null,
+    actualWorkStatus: ACTUAL_WORK_STATUS_NORMAL,
 
     commonStartTime: "",
     commonEndTime: "",
@@ -173,7 +178,7 @@ export function applyAttendanceDayToViewRow(
     attendanceDayId: attendanceDay.id,
 
     planAttendanceTypeId: attendanceDay.planAttendanceTypeId,
-    actualAttendanceTypeId: attendanceDay.actualAttendanceTypeId || null,
+    actualWorkStatus: attendanceDay.actualWorkStatus || ACTUAL_WORK_STATUS_NORMAL,
 
     commonStartTime: toTimeText(attendanceDay.planStartAt),
     commonEndTime: toTimeText(attendanceDay.planEndAt),
@@ -376,7 +381,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
       workDate: row.workDate,
 
       planAttendanceTypeId: 0,
-      actualAttendanceTypeId: null,
+      actualWorkStatus: null,
 
       commonStartAt: null,
       commonEndAt: null,
@@ -406,14 +411,14 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
   /*
    * 休日だけは予定にも実績にも時間を保存しない。
-   * 実績区分IDは予定区分IDと同じ値を送る。
+   * 実績状態は NORMAL として送る。
    */
   if (selectedPlanType.code === "HOLIDAY") {
     return {
       workDate: row.workDate,
 
       planAttendanceTypeId: row.planAttendanceTypeId,
-      actualAttendanceTypeId: row.planAttendanceTypeId,
+      actualWorkStatus: ACTUAL_WORK_STATUS_NORMAL,
 
       commonStartAt: null,
       commonEndAt: null,
@@ -448,7 +453,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
       workDate: row.workDate,
 
       planAttendanceTypeId: row.planAttendanceTypeId,
-      actualAttendanceTypeId: row.actualAttendanceTypeId ?? row.planAttendanceTypeId,
+      actualWorkStatus: row.actualWorkStatus || ACTUAL_WORK_STATUS_NORMAL,
 
       commonStartAt: null,
       commonEndAt: null,
@@ -475,8 +480,8 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
   /*
    * 通常勤務など、予定時間と実績時間を分ける区分。
    *
-   * 実績区分IDが未指定の場合は予定区分IDと同じ値を送る。
-   * 遅刻/早退/欠勤/病欠のフラグは送らない。
+   * 実績状態が未指定の場合は NORMAL を送る。
+   * 遅刻/早退/欠勤/病欠の旧フラグは送らない。
    */
   const planEndUsesNextDay = shouldUseNextDay(row.planStartTime, row.planEndTime);
   const actualEndUsesNextDay = shouldUseNextDay(row.actualStartTime, row.actualEndTime);
@@ -485,7 +490,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
     workDate: row.workDate,
 
     planAttendanceTypeId: row.planAttendanceTypeId,
-    actualAttendanceTypeId: row.actualAttendanceTypeId ?? row.planAttendanceTypeId,
+    actualWorkStatus: row.actualWorkStatus || ACTUAL_WORK_STATUS_NORMAL,
 
     commonStartAt: null,
     commonEndAt: null,

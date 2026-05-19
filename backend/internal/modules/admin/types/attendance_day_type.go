@@ -3,235 +3,119 @@ package types
 import "time"
 
 /*
- * 〇 管理者 勤怠日別 Type
- *
- * 管理者が対象ユーザーの勤怠日別データを扱う型。
- *
- * 重要：
- * ・AttendanceDay は日別勤怠データだけを持つ
- * ・申請状態、承認状態は AttendanceDay では持たない
- * ・月次申請状態は MonthlyAttendanceRequestResponse として返す
- * ・管理者APIでは対象ユーザーIDを targetUserId としてRequestで受け取る
- * ・管理者は月次申請状態に関係なく編集できる
- *
- * user側との差分：
- * ・user側はJWTからログイン中ユーザーIDを取得する
- * ・admin側はrequest bodyのtargetUserIdで対象ユーザーを指定する
- * ・user側はPENDING / APPROVEDなどの月次申請状態で編集ロックする
- * ・admin側は月次申請状態を表示には使うが、編集ロックには使わない
- *
- * 勤務区分の整理：
- * ・PlanAttendanceTypeID は attendance_types のIDを使う
- * ・ActualAttendanceTypeID も attendance_types のIDを保存する
- * ・通常勤務など、実績区分IDが未指定の場合はService側で PlanAttendanceTypeID と同じ値を保存する
- * ・遅刻、早退などの表示は保存フラグではなく、予定/実績時刻などから画面表示時に判断する
- * ・夜勤は勤務区分ではなく、実績時間から集計時に深夜時間として計算する
- */
-
-/*
- * 勤怠検索 Request
+ * 管理者 勤怠日別検索Request
  *
  * POST /admin/attendance-days/search
  */
 type SearchAttendanceDaysRequest struct {
-	// 対象ユーザーID
-	TargetUserID uint `json:"targetUserId" binding:"required"`
-
-	// 対象年
-	TargetYear int `json:"targetYear" binding:"required"`
-
-	// 対象月
-	TargetMonth int `json:"targetMonth" binding:"required"`
+	TargetUserID uint `json:"targetUserId"`
+	TargetYear   int  `json:"targetYear"`
+	TargetMonth  int  `json:"targetMonth"`
 }
 
 /*
- * 勤怠更新 Request
- *
- * APIとして直接公開しない。
- * monthly_attendances/update の月次全体保存から内部的に使う。
+ * 管理者 勤怠日別検索Response
+ */
+type SearchAttendanceDaysResponse struct {
+	TargetUserID             uint                             `json:"targetUserId"`
+	TargetYear               int                              `json:"targetYear"`
+	TargetMonth              int                              `json:"targetMonth"`
+	MonthlyAttendanceRequest MonthlyAttendanceRequestResponse `json:"monthlyAttendanceRequest"`
+	AttendanceDays           []AttendanceDayResponse          `json:"attendanceDays"`
+}
+
+/*
+ * 管理者 勤怠日別Response
  *
  * 注意：
- * ・管理者側では targetUserId を受け取る
- * ・月次申請状態による編集ロックは行わない
- */
-type UpdateAttendanceDayRequest struct {
-	// 対象ユーザーID
-	TargetUserID uint `json:"targetUserId" binding:"required"`
-
-	// 対象日
-	WorkDate string `json:"workDate" binding:"required"`
-
-	// 予定区分ID
-	// attendance_types のIDを指定する。
-	PlanAttendanceTypeID uint `json:"planAttendanceTypeId" binding:"required"`
-
-	// 実績区分ID
-	// フロントから未指定の場合は、Service側で PlanAttendanceTypeID と同じ値を保存する。
-	// 予定と実績で勤務区分が変わる場合はここで表現する。
-	ActualAttendanceTypeID *uint `json:"actualAttendanceTypeId"`
-
-	// 予定開始日時
-	// 通常勤務など、予定時間帯を持たせたい場合に使う。
-	// 有給、休職、介護休業、育児休業など、開始/終了ではなく時間数で扱う日は未入力可。
-	PlanStartAt *string `json:"planStartAt"`
-
-	// 予定終了日時
-	PlanEndAt *string `json:"planEndAt"`
-
-	// 実績開始日時
-	// 実勤務時間帯を持つ場合に使う。
-	ActualStartAt *string `json:"actualStartAt"`
-
-	// 実績終了日時
-	ActualEndAt *string `json:"actualEndAt"`
-
-	// 共通開始日時
-	// 互換用に一旦残す。
-	// 今後は有給、休職、介護休業、育児休業などでは使用せず、scheduledWorkMinutes で扱う。
-	CommonStartAt *string `json:"commonStartAt"`
-
-	// 共通終了日時
-	// 互換用に一旦残す。
-	CommonEndAt *string `json:"commonEndAt"`
-
-	// 派遣先所定労働時間（分）
-	// 例：8時間 = 480、7時間30分 = 450
-	ScheduledWorkMinutes *int `json:"scheduledWorkMinutes"`
-
-	// 在宅勤務補助対象フラグ
-	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
-
-	// 日別交通費：出発地
-	TransportFrom *string `json:"transportFrom"`
-
-	// 日別交通費：目的地
-	TransportTo *string `json:"transportTo"`
-
-	// 日別交通費：手段
-	TransportMethod *string `json:"transportMethod"`
-
-	// 日別交通費：金額
-	TransportAmount *int `json:"transportAmount"`
-}
-
-/*
- * 勤怠削除 Request
- *
- * 現時点ではAPIとして直接公開しない。
- * 必要になった場合の内部用として残す。
- */
-type DeleteAttendanceDayRequest struct {
-	// 対象ユーザーID
-	TargetUserID uint `json:"targetUserId" binding:"required"`
-
-	// 対象日
-	WorkDate string `json:"workDate" binding:"required"`
-}
-
-/*
- * 勤怠日別 Response
- *
- * AttendanceDay 自体のデータだけを返す。
- * 月次申請状態はここには入れない。
+ * ・予定区分は attendance_types のIDを返す
+ * ・実績状態は constants/attendance_status_constants.go の固定値を返す
+ * ・実績状態は attendance_types のIDではない
  */
 type AttendanceDayResponse struct {
-	// 勤怠ID
-	ID uint `json:"id"`
-
-	// 対象ユーザーID
+	ID     uint `json:"id"`
 	UserID uint `json:"userId"`
 
-	// 対象日
 	WorkDate time.Time `json:"workDate"`
 
-	// 予定区分ID
-	PlanAttendanceTypeID uint `json:"planAttendanceTypeId"`
+	PlanAttendanceTypeID uint   `json:"planAttendanceTypeId"`
+	ActualWorkStatus     string `json:"actualWorkStatus"`
 
-	// 実績区分ID
-	ActualAttendanceTypeID uint `json:"actualAttendanceTypeId"`
-
-	// 予定開始日時
-	PlanStartAt *time.Time `json:"planStartAt"`
-
-	// 予定終了日時
-	PlanEndAt *time.Time `json:"planEndAt"`
-
-	// 実績開始日時
+	PlanStartAt   *time.Time `json:"planStartAt"`
+	PlanEndAt     *time.Time `json:"planEndAt"`
 	ActualStartAt *time.Time `json:"actualStartAt"`
+	ActualEndAt   *time.Time `json:"actualEndAt"`
 
-	// 実績終了日時
-	ActualEndAt *time.Time `json:"actualEndAt"`
-
-	// 派遣先所定労働時間（分）
 	ScheduledWorkMinutes *int `json:"scheduledWorkMinutes"`
 
-	// 在宅勤務補助対象フラグ
 	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
 
-	// 日別交通費：出発地
-	TransportFrom *string `json:"transportFrom"`
-
-	// 日別交通費：目的地
-	TransportTo *string `json:"transportTo"`
-
-	// 日別交通費：手段
+	TransportFrom   *string `json:"transportFrom"`
+	TransportTo     *string `json:"transportTo"`
 	TransportMethod *string `json:"transportMethod"`
+	TransportAmount *int    `json:"transportAmount"`
 
-	// 日別交通費：金額
-	TransportAmount *int `json:"transportAmount"`
-
-	// 論理削除フラグ
-	IsDeleted bool `json:"isDeleted"`
-
-	// 作成日時
-	CreatedAt time.Time `json:"createdAt"`
-
-	// 更新日時
-	UpdatedAt time.Time `json:"updatedAt"`
-
-	// 論理削除日時
+	IsDeleted bool       `json:"isDeleted"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt time.Time  `json:"updatedAt"`
 	DeletedAt *time.Time `json:"deletedAt"`
 }
 
 /*
- * 勤怠検索 Response
- *
- * 勤怠日別データと、対象月の月次申請状態を一緒に返す。
+ * 管理者 勤怠日別更新Request
  *
  * 注意：
- * ・MonthlyAttendanceRequest は表示用
- * ・管理者側では MonthlyAttendanceRequest の状態で編集ロックしない
+ * ・このAPIは直接公開しない想定
+ * ・monthly_attendances/update の月次全体保存から内部的に使う
+ * ・管理者APIでは targetUserId を request body で受け取る
+ * ・予定区分は planAttendanceTypeId
+ * ・実績状態は actualWorkStatus
  */
-type SearchAttendanceDaysResponse struct {
-	// 対象ユーザーID
-	TargetUserID uint `json:"targetUserId"`
+type UpdateAttendanceDayRequest struct {
+	TargetUserID uint   `json:"targetUserId"`
+	WorkDate     string `json:"workDate"`
 
-	// 対象年
-	TargetYear int `json:"targetYear"`
+	PlanAttendanceTypeID uint    `json:"planAttendanceTypeId"`
+	ActualWorkStatus     *string `json:"actualWorkStatus"`
 
-	// 対象月
-	TargetMonth int `json:"targetMonth"`
+	CommonStartAt *string `json:"commonStartAt"`
+	CommonEndAt   *string `json:"commonEndAt"`
 
-	// 対象月の月次申請状態
-	MonthlyAttendanceRequest MonthlyAttendanceRequestResponse `json:"monthlyAttendanceRequest"`
+	PlanStartAt   *string `json:"planStartAt"`
+	PlanEndAt     *string `json:"planEndAt"`
+	ActualStartAt *string `json:"actualStartAt"`
+	ActualEndAt   *string `json:"actualEndAt"`
 
-	// 勤怠日別一覧
-	AttendanceDays []AttendanceDayResponse `json:"attendanceDays"`
+	ScheduledWorkMinutes *int `json:"scheduledWorkMinutes"`
+
+	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
+
+	TransportFrom   *string `json:"transportFrom"`
+	TransportTo     *string `json:"transportTo"`
+	TransportMethod *string `json:"transportMethod"`
+	TransportAmount *int    `json:"transportAmount"`
 }
 
 /*
- * 勤怠更新 Response
- *
- * monthly_attendances/update の内部処理で使う。
+ * 管理者 勤怠日別更新Response
  */
 type UpdateAttendanceDayResponse struct {
 	AttendanceDay AttendanceDayResponse `json:"attendanceDay"`
 }
 
 /*
- * 勤怠削除 Response
+ * 管理者 勤怠日別削除Request
  *
- * 必要になった場合の内部用。
+ * 注意：
+ * ・現時点では直接公開しない想定
+ */
+type DeleteAttendanceDayRequest struct {
+	TargetUserID uint   `json:"targetUserId"`
+	WorkDate     string `json:"workDate"`
+}
+
+/*
+ * 管理者 勤怠日別削除Response
  */
 type DeleteAttendanceDayResponse struct {
 	TargetUserID uint   `json:"targetUserId"`

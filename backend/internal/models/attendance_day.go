@@ -5,12 +5,12 @@ import "time"
 /*
  * 〇 各日の勤怠
  *
- * 1日ごとの予定・実績・派遣先所定労働時間・日別交通費を管理するメインテーブル。
+ * 1日ごとの予定区分・予定時間・実績状態・実績時間・派遣先所定労働時間・日別交通費を管理するメインテーブル。
  *
  * このテーブルに入れるもの：
  * 	・予定区分
  * 	・予定時間
- * 	・実績区分
+ * 	・実績状態
  * 	・実績時間
  * 	・派遣先所定労働時間
  * 	・在宅勤務補助対象フラグ
@@ -34,6 +34,10 @@ import "time"
  * 	保存データではなく、予定・実績・所定労働時間・休憩・有給申請状態などから
  * 	画面表示時に計算して作る。
  *
+ * 注意：
+ * 	予定区分は attendance_types を参照する。
+ * 	実績状態は attendance_types ではなく constants/attendance_status_constants.go の固定値を保存する。
+ *
  * 休憩は1日に複数回あるため、AttendanceBreak に分ける。
  * 月次通勤定期は月単位なので、MonthlyCommuterPass に分ける。
  */
@@ -51,11 +55,15 @@ type AttendanceDay struct {
 	// 例：通常勤務、休日、有給、特別休暇、休職、介護休業、育児休業など。
 	PlanAttendanceTypeID uint `gorm:"not null" json:"planAttendanceTypeId"`
 
-	// 実績区分ID
-	// attendance_types のIDを保存する。
-	// 予定と実績で勤務区分が変わる場合に使う。
-	// 例：予定は通常勤務、実績は有給、欠勤、病欠など。
-	ActualAttendanceTypeID uint `gorm:"not null" json:"actualAttendanceTypeId"`
+	// 実績状態
+	// constants/attendance_status_constants.go の固定値を保存する。
+	// 例：NORMAL, ABSENCE, SICK_LEAVE, LATE, EARLY_LEAVE
+	//
+	// 注意：
+	// ・これは attendance_types のIDではない
+	// ・予定区分とは別物
+	// ・夜勤は実績状態ではないためここには入れない
+	ActualWorkStatus string `gorm:"type:varchar(30);not null;default:'NORMAL'" json:"actualWorkStatus"`
 
 	// 予定開始日時
 	// 通常勤務など、予定時間帯を持たせたい場合に使う。
@@ -121,7 +129,4 @@ type AttendanceDay struct {
 
 	// 予定区分
 	PlanAttendanceType AttendanceType `gorm:"foreignKey:PlanAttendanceTypeID" json:"planAttendanceType,omitempty"`
-
-	// 実績区分
-	ActualAttendanceType AttendanceType `gorm:"foreignKey:ActualAttendanceTypeID" json:"actualAttendanceType,omitempty"`
 }

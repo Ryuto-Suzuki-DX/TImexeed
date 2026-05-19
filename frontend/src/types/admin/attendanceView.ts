@@ -39,10 +39,12 @@ export type AttendanceBreakViewRow = {
  * ・日別勤怠に申請メモは持たせない
  * ・日別勤怠の削除はAPIでは行わず、画面stateを初期値に戻して全体保存する
  * ・祝日は HolidayDate API から取得し、画面表示用に保持する
- * ・遅刻/早退/欠勤/病欠のフラグはDBにもAPIにも送らない
+ * ・予定区分は planAttendanceTypeId
+ * ・実績状態は actualWorkStatus
+ * ・actualAttendanceTypeId は使わない
  *
  * 互換メモ：
- * ・AttendanceTable / AttendanceRowItem は現時点で user側の AttendanceViewRow 型を参照している。
+ * ・AttendanceTable / AttendanceRowItem は現時点で user側の AttendanceViewRow 型を参照している可能性がある。
  * ・共通コンポーネントを今ここで壊さないため、旧フラグ4項目は画面用Rowにだけ互換用として残す。
  * ・mapperでは常に false を入れ、月次保存Requestには含めない。
  */
@@ -57,7 +59,14 @@ export type AttendanceViewRow = {
   attendanceDayId: number | null;
 
   planAttendanceTypeId: number;
-  actualAttendanceTypeId: number | null;
+
+  /*
+   * 実績状態
+   *
+   * バックエンド constants/attendance_status_constants.go の固定値。
+   * 例: NORMAL, ABSENCE, SICK_LEAVE, LATE, EARLY_LEAVE
+   */
+  actualWorkStatus: string;
 
   commonStartTime: string;
   commonEndTime: string;

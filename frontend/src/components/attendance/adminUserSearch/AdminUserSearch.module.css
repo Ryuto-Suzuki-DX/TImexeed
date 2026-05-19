@@ -4,6 +4,7 @@
   border-radius: 16px;
   background-color: #fff7ed;
   border: 1px solid #fed7aa;
+  box-sizing: border-box;
 }
 
 .sectionHeader {
@@ -28,9 +29,23 @@
 
 .searchControl {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) 90px;
+  grid-template-columns: minmax(260px, 420px) 90px;
   gap: 10px;
   align-items: end;
+  justify-content: start;
+}
+
+.searchControl :global(input[type="text"]),
+.searchControl :global(input[type="search"]) {
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
+}
+
+.searchControl :global(button) {
+  width: 90px;
+  min-width: 90px;
+  white-space: nowrap;
 }
 
 .searchMessage {
@@ -46,6 +61,7 @@
   border-radius: 12px;
   background-color: #ffffff;
   border: 1px solid #fed7aa;
+  box-sizing: border-box;
 }
 
 .selectedUserLabel {
@@ -96,6 +112,7 @@
   background-color: #ffffff;
   text-align: left;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .resultItem:hover {
@@ -164,15 +181,17 @@
 }
 
 @media (max-width: 960px) {
-  .searchControl {
-    grid-template-columns: 1fr;
-  }
-
   .resultItem {
     grid-template-columns: 1fr;
   }
 
   .resultRole {
     justify-self: start;
+  }
+}
+
+@media (max-width: 420px) {
+  .searchControl {
+    grid-template-columns: minmax(220px, 1fr) 90px;
   }
 }

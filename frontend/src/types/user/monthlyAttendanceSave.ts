@@ -13,7 +13,9 @@
  * ・APIに送るRequest型
  * ・画面用の AttendanceViewRow / CommuterPassViewForm から mapper で変換して作る
  * ・日別勤怠に申請メモは送らない
- * ・遅刻/早退/欠勤/病欠のフラグは送らない
+ * ・予定区分は planAttendanceTypeId
+ * ・実績状態は actualWorkStatus
+ * ・actualAttendanceTypeId は使わない
  */
 
 export type UpdateMonthlyAttendanceSaveRequest = {
@@ -36,7 +38,14 @@ export type UpdateMonthlyAttendanceSaveDayRequest = {
   workDate: string;
 
   planAttendanceTypeId: number;
-  actualAttendanceTypeId: number | null;
+
+  /*
+   * 実績状態
+   *
+   * バックエンド constants/attendance_status_constants.go の固定値。
+   * 例: NORMAL, ABSENCE, SICK_LEAVE, LATE, EARLY_LEAVE
+   */
+  actualWorkStatus: string | null;
 
   commonStartAt: string | null;
   commonEndAt: string | null;

@@ -29,6 +29,9 @@ type MonthlyAttendanceSaveService interface {
  * ・DBへの直接アクセスはしない
  * ・まずは既存Serviceを呼び出して保存処理を統一する
  * ・月次申請中、月次承認済みの保存可否は各Service側で MonthlyAttendanceRequest を見て判定する
+ * ・予定区分は PlanAttendanceTypeID
+ * ・実績状態は ActualWorkStatus
+ * ・ActualAttendanceTypeID は使わない
  *
  * 画面表示用メッセージ方針：
  * ・SystemMessage はDB保存しない
@@ -123,6 +126,10 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 	 *
 	 * フロントでも有給残数0以下の場合は止めているが、
 	 * バックエンドでも保存前に必ず止める。
+	 *
+	 * 注意：
+	 * ・有給判定は予定区分 PlanAttendanceTypeID で行う
+	 * ・ActualWorkStatus は 通常/欠勤/病欠/遅刻/早退 なので有給判定には使わない
 	 */
 	paidLeaveCheckResult := service.validatePaidLeaveBalanceBeforeMonthlySave(userID, req)
 	if paidLeaveCheckResult.Error {
@@ -167,8 +174,8 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 			types.UpdateAttendanceDayRequest{
 				WorkDate: attendanceDayReq.WorkDate,
 
-				PlanAttendanceTypeID:   attendanceDayReq.PlanAttendanceTypeID,
-				ActualAttendanceTypeID: attendanceDayReq.ActualAttendanceTypeID,
+				PlanAttendanceTypeID: attendanceDayReq.PlanAttendanceTypeID,
+				ActualWorkStatus:     attendanceDayReq.ActualWorkStatus,
 
 				CommonStartAt: attendanceDayReq.CommonStartAt,
 				CommonEndAt:   attendanceDayReq.CommonEndAt,
@@ -283,6 +290,9 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
  * 月次勤怠保存前の有給残数チェック
  *
  * 保存対象に有給区分が含まれている場合だけ、有給残数を確認する。
+ *
+ * 注意：
+ * ・有給判定は予定区分 PlanAttendanceTypeID だけを見る
  */
 func (service *monthlyAttendanceSaveService) validatePaidLeaveBalanceBeforeMonthlySave(
 	userID uint,
@@ -377,11 +387,9 @@ func buildPaidLeaveAttendanceTypeIDMap(attendanceTypes []types.AttendanceTypeRes
 /*
  * 月次保存対象に有給区分が含まれているか判定する
  *
- * 予定区分・実績区分のどちらかが有給なら、有給ありと判定する。
- *
  * 注意：
- * ・PlanAttendanceTypeID は uint
- * ・ActualAttendanceTypeID は *uint のため nil チェックしてから判定する
+ * ・予定区分 PlanAttendanceTypeID だけを見る
+ * ・ActualWorkStatus は 通常/欠勤/病欠/遅刻/早退 の固定値なので、有給判定には使わない
  */
 func hasPaidLeaveAttendanceDay(
 	req types.UpdateMonthlyAttendanceRequest,
@@ -390,12 +398,6 @@ func hasPaidLeaveAttendanceDay(
 	for _, attendanceDayReq := range req.AttendanceDays {
 		if paidLeaveAttendanceTypeIDs[attendanceDayReq.PlanAttendanceTypeID] {
 			return true
-		}
-
-		if attendanceDayReq.ActualAttendanceTypeID != nil {
-			if paidLeaveAttendanceTypeIDs[*attendanceDayReq.ActualAttendanceTypeID] {
-				return true
-			}
 		}
 	}
 

@@ -32,6 +32,9 @@ type MonthlyAttendanceSummaryExportService interface {
  * ・APPROVED 以外はステータスのみCSVへ出力する
  * ・残業、週残業、休日出勤、深夜労働は二重計上しない
  * ・変形労働制フラグは持たず、AttendanceDay.ScheduledWorkMinutes の値だけで判断する
+ * ・予定区分は AttendanceDay.PlanAttendanceType を見る
+ * ・実績状態は AttendanceDay.ActualWorkStatus を見る
+ * ・ActualAttendanceTypeID / ActualAttendanceType は使わない
  */
 type monthlyAttendanceSummaryExportService struct {
 	monthlyAttendanceSummaryExportBuilder    builders.MonthlyAttendanceSummaryExportBuilder
@@ -364,6 +367,14 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 			row.SickLeaveDays++
 		}
 
+		if workRow.ActualWorkStatus == constants.ActualWorkStatusLate {
+			row.LateDays++
+		}
+
+		if workRow.ActualWorkStatus == constants.ActualWorkStatusEarlyLeave {
+			row.EarlyLeaveDays++
+		}
+
 		row.DailyOvertimeThresholdMinutes += workRow.DailyOvertimeThresholdMinutes
 		row.DailyOvertimeMinutes += workRow.DailyOvertimeMinutes
 		row.WorkShortageMinutes += workRow.WorkShortageMinutes
@@ -434,22 +445,19 @@ func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 		scheduledWorkMinutes := intPtrValue(attendanceDay.ScheduledWorkMinutes)
 
 		workRow := &types.MonthlyAttendanceSummaryWorkRow{
-			UserID:                       attendanceDay.UserID,
-			WorkDate:                     workDate,
-			AttendanceDayID:              attendanceDay.ID,
-			PlanAttendanceTypeID:         attendanceDay.PlanAttendanceTypeID,
-			ActualAttendanceTypeID:       attendanceDay.ActualAttendanceTypeID,
-			PlanAttendanceTypeCode:       attendanceDay.PlanAttendanceType.Code,
-			PlanAttendanceTypeCategory:   attendanceDay.PlanAttendanceType.Category,
-			ActualAttendanceTypeCode:     attendanceDay.ActualAttendanceType.Code,
-			ActualAttendanceTypeCategory: attendanceDay.ActualAttendanceType.Category,
-			ActualAttendanceTypeIsWorked: attendanceDay.ActualAttendanceType.IsWorked,
-			ScheduledWorkMinutes:         scheduledWorkMinutes,
-			TransportAmount:              intPtrValue(attendanceDay.TransportAmount),
-			IsPlannedHoliday:             isHolidayAttendanceType(attendanceDay.PlanAttendanceType),
-			IsPaidLeaveDay:               isPaidLeaveAttendanceType(attendanceDay.ActualAttendanceType),
-			IsAbsenceDay:                 isAbsenceAttendanceType(attendanceDay.ActualAttendanceType),
-			IsSickLeaveDay:               isSickLeaveAttendanceType(attendanceDay.ActualAttendanceType),
+			UserID:                     attendanceDay.UserID,
+			WorkDate:                   workDate,
+			AttendanceDayID:            attendanceDay.ID,
+			PlanAttendanceTypeID:       attendanceDay.PlanAttendanceTypeID,
+			PlanAttendanceTypeCode:     attendanceDay.PlanAttendanceType.Code,
+			PlanAttendanceTypeCategory: attendanceDay.PlanAttendanceType.Category,
+			ActualWorkStatus:           attendanceDay.ActualWorkStatus,
+			ScheduledWorkMinutes:       scheduledWorkMinutes,
+			TransportAmount:            intPtrValue(attendanceDay.TransportAmount),
+			IsPlannedHoliday:           isHolidayAttendanceType(attendanceDay.PlanAttendanceType),
+			IsPaidLeaveDay:             isPaidLeaveAttendanceType(attendanceDay.PlanAttendanceType),
+			IsAbsenceDay:               attendanceDay.ActualWorkStatus == constants.ActualWorkStatusAbsence,
+			IsSickLeaveDay:             attendanceDay.ActualWorkStatus == constants.ActualWorkStatusSickLeave,
 		}
 
 		if workRow.IsPaidLeaveDay && scheduledWorkMinutes > 0 {
@@ -511,7 +519,16 @@ func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 		workRow.BreakMinutes = validBreakMinutes
 		workRow.ActualWorkMinutes = actualWorkMinutes
 		workRow.LateNightWorkMinutes = lateNightWorkMinutes
-		workRow.IsActualWorkDay = actualWorkMinutes > 0 && attendanceDay.ActualAttendanceType.IsWorked
+
+		/*
+		 * 実勤務日判定
+		 *
+		 * 実績状態が欠勤・病欠の場合は実勤務日にしない。
+		 * 遅刻・早退は実勤務ありとして扱う。
+		 */
+		workRow.IsActualWorkDay = actualWorkMinutes > 0 &&
+			attendanceDay.ActualWorkStatus != constants.ActualWorkStatusAbsence &&
+			attendanceDay.ActualWorkStatus != constants.ActualWorkStatusSickLeave
 
 		workRows = append(workRows, workRow)
 	}
@@ -996,12 +1013,4 @@ func isHolidayAttendanceType(attendanceType models.AttendanceType) bool {
 
 func isPaidLeaveAttendanceType(attendanceType models.AttendanceType) bool {
 	return attendanceType.Code == "PAID_LEAVE"
-}
-
-func isAbsenceAttendanceType(attendanceType models.AttendanceType) bool {
-	return attendanceType.Code == "ABSENCE" || attendanceType.Category == "ABSENCE"
-}
-
-func isSickLeaveAttendanceType(attendanceType models.AttendanceType) bool {
-	return attendanceType.Code == "SICK_LEAVE"
 }

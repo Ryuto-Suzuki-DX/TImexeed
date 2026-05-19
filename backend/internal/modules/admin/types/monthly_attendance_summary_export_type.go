@@ -10,6 +10,9 @@ package types
  * ・APPROVED の月だけ集計値を出力する
  * ・APPROVED 以外の月はステータスのみ出力する
  * ・変形労働制フラグは持たず、AttendanceDay.ScheduledWorkMinutes の値だけで判断する
+ * ・予定区分は attendance_types を参照する
+ * ・実績状態は constants/attendance_status_constants.go の固定値を使う
+ * ・ActualAttendanceTypeID / ActualAttendanceTypeCode / ActualAttendanceTypeIsWorked は使わない
  */
 
 /*
@@ -183,6 +186,11 @@ type MonthlyAttendanceSummaryCsvRow struct {
  * 月次勤怠集計用の日別内部データ
  *
  * service 内で日別計算・週別計算を行うための作業用。
+ *
+ * 注意：
+ * ・予定区分は attendance_types を参照する
+ * ・実績状態は constants/attendance_status_constants.go の固定値を使う
+ * ・ActualAttendanceTypeID / ActualAttendanceTypeCode / ActualAttendanceTypeIsWorked は使わない
  */
 type MonthlyAttendanceSummaryWorkRow struct {
 	UserID   uint
@@ -190,14 +198,14 @@ type MonthlyAttendanceSummaryWorkRow struct {
 
 	AttendanceDayID uint
 
-	PlanAttendanceTypeID   uint
-	ActualAttendanceTypeID uint
+	// 予定区分
+	PlanAttendanceTypeID       uint
+	PlanAttendanceTypeCode     string
+	PlanAttendanceTypeCategory string
 
-	PlanAttendanceTypeCode       string
-	PlanAttendanceTypeCategory   string
-	ActualAttendanceTypeCode     string
-	ActualAttendanceTypeCategory string
-	ActualAttendanceTypeIsWorked bool
+	// 実績状態
+	// 例：NORMAL, ABSENCE, SICK_LEAVE, LATE, EARLY_LEAVE
+	ActualWorkStatus string
 
 	ScheduledWorkMinutes int
 

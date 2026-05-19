@@ -72,6 +72,9 @@ type UpdateMonthlyAttendanceCommuterPassRequest struct {
  * ・targetUserId は親Requestから引き継ぐ
  * ・Service側で UpdateAttendanceDayRequest へ詰め替える
  * ・管理者側では月次申請状態による編集ロックを行わない
+ * ・予定区分は PlanAttendanceTypeID
+ * ・実績状態は ActualWorkStatus
+ * ・ActualAttendanceTypeID は使わない
  */
 type UpdateMonthlyAttendanceDayRequest struct {
 	// 対象日
@@ -79,10 +82,17 @@ type UpdateMonthlyAttendanceDayRequest struct {
 	WorkDate string `json:"workDate" binding:"required"`
 
 	// 予定区分ID
+	// attendance_types のIDを保存する。
 	PlanAttendanceTypeID uint `json:"planAttendanceTypeId" binding:"required"`
 
-	// 実績区分ID
-	ActualAttendanceTypeID *uint `json:"actualAttendanceTypeId"`
+	// 実績状態
+	// constants/attendance_status_constants.go の固定値を送る。
+	// 例：NORMAL, ABSENCE, SICK_LEAVE, LATE, EARLY_LEAVE
+	//
+	// 注意：
+	// ・これは attendance_types のIDではない
+	// ・未指定の場合はService側で NORMAL 扱い
+	ActualWorkStatus *string `json:"actualWorkStatus"`
 
 	// 共通開始日時
 	//
