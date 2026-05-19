@@ -152,6 +152,7 @@ func (builder *expenseBuilder) BuildSearchExpensesQuery(req types.SearchExpenses
  * 経費ID検索用クエリ作成
  *
  * 論理削除済み経費は対象外にする。
+ * ADMINユーザーに紐づく経費も対象外にする。
  */
 func (builder *expenseBuilder) BuildFindExpenseByIDQuery(expenseID uint) (*gorm.DB, results.Result) {
 	if expenseID == 0 {
@@ -167,8 +168,11 @@ func (builder *expenseBuilder) BuildFindExpenseByIDQuery(expenseID uint) (*gorm.
 	query := builder.db.
 		Model(&models.Expense{}).
 		Preload("User").
+		Joins("JOIN users ON users.id = expenses.user_id").
 		Where("expenses.id = ?", expenseID).
-		Where("expenses.is_deleted = ?", false)
+		Where("expenses.is_deleted = ?", false).
+		Where("users.is_deleted = ?", false).
+		Where("users.role = ?", "USER")
 
 	return query, results.OK(
 		nil,
@@ -391,6 +395,7 @@ func applySearchExpensesCondition(query *gorm.DB, req types.SearchExpensesReques
 	query = query.
 		Where("expenses.is_deleted = ?", false).
 		Where("users.is_deleted = ?", false).
+		Where("users.role = ?", "USER").
 		Where("expenses.target_month >= ?", targetMonthFrom).
 		Where("expenses.target_month <= ?", targetMonthTo)
 

@@ -1,8 +1,10 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ==================================================
+# Dependencies
+# ==================================================
+node_modules/
+**/node_modules/
 
-# dependencies
-/node_modules
-/.pnp
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -10,32 +12,111 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# Go
+backend/tmp/
+backend/bin/
+backend/.air/
+*.exe
+*.test
 
-# next.js
-/.next/
-/out/
+# ==================================================
+# Build outputs
+# ==================================================
+.next/
+**/.next/
 
-# production
-/build
+out/
+**/out/
 
-# misc
-.DS_Store
+build/
+**/build/
+
+dist/
+**/dist/
+
+coverage/
+**/coverage/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# ==================================================
+# Environment files
+# ==================================================
+.env
+.env.*
+!.env.example
+
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+frontend/.env
+frontend/.env.*
+frontend/.env.local
+frontend/.env.*.local
+!frontend/.env.example
+
+infra/env/*.env
+!infra/env/*.env.example
+
+# ==================================================
+# Secrets / credentials
+# ==================================================
+secrets/*
+!secrets/.gitkeep
+
+infra/secrets/*
+!infra/secrets/README.md
+
 *.pem
+*.key
+*.crt
+*.p12
+*.pfx
 
-# debug
+# Google service account credentials
+**/google-service-account*.json
+**/service-account*.json
+**/*credentials*.json
+
+# ==================================================
+# Logs
+# ==================================================
+logs/
+*.log
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# ==================================================
+# OS / Editor
+# ==================================================
+.DS_Store
+Thumbs.db
 
-# vercel
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+.idea/
+
+# ==================================================
+# Docker / local runtime
+# ==================================================
+docker-data/
+postgres-data/
+pgdata/
+
+*.dump
+*.backup
+*.sql.gz
+*.tar.gz
+
+# ==================================================
+# Vercel
+# ==================================================
 .vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts

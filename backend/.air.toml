@@ -2,12 +2,15 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-cmd = "go build -o ./tmp/main.exe ."
-bin = "tmp/main.exe"
+cmd = "go build -o ./tmp/main ."
+bin = "./tmp/main"
+full_bin = "./tmp/main"
 include_ext = ["go"]
-exclude_dir = ["tmp", "vendor"]
+exclude_dir = ["tmp", "vendor", ".git"]
 delay = 1000
 stop_on_error = true
+send_interrupt = false
+kill_delay = 500
 
 [log]
 time = true
@@ -17,3 +20,6 @@ main = "magenta"
 watcher = "cyan"
 build = "yellow"
 runner = "green"
+
+[misc]
+clean_on_exit = true

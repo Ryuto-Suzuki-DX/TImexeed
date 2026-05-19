@@ -4,15 +4,24 @@
  * USER/ADMIN共通で使える表示変換。
  *
  * 主な月次申請状態：
- * ・DRAFT    未申請
- * ・PENDING  申請中
- * ・APPROVED 承認済み
- * ・REJECTED 否認
+ * ・NOT_SUBMITTED 未申請
+ * ・DRAFT         未申請
+ * ・PENDING       申請中
+ * ・APPROVED      承認済み
+ * ・REJECTED      否認
  *
  * NONE は既存画面や日別表示の互換用として残す。
  */
 
 export function getStatusLabel(status: string) {
+  if (status === "NOT_SUBMITTED") {
+    return "未申請";
+  }
+
+  if (status === "DRAFT") {
+    return "未申請";
+  }
+
   if (status === "PENDING") {
     return "申請中";
   }
@@ -23,10 +32,6 @@ export function getStatusLabel(status: string) {
 
   if (status === "REJECTED") {
     return "否認";
-  }
-
-  if (status === "DRAFT") {
-    return "未申請";
   }
 
   if (status === "NONE") {
@@ -49,7 +54,7 @@ export function isRejectedStatus(status: string) {
 }
 
 export function isDraftStatus(status: string) {
-  return status === "DRAFT";
+  return status === "DRAFT" || status === "NOT_SUBMITTED";
 }
 
 export function isNoneStatus(status: string) {

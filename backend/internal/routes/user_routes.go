@@ -85,6 +85,12 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	personalInformationDriveFolderService := services.NewPersonalInformationDriveFolderService(personalInformationDriveFolderBuilder, personalInformationDriveFolderRepository)
 	personalInformationDriveFolderController := controllers.NewPersonalInformationDriveFolderController(personalInformationDriveFolderService)
 
+	// 共有資料Driveフォルダ
+	sharedDocumentDriveFolderBuilder := builders.NewSharedDocumentDriveFolderBuilder(db)
+	sharedDocumentDriveFolderRepository := repositories.NewSharedDocumentDriveFolderRepository(db)
+	sharedDocumentDriveFolderService := services.NewSharedDocumentDriveFolderService(sharedDocumentDriveFolderBuilder, sharedDocumentDriveFolderRepository)
+	sharedDocumentDriveFolderController := controllers.NewSharedDocumentDriveFolderController(sharedDocumentDriveFolderService)
+
 	// 経費
 	expenseBuilder := builders.NewExpenseBuilder(db)
 	expenseRepository := repositories.NewExpenseRepository(db)
@@ -138,6 +144,10 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 
 		// 個人情報Driveフォルダ
 		user.POST("/personal-information-drive-folders/get", personalInformationDriveFolderController.GetMyPersonalInformationDriveFolder)
+
+		// 共有資料Driveフォルダ
+		user.POST("/shared-document-drive-folders/search", sharedDocumentDriveFolderController.SearchSharedDocumentDriveFolders)
+		user.POST("/shared-document-drive-folders/detail", sharedDocumentDriveFolderController.DetailSharedDocumentDriveFolder)
 
 		// 経費
 		user.POST("/expenses/search", expenseController.SearchExpenses)

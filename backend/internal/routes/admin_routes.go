@@ -42,6 +42,13 @@ import (
  */
 func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 
+	// Google Drive
+	//
+	// 注意：
+	// ・環境変数が未設定でもアプリ起動自体は止めない
+	// ・未設定の場合、Drive連携系Service側でエラーを返す
+	googleDriveService, _ := storage.NewGoogleDriveServiceFromEnv(context.Background())
+
 	// 所属
 	departmentBuilder := builders.NewDepartmentBuilder(db)
 	departmentRepository := repositories.NewDepartmentRepository(db)
@@ -53,6 +60,12 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	userRepository := repositories.NewUserRepository(db)
 	userService := services.NewUserService(userBuilder, userRepository)
 	userController := controllers.NewUserController(userService)
+
+	// 資料共有Driveフォルダ　＋　共有対象ユーザー
+	sharedDocumentDriveFolderBuilder := builders.NewSharedDocumentDriveFolderBuilder(db)
+	sharedDocumentDriveFolderRepository := repositories.NewSharedDocumentDriveFolderRepository(db)
+	sharedDocumentDriveFolderService := services.NewSharedDocumentDriveFolderService(sharedDocumentDriveFolderBuilder, sharedDocumentDriveFolderRepository, googleDriveService)
+	sharedDocumentDriveFolderController := controllers.NewSharedDocumentDriveFolderController(sharedDocumentDriveFolderService)
 
 	// ユーザー給与詳細
 	userSalaryDetailBuilder := builders.NewUserSalaryDetailBuilder(db)
@@ -66,10 +79,16 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	attendanceTypeService := services.NewAttendanceTypeService(attendanceTypeBuilder, attendanceTypeRepository)
 	attendanceTypeController := controllers.NewAttendanceTypeController(attendanceTypeService)
 
+	// お知らせ
+	notificationBuilder := builders.NewNotificationBuilder(db)
+	notificationRepository := repositories.NewNotificationRepository(db)
+	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository)
+	notificationController := controllers.NewNotificationController(notificationService)
+
 	// 月次勤怠申請
 	monthlyAttendanceRequestBuilder := builders.NewMonthlyAttendanceRequestBuilder(db)
 	monthlyAttendanceRequestRepository := repositories.NewMonthlyAttendanceRequestRepository(db)
-	monthlyAttendanceRequestService := services.NewMonthlyAttendanceRequestService(monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
+	monthlyAttendanceRequestService := services.NewMonthlyAttendanceRequestService(monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository, notificationService)
 	monthlyAttendanceRequestController := controllers.NewMonthlyAttendanceRequestController(monthlyAttendanceRequestService)
 
 	// 勤怠
@@ -108,13 +127,6 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	externalStorageLinkService := services.NewExternalStorageLinkService(externalStorageLinkBuilder, externalStorageLinkRepository)
 	externalStorageLinkController := controllers.NewExternalStorageLinkController(externalStorageLinkService)
 
-	// Google Drive
-	//
-	// 注意：
-	// ・環境変数が未設定でもアプリ起動自体は止めない
-	// ・未設定の場合、領収書アップロード/表示時にService側でエラーを返す
-	googleDriveService, _ := storage.NewGoogleDriveServiceFromEnv(context.Background())
-
 	// 個人情報Driveフォルダ
 	personalInformationDriveFolderBuilder := builders.NewPersonalInformationDriveFolderBuilder(db)
 	personalInformationDriveFolderRepository := repositories.NewPersonalInformationDriveFolderRepository(db)
@@ -126,12 +138,6 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	expenseRepository := repositories.NewExpenseRepository(db)
 	expenseService := services.NewExpenseService(expenseBuilder, expenseRepository, externalStorageLinkRepository, googleDriveService)
 	expenseController := controllers.NewExpenseController(expenseService)
-
-	// お知らせ
-	notificationBuilder := builders.NewNotificationBuilder(db)
-	notificationRepository := repositories.NewNotificationRepository(db)
-	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository)
-	notificationController := controllers.NewNotificationController(notificationService)
 
 	// お知らせ自動リマインド
 	notificationReminderBuilder := builders.NewNotificationReminderBuilder(db)
@@ -148,6 +154,7 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	monthlyAttendanceSummaryExportRepository := repositories.NewMonthlyAttendanceSummaryExportRepository(db)
 	monthlyAttendanceSummaryExportService := services.NewMonthlyAttendanceSummaryExportService(monthlyAttendanceSummaryExportBuilder, monthlyAttendanceSummaryExportRepository)
 	monthlyAttendanceSummaryExportController := controllers.NewMonthlyAttendanceSummaryExportController(monthlyAttendanceSummaryExportService)
+
 	admin := r.Group("/admin")
 
 	/*
@@ -171,10 +178,23 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 
 		// ユーザー
 		admin.POST("/users/search", userController.SearchUsers)
+		admin.POST("/users/search-business-targets", userController.SearchBusinessTargetUsers)
 		admin.POST("/users/detail", userController.GetUserDetail)
 		admin.POST("/users/create", userController.CreateUser)
 		admin.POST("/users/update", userController.UpdateUser)
 		admin.POST("/users/delete", userController.DeleteUser)
+
+		// 資料共有Driveフォルダ　＋　共有対象ユーザー
+		sharedDocumentDriveFolders := admin.Group("/shared-document-drive-folders")
+		{
+			sharedDocumentDriveFolders.POST("/search", sharedDocumentDriveFolderController.SearchSharedDocumentDriveFolders)
+			sharedDocumentDriveFolders.POST("/detail", sharedDocumentDriveFolderController.DetailSharedDocumentDriveFolder)
+			sharedDocumentDriveFolders.POST("/create", sharedDocumentDriveFolderController.CreateSharedDocumentDriveFolder)
+			sharedDocumentDriveFolders.POST("/update", sharedDocumentDriveFolderController.UpdateSharedDocumentDriveFolder)
+			sharedDocumentDriveFolders.POST("/delete", sharedDocumentDriveFolderController.DeleteSharedDocumentDriveFolder)
+			sharedDocumentDriveFolders.POST("/users/update", sharedDocumentDriveFolderController.UpdateSharedDocumentDriveFolderUsers)
+			sharedDocumentDriveFolders.POST("/sync", sharedDocumentDriveFolderController.SyncSharedDocumentDriveFolder)
+		}
 
 		// ユーザー給与詳細
 		admin.POST("/user-salary-details/search", userSalaryDetailController.SearchUserSalaryDetails)

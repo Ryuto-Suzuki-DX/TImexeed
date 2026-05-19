@@ -51,6 +51,7 @@ func NewPaidLeaveUsageBuilder(db *gorm.DB) PaidLeaveUsageBuilder {
  * 対象ユーザーが存在するか確認するために使う。
  *
  * 論理削除済みユーザーは対象外。
+ * ADMIN は有給管理の対象外。
  */
 func (builder *paidLeaveUsageBuilder) BuildFindActiveUserByIDQuery(targetUserID uint) (*gorm.DB, results.Result) {
 	if targetUserID == 0 {
@@ -66,6 +67,7 @@ func (builder *paidLeaveUsageBuilder) BuildFindActiveUserByIDQuery(targetUserID 
 	query := builder.db.
 		Model(&models.User{}).
 		Where("id = ?", targetUserID).
+		Where("role = ?", "USER").
 		Where("is_deleted = ?", false)
 
 	return query, results.OK(

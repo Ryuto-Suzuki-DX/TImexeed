@@ -1,0 +1,471 @@
+.loadingCard {
+  max-width: 720px;
+  margin: 60px auto;
+  padding: 32px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.pageWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.pageCard {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.summaryArea {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.summaryBox {
+  min-width: 150px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background-color: #fff7ed;
+  border: 1px solid #fed7aa;
+  box-sizing: border-box;
+}
+
+.summaryLabel {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #9a3412;
+}
+
+.summaryValue {
+  margin: 0;
+  font-size: 24px;
+  font-weight: bold;
+  color: #ea580c;
+}
+
+.messageArea {
+  margin-bottom: 20px;
+}
+
+.searchCard,
+.folderListCard,
+.detailCard {
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  box-sizing: border-box;
+}
+
+.searchCard {
+  margin-bottom: 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: bold;
+  color: #111827;
+  line-height: 1.4;
+}
+
+.sectionDescription {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.searchGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+}
+
+.editorGrid {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(520px, 1fr);
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.formLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.labelText {
+  font-size: 12px;
+  font-weight: bold;
+  color: #374151;
+}
+
+.textInput,
+.textArea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background-color: #ffffff;
+  color: #111827;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.textInput {
+  height: 42px;
+  padding: 0 12px;
+}
+
+.textArea {
+  min-height: 96px;
+  padding: 12px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.textInput:focus,
+.textArea:focus {
+  outline: none;
+  border-color: #fb923c;
+  box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.18);
+}
+
+.textInput:disabled,
+.textArea:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+}
+
+.searchActionArea {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.formActionArea {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.folderList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.folderCard {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.selectedFolderCard {
+  border-color: #fb923c;
+  background-color: #fff7ed;
+}
+
+.folderCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.folderTitleArea {
+  min-width: 0;
+}
+
+.folderTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: bold;
+  color: #111827;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.folderDescription {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.countBadge,
+.selectedBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 52px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background-color: #ea580c;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.selectedBadge {
+  min-width: auto;
+  background-color: #111827;
+}
+
+.folderMetaGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.metaLabel {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #6b7280;
+}
+
+.metaValue {
+  margin: 0;
+  font-size: 12px;
+  color: #374151;
+  word-break: break-word;
+}
+
+.folderActionArea {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.shareSection {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.userSearchBox {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.userSearchGrid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.userResultList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.userResultRow,
+.sharedUserRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.sharedUserList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.userName {
+  margin: 0;
+  font-size: 13px;
+  font-weight: bold;
+  color: #111827;
+  line-height: 1.4;
+}
+
+.userEmail {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.bulkActionArea {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.syncInfoBox {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #fed7aa;
+  background-color: #fff7ed;
+  box-sizing: border-box;
+}
+
+.syncInfoTitle {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #9a3412;
+}
+
+.syncInfoText {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #7c2d12;
+  line-height: 1.6;
+}
+
+.emptyBox {
+  padding: 28px;
+  border-radius: 14px;
+  border: 1px dashed #d1d5db;
+  background-color: #f9fafb;
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: bold;
+  color: #374151;
+}
+
+.emptyText {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+.moreArea {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+@media (max-width: 1100px) {
+  .editorGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .searchGrid,
+  .userSearchGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .searchActionArea {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .pageCard {
+    padding: 22px;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+
+  .summaryArea {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .summaryBox {
+    width: 100%;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+  }
+
+  .formActionArea,
+  .bulkActionArea {
+    justify-content: flex-start;
+  }
+
+  .userResultRow,
+  .sharedUserRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageCard {
+    padding: 18px;
+  }
+
+  .searchCard,
+  .folderListCard,
+  .detailCard {
+    padding: 14px;
+  }
+
+  .emptyBox {
+    padding: 22px;
+  }
+}

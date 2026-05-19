@@ -1,9 +1,11 @@
 package builders
 
 import (
+	"strings"
 	"time"
 
 	"timexeed/backend/internal/models"
+	"timexeed/backend/internal/modules/user/types"
 	"timexeed/backend/internal/results"
 
 	"gorm.io/gorm"
@@ -15,7 +17,8 @@ import (
  * ServiceがBuilderに求める処理だけを定義する。
  */
 type NotificationBuilder interface {
-	BuildSearchNotificationsQuery(userID uint, limit int, offset int) (*gorm.DB, results.Result)
+	BuildSearchNotificationsQuery(userID uint, req types.SearchNotificationsRequest) (*gorm.DB, results.Result)
+	BuildCountSearchNotificationsQuery(userID uint, req types.SearchNotificationsRequest) (*gorm.DB, results.Result)
 	BuildFindNotificationByUserIDAndIDQuery(userID uint, notificationID uint) (*gorm.DB, results.Result)
 	BuildReadNotificationModel(currentNotification models.Notification) (models.Notification, results.Result)
 	BuildCountUnreadNotificationsQuery(userID uint) (*gorm.DB, results.Result)
@@ -45,20 +48,13 @@ func NewNotificationBuilder(db *gorm.DB) NotificationBuilder {
 }
 
 /*
- * お知らせ検索用クエリ作成
+ * お知らせ検索用の基本クエリ作成
  *
- * ログイン中ユーザー本人のお知らせ一覧を取得する。
- *
- * 注意：
- * ・userID はJWTから取得したログイン中ユーザーID
- * ・フロントから userId / targetUserId は受け取らない
- * ・論理削除済みのお知らせは対象外
- * ・新しいお知らせから順に取得する
+ * 一覧取得用クエリと件数取得用クエリで同じ検索条件を使う。
  */
-func (builder *notificationBuilder) BuildSearchNotificationsQuery(
+func (builder *notificationBuilder) buildSearchNotificationsBaseQuery(
 	userID uint,
-	limit int,
-	offset int,
+	req types.SearchNotificationsRequest,
 ) (*gorm.DB, results.Result) {
 	if userID == 0 {
 		return nil, results.BadRequest(
@@ -70,38 +66,101 @@ func (builder *notificationBuilder) BuildSearchNotificationsQuery(
 		)
 	}
 
-	if limit <= 0 {
+	query := builder.db.
+		Model(&models.Notification{}).
+		Where("user_id = ?", userID).
+		Where("is_deleted = ?", false)
+
+	keyword := strings.TrimSpace(req.Keyword)
+	if keyword != "" {
+		likeKeyword := "%" + keyword + "%"
+		query = query.Where(
+			"(title ILIKE ? OR message ILIKE ?)",
+			likeKeyword,
+			likeKeyword,
+		)
+	}
+
+	return query, results.OK(
+		nil,
+		"BUILD_SEARCH_NOTIFICATIONS_BASE_QUERY_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * お知らせ検索用クエリ作成
+ *
+ * ログイン中ユーザー本人のお知らせ一覧を取得する。
+ *
+ * 注意：
+ * ・userID はJWTから取得したログイン中ユーザーID
+ * ・フロントから userId / targetUserId は受け取らない
+ * ・論理削除済みのお知らせは対象外
+ * ・keyword がある場合は title / message を部分一致検索する
+ * ・新しいお知らせから順に取得する
+ */
+func (builder *notificationBuilder) BuildSearchNotificationsQuery(
+	userID uint,
+	req types.SearchNotificationsRequest,
+) (*gorm.DB, results.Result) {
+	if req.Limit <= 0 {
 		return nil, results.BadRequest(
 			"BUILD_SEARCH_NOTIFICATIONS_QUERY_INVALID_LIMIT",
 			"お知らせ検索条件の作成に失敗しました",
 			map[string]any{
-				"limit": limit,
+				"limit": req.Limit,
 			},
 		)
 	}
 
-	if offset < 0 {
+	if req.Offset < 0 {
 		return nil, results.BadRequest(
 			"BUILD_SEARCH_NOTIFICATIONS_QUERY_INVALID_OFFSET",
 			"お知らせ検索条件の作成に失敗しました",
 			map[string]any{
-				"offset": offset,
+				"offset": req.Offset,
 			},
 		)
 	}
 
-	query := builder.db.
-		Model(&models.Notification{}).
-		Where("user_id = ?", userID).
-		Where("is_deleted = ?", false).
+	query, buildResult := builder.buildSearchNotificationsBaseQuery(userID, req)
+	if buildResult.Error {
+		return nil, buildResult
+	}
+
+	query = query.
 		Order("created_at DESC").
 		Order("id DESC").
-		Limit(limit).
-		Offset(offset)
+		Limit(req.Limit).
+		Offset(req.Offset)
 
 	return query, results.OK(
 		nil,
 		"BUILD_SEARCH_NOTIFICATIONS_QUERY_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * お知らせ検索件数取得用クエリ作成
+ *
+ * 検索条件に一致する総件数を取得する。
+ */
+func (builder *notificationBuilder) BuildCountSearchNotificationsQuery(
+	userID uint,
+	req types.SearchNotificationsRequest,
+) (*gorm.DB, results.Result) {
+	query, buildResult := builder.buildSearchNotificationsBaseQuery(userID, req)
+	if buildResult.Error {
+		return nil, buildResult
+	}
+
+	return query, results.OK(
+		nil,
+		"BUILD_COUNT_SEARCH_NOTIFICATIONS_QUERY_SUCCESS",
 		"",
 		nil,
 	)

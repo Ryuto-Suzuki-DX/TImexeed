@@ -53,6 +53,17 @@ func NewPersonalInformationDriveFolderBuilder(db *gorm.DB) PersonalInformationDr
  * ・フォルダ未作成ユーザーも検索結果に出すため
  * ・管理者はユーザーを検索して、そこからフォルダ作成/表示へ進むため
  */
+/*
+ * 個人情報Driveフォルダ検索用クエリ作成
+ *
+ * users を主軸にする。
+ * 理由：
+ * ・フォルダ未作成ユーザーも検索結果に出すため
+ * ・管理者はユーザーを検索して、そこからフォルダ作成/表示へ進むため
+ *
+ * 注意：
+ * ・ADMIN は個人情報Driveフォルダの対象外にする
+ */
 func (builder *personalInformationDriveFolderBuilder) BuildSearchPersonalInformationDriveFoldersQuery(req types.SearchPersonalInformationDriveFoldersRequest) (*gorm.DB, *gorm.DB, results.Result) {
 	if req.Offset < 0 {
 		return nil, nil, results.BadRequest(
@@ -74,18 +85,6 @@ func (builder *personalInformationDriveFolderBuilder) BuildSearchPersonalInforma
 		)
 	}
 
-	/*
-	 * 注意：
-	 * searchQuery と countQuery で同じ *gorm.DB を使い回さない。
-	 * GORMのチェーンはStatementを引き継ぐため、共通baseQueryにJoinsを追加すると、
-	 * countQuery側にもJOINが混ざり、同じJOINが二重に乗ることがある。
-	 *
-	 * その結果、PostgreSQLで
-	 * "table name personal_information_drive_folders specified more than once"
-	 * が発生する。
-	 *
-	 * 対策として、検索用と件数用は最初から別々に作る。
-	 */
 	searchQuery := builder.db.
 		Table("users").
 		Select(`
@@ -113,11 +112,13 @@ func (builder *personalInformationDriveFolderBuilder) BuildSearchPersonalInforma
 				AND personal_information_drive_folders.is_deleted = false
 				AND personal_information_drive_folders.deleted_at IS NULL
 		`).
-		Where("users.is_deleted = ?", false)
+		Where("users.is_deleted = ?", false).
+		Where("users.role = ?", "USER")
 
 	countQuery := builder.db.
 		Table("users").
-		Where("users.is_deleted = ?", false)
+		Where("users.is_deleted = ?", false).
+		Where("users.role = ?", "USER")
 
 	searchQuery = applySearchPersonalInformationDriveFoldersCondition(searchQuery, req)
 	countQuery = applySearchPersonalInformationDriveFoldersCondition(countQuery, req)
@@ -164,6 +165,9 @@ func (builder *personalInformationDriveFolderBuilder) BuildFindActivePersonalInf
 
 /*
  * 対象ユーザー取得用クエリ作成
+ *
+ * 個人情報Driveの対象はUSERのみ。
+ * ADMIN、論理削除済みユーザーは対象外。
  */
 func (builder *personalInformationDriveFolderBuilder) BuildFindActiveUserByIDQuery(targetUserID uint) (*gorm.DB, results.Result) {
 	if targetUserID == 0 {
@@ -179,6 +183,7 @@ func (builder *personalInformationDriveFolderBuilder) BuildFindActiveUserByIDQue
 	query := builder.db.
 		Model(&models.User{}).
 		Where("id = ?", targetUserID).
+		Where("role = ?", "USER").
 		Where("is_deleted = ?", false)
 
 	return query, results.OK(

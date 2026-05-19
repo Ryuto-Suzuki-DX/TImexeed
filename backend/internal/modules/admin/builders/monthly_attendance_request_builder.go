@@ -106,6 +106,7 @@ func NewMonthlyAttendanceRequestBuilder(db *gorm.DB) MonthlyAttendanceRequestBui
  *
  * 仕様：
  * ・users 起点で検索する
+ * ・ADMIN は一覧対象外にする
  * ・departments は所属名検索と一覧表示のため LEFT JOIN する
  * ・monthly_attendance_requests は対象年月で LEFT JOIN する
  * ・申請レコードが存在しないユーザーは未申請として扱うため、LEFT JOIN が必須
@@ -115,10 +116,7 @@ func NewMonthlyAttendanceRequestBuilder(db *gorm.DB) MonthlyAttendanceRequestBui
  * ・NOT_SUBMITTED が含まれる場合は monthly_attendance_requests.id IS NULL を検索対象にする
  * ・PENDING / APPROVED / REJECTED / CANCELED は monthly_attendance_requests.status IN (?) で検索する
  */
-func (builder *monthlyAttendanceRequestBuilder) BuildSearchMonthlyAttendanceRequestsQuery(
-	req types.SearchMonthlyAttendanceRequestsRequest,
-	limit int,
-) (*gorm.DB, results.Result) {
+func (builder *monthlyAttendanceRequestBuilder) BuildSearchMonthlyAttendanceRequestsQuery(req types.SearchMonthlyAttendanceRequestsRequest, limit int) (*gorm.DB, results.Result) {
 	if req.TargetYear <= 0 {
 		return nil, results.BadRequest(
 			"BUILD_SEARCH_MONTHLY_ATTENDANCE_REQUESTS_QUERY_INVALID_TARGET_YEAR",
@@ -203,7 +201,8 @@ func (builder *monthlyAttendanceRequestBuilder) BuildSearchMonthlyAttendanceRequ
 			 AND monthly_attendance_requests.target_year = ?
 			 AND monthly_attendance_requests.target_month = ?
 			 AND monthly_attendance_requests.is_deleted = ?
-		`, req.TargetYear, req.TargetMonth, false)
+		`, req.TargetYear, req.TargetMonth, false).
+		Where("users.role = ?", "USER")
 
 	if !req.IncludeDeletedUsers {
 		query = query.Where("users.is_deleted = ?", false)

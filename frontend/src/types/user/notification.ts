@@ -1,8 +1,17 @@
 /*
  * ユーザー お知らせ Type
  *
- * バックエンドの NotificationResponse / SearchNotificationsResponse /
- * ReadNotificationResponse / CountUnreadNotificationsResponse に対応する。
+ * バックエンドの user/types/notification.go に対応する。
+ *
+ * 役割：
+ * ・ログイン中ユーザー本人宛のお知らせ一覧取得
+ * ・ログイン中ユーザー本人宛のお知らせ既読更新
+ * ・ログイン中ユーザー本人宛の未読お知らせ件数取得
+ *
+ * 注意：
+ * ・検索、既読、未読件数取得では userId / targetUserId は送らない
+ * ・バックエンド側でJWTからログイン中ユーザーIDを取得する
+ * ・keyword は title / message の検索用
  */
 
 export type Notification = {
@@ -15,12 +24,16 @@ export type Notification = {
 };
 
 export type SearchNotificationsRequest = {
-  limit: number;
+  keyword: string;
   offset: number;
+  limit: number;
 };
 
 export type SearchNotificationsResponse = {
   notifications: Notification[];
+  total: number;
+  offset: number;
+  limit: number;
   hasMore: boolean;
 };
 

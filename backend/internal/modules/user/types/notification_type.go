@@ -5,21 +5,25 @@ import "time"
 /*
  * 〇 ユーザー お知らせ Type
  *
- * ユーザー側のお知らせ一覧取得・既読更新で使用する。
+ * ユーザー側のお知らせ一覧取得・既読更新・未読件数取得で使用する。
  *
  * お知らせはユーザー向け表示用。
  * 通知種別・関連対象IDは持たない。
+ *
+ * 注意：
+ * ・ユーザーIDはリクエストで受け取らない
+ * ・ControllerでJWTからログイン中ユーザーIDを取得する
+ * ・検索では keyword を title / message に対して部分一致検索する
+ * ・検索結果は既存の検索系と同じく total / offset / limit / hasMore を返す
  */
 
 /*
  * お知らせ一覧取得リクエスト
- *
- * ユーザーIDはリクエストで受け取らない。
- * ControllerでJWTから取得する。
  */
 type SearchNotificationsRequest struct {
-	Limit  int `json:"limit"`
-	Offset int `json:"offset"`
+	Keyword string `json:"keyword"`
+	Limit   int    `json:"limit"`
+	Offset  int    `json:"offset"`
 }
 
 /*
@@ -27,6 +31,9 @@ type SearchNotificationsRequest struct {
  */
 type SearchNotificationsResponse struct {
 	Notifications []NotificationResponse `json:"notifications"`
+	Total         int64                  `json:"total"`
+	Offset        int                    `json:"offset"`
+	Limit         int                    `json:"limit"`
 	HasMore       bool                   `json:"hasMore"`
 }
 

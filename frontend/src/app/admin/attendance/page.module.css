@@ -22,6 +22,28 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
+.userSearchArea {
+  width: 760px;
+  max-width: 100%;
+  margin-bottom: 18px;
+}
+
+.userSearchArea :global(form) {
+  width: 100%;
+}
+
+.userSearchArea :global(input[type="text"]),
+.userSearchArea :global(input[type="search"]) {
+  max-width: 420px;
+}
+
+.userSearchArea :global(button) {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 96px;
+  white-space: nowrap;
+}
+
 .messageArea {
   display: grid;
   grid-template-columns: minmax(360px, 1fr) 260px 240px;
@@ -165,6 +187,10 @@
     padding: 22px;
   }
 
+  .userSearchArea {
+    width: 100%;
+  }
+
   .messageArea {
     grid-template-columns: 1fr 220px;
   }
@@ -177,6 +203,11 @@
 @media (max-width: 640px) {
   .pageCard {
     padding: 18px;
+  }
+
+  .userSearchArea :global(input[type="text"]),
+  .userSearchArea :global(input[type="search"]) {
+    max-width: 100%;
   }
 
   .messageArea {

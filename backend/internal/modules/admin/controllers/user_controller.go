@@ -48,13 +48,15 @@ func NewUserController(userService services.UserService) *UserController {
  * 検索
  *
  * POST /admin/users/search
+ *
+ * 注意：
+ * ・ユーザー管理画面用
+ * ・ADMIN / USER の両方を検索対象にする
  */
 func (controller *UserController) SearchUsers(c *gin.Context) {
 	var req types.SearchUsersRequest
 
-	// リクエストJSONをSearchUsersRequest型にbindする
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// Controllerで発生したbindエラーなので、Controller用のcode/messageを詰めて返す
 		responses.JSON(c, results.BadRequest(
 			"SEARCH_USERS_INVALID_REQUEST",
 			"ユーザー検索のリクエスト形式が正しくありません",
@@ -63,10 +65,35 @@ func (controller *UserController) SearchUsers(c *gin.Context) {
 		return
 	}
 
-	// bindしたRequest型をそのままServiceへ渡す
 	result := controller.userService.SearchUsers(req)
 
-	// Service / Builder / Repository の結果を共通レスポンス形式のJSONでフロントへ返す
+	responses.JSON(c, result)
+}
+
+/*
+ * 業務対象ユーザー検索
+ *
+ * POST /admin/users/search-business-targets
+ *
+ * 注意：
+ * ・勤怠、給与、経費、有給、個人情報Driveなどの対象ユーザー検索用
+ * ・ADMIN は検索結果に含めない
+ * ・削除済みユーザーも検索結果に含めない
+ */
+func (controller *UserController) SearchBusinessTargetUsers(c *gin.Context) {
+	var req types.SearchBusinessTargetUsersRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		responses.JSON(c, results.BadRequest(
+			"SEARCH_BUSINESS_TARGET_USERS_INVALID_REQUEST",
+			"業務対象ユーザー検索のリクエスト形式が正しくありません",
+			err.Error(),
+		))
+		return
+	}
+
+	result := controller.userService.SearchBusinessTargetUsers(req)
+
 	responses.JSON(c, result)
 }
 
@@ -78,9 +105,7 @@ func (controller *UserController) SearchUsers(c *gin.Context) {
 func (controller *UserController) GetUserDetail(c *gin.Context) {
 	var req types.UserDetailRequest
 
-	// リクエストJSONをUserDetailRequest型にbindする
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// Controllerで発生したbindエラーなので、Controller用のcode/messageを詰めて返す
 		responses.JSON(c, results.BadRequest(
 			"GET_USER_DETAIL_INVALID_REQUEST",
 			"ユーザー詳細取得のリクエスト形式が正しくありません",
@@ -89,10 +114,8 @@ func (controller *UserController) GetUserDetail(c *gin.Context) {
 		return
 	}
 
-	// bindしたRequest型をそのままServiceへ渡す
 	result := controller.userService.GetUserDetail(req)
 
-	// Service / Builder / Repository の結果を共通レスポンス形式のJSONでフロントへ返す
 	responses.JSON(c, result)
 }
 
@@ -104,9 +127,7 @@ func (controller *UserController) GetUserDetail(c *gin.Context) {
 func (controller *UserController) CreateUser(c *gin.Context) {
 	var req types.CreateUserRequest
 
-	// リクエストJSONをCreateUserRequest型にbindする
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// Controllerで発生したbindエラーなので、Controller用のcode/messageを詰めて返す
 		responses.JSON(c, results.BadRequest(
 			"CREATE_USER_INVALID_REQUEST",
 			"ユーザー作成のリクエスト形式が正しくありません",
@@ -115,10 +136,8 @@ func (controller *UserController) CreateUser(c *gin.Context) {
 		return
 	}
 
-	// bindしたRequest型をそのままServiceへ渡す
 	result := controller.userService.CreateUser(req)
 
-	// Service / Builder / Repository の結果を共通レスポンス形式のJSONでフロントへ返す
 	responses.JSON(c, result)
 }
 
@@ -130,9 +149,7 @@ func (controller *UserController) CreateUser(c *gin.Context) {
 func (controller *UserController) UpdateUser(c *gin.Context) {
 	var req types.UpdateUserRequest
 
-	// リクエストJSONをUpdateUserRequest型にbindする
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// Controllerで発生したbindエラーなので、Controller用のcode/messageを詰めて返す
 		responses.JSON(c, results.BadRequest(
 			"UPDATE_USER_INVALID_REQUEST",
 			"ユーザー更新のリクエスト形式が正しくありません",
@@ -141,10 +158,8 @@ func (controller *UserController) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// bindしたRequest型をそのままServiceへ渡す
 	result := controller.userService.UpdateUser(req)
 
-	// Service / Builder / Repository の結果を共通レスポンス形式のJSONでフロントへ返す
 	responses.JSON(c, result)
 }
 
@@ -156,9 +171,7 @@ func (controller *UserController) UpdateUser(c *gin.Context) {
 func (controller *UserController) DeleteUser(c *gin.Context) {
 	var req types.DeleteUserRequest
 
-	// リクエストJSONをDeleteUserRequest型にbindする
 	if err := c.ShouldBindJSON(&req); err != nil {
-		// Controllerで発生したbindエラーなので、Controller用のcode/messageを詰めて返す
 		responses.JSON(c, results.BadRequest(
 			"DELETE_USER_INVALID_REQUEST",
 			"ユーザー削除のリクエスト形式が正しくありません",
@@ -167,9 +180,7 @@ func (controller *UserController) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	// bindしたRequest型をそのままServiceへ渡す
 	result := controller.userService.DeleteUser(req)
 
-	// Service / Builder / Repository の結果を共通レスポンス形式のJSONでフロントへ返す
 	responses.JSON(c, result)
 }

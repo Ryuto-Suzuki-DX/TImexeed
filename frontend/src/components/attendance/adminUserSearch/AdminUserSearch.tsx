@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Button from "@/components/atoms/Button";
 import Input from "@/components/atoms/Input";
-import { searchUsers } from "@/api/admin/user";
+import { searchBusinessTargetUsers } from "@/api/admin/user";
 import type { UserResponse } from "@/types/admin/user";
 import styles from "./AdminUserSearch.module.css";
 
@@ -35,9 +35,8 @@ export default function AdminUserSearch({
     setIsSearching(true);
     setMessage("ユーザーを検索しています。");
 
-    const result = await searchUsers({
+    const result = await searchBusinessTargetUsers({
       keyword,
-      includeDeleted: false,
       offset: 0,
       limit: SEARCH_LIMIT,
     });
@@ -74,9 +73,8 @@ export default function AdminUserSearch({
     setIsSearching(true);
     setMessage("追加でユーザーを取得しています。");
 
-    const result = await searchUsers({
+    const result = await searchBusinessTargetUsers({
       keyword,
-      includeDeleted: false,
       offset,
       limit: SEARCH_LIMIT,
     });

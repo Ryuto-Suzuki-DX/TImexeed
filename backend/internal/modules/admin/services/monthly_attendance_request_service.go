@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -67,6 +68,7 @@ type MonthlyAttendanceRequestService interface {
 type monthlyAttendanceRequestService struct {
 	monthlyAttendanceRequestBuilder    builders.MonthlyAttendanceRequestBuilder
 	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository
+	notificationService                NotificationService
 }
 
 /*
@@ -75,10 +77,12 @@ type monthlyAttendanceRequestService struct {
 func NewMonthlyAttendanceRequestService(
 	monthlyAttendanceRequestBuilder builders.MonthlyAttendanceRequestBuilder,
 	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository,
+	notificationService NotificationService,
 ) *monthlyAttendanceRequestService {
 	return &monthlyAttendanceRequestService{
 		monthlyAttendanceRequestBuilder:    monthlyAttendanceRequestBuilder,
 		monthlyAttendanceRequestRepository: monthlyAttendanceRequestRepository,
+		notificationService:                notificationService,
 	}
 }
 
@@ -377,6 +381,80 @@ func validateMonthlyAttendanceRequestAdminID(
 		actionCode+"_VALID_ADMIN_ID",
 		"",
 		nil,
+	)
+}
+
+/*
+ * 月次勤怠対象月表示文字列を作成する
+ */
+func formatMonthlyAttendanceRequestTargetMonthText(targetYear int, targetMonth int) string {
+	return fmt.Sprintf("%04d年%d月", targetYear, targetMonth)
+}
+
+/*
+ * 月次勤怠承認通知を作成する
+ *
+ * 注意：
+ * ・承認処理自体を主処理とする
+ * ・通知作成に失敗しても、承認済みデータの保存結果は取り消さない
+ */
+func (service *monthlyAttendanceRequestService) createMonthlyAttendanceApprovedNotification(
+	monthlyAttendanceRequest models.MonthlyAttendanceRequest,
+) results.Result {
+	if service.notificationService == nil {
+		return results.OK(
+			nil,
+			"CREATE_MONTHLY_ATTENDANCE_APPROVED_NOTIFICATION_SKIPPED",
+			"",
+			nil,
+		)
+	}
+
+	targetMonthText := formatMonthlyAttendanceRequestTargetMonthText(
+		monthlyAttendanceRequest.TargetYear,
+		monthlyAttendanceRequest.TargetMonth,
+	)
+
+	return service.notificationService.CreateNotificationForUser(
+		monthlyAttendanceRequest.UserID,
+		"月次勤怠が承認されました",
+		fmt.Sprintf("%sの月次勤怠が承認されました。", targetMonthText),
+	)
+}
+
+/*
+ * 月次勤怠否認通知を作成する
+ *
+ * 注意：
+ * ・否認処理自体を主処理とする
+ * ・通知作成に失敗しても、否認済みデータの保存結果は取り消さない
+ */
+func (service *monthlyAttendanceRequestService) createMonthlyAttendanceRejectedNotification(
+	monthlyAttendanceRequest models.MonthlyAttendanceRequest,
+) results.Result {
+	if service.notificationService == nil {
+		return results.OK(
+			nil,
+			"CREATE_MONTHLY_ATTENDANCE_REJECTED_NOTIFICATION_SKIPPED",
+			"",
+			nil,
+		)
+	}
+
+	targetMonthText := formatMonthlyAttendanceRequestTargetMonthText(
+		monthlyAttendanceRequest.TargetYear,
+		monthlyAttendanceRequest.TargetMonth,
+	)
+
+	message := fmt.Sprintf("%sの月次勤怠が否認されました。", targetMonthText)
+	if monthlyAttendanceRequest.RejectedReason != nil && strings.TrimSpace(*monthlyAttendanceRequest.RejectedReason) != "" {
+		message = fmt.Sprintf("%s 理由: %s", message, strings.TrimSpace(*monthlyAttendanceRequest.RejectedReason))
+	}
+
+	return service.notificationService.CreateNotificationForUser(
+		monthlyAttendanceRequest.UserID,
+		"月次勤怠が否認されました",
+		message,
 	)
 }
 
@@ -891,6 +969,18 @@ func (service *monthlyAttendanceRequestService) ApproveMonthlyAttendanceRequest(
 		return saveResult
 	}
 
+	notificationResult := service.createMonthlyAttendanceApprovedNotification(savedMonthlyAttendanceRequest)
+	if notificationResult.Error {
+		return results.OK(
+			types.ApproveMonthlyAttendanceRequestResponse{
+				MonthlyAttendanceRequest: toMonthlyAttendanceRequestResponse(savedMonthlyAttendanceRequest),
+			},
+			"APPROVE_MONTHLY_ATTENDANCE_REQUEST_SUCCESS_NOTIFICATION_FAILED",
+			"月次勤怠申請を承認しました。通知作成には失敗しました",
+			notificationResult.Details,
+		)
+	}
+
 	return results.OK(
 		types.ApproveMonthlyAttendanceRequestResponse{
 			MonthlyAttendanceRequest: toMonthlyAttendanceRequestResponse(savedMonthlyAttendanceRequest),
@@ -977,6 +1067,18 @@ func (service *monthlyAttendanceRequestService) RejectMonthlyAttendanceRequest(
 	savedMonthlyAttendanceRequest, saveResult := service.monthlyAttendanceRequestRepository.SaveMonthlyAttendanceRequest(monthlyAttendanceRequest)
 	if saveResult.Error {
 		return saveResult
+	}
+
+	notificationResult := service.createMonthlyAttendanceRejectedNotification(savedMonthlyAttendanceRequest)
+	if notificationResult.Error {
+		return results.OK(
+			types.RejectMonthlyAttendanceRequestResponse{
+				MonthlyAttendanceRequest: toMonthlyAttendanceRequestResponse(savedMonthlyAttendanceRequest),
+			},
+			"REJECT_MONTHLY_ATTENDANCE_REQUEST_SUCCESS_NOTIFICATION_FAILED",
+			"月次勤怠申請を否認しました。通知作成には失敗しました",
+			notificationResult.Details,
+		)
 	}
 
 	return results.OK(

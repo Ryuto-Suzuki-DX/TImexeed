@@ -39,12 +39,18 @@ export default function UserNotificationsPage() {
   const { user, isLoading, message } = useRequireRole("USER");
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+
+  const [keyword, setKeyword] = useState("");
+
   const [pageMessage, setPageMessage] = useState("お知らせを確認できます。");
   const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
+
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [isMoreLoading, setIsMoreLoading] = useState(false);
+  const [processingNotificationId, setProcessingNotificationId] = useState<number | null>(null);
 
   const unreadCount = useMemo(() => {
     return notifications.filter((notification) => !notification.isRead).length;
@@ -65,8 +71,9 @@ export default function UserNotificationsPage() {
       }
 
       const result = await searchNotifications({
-        limit: PAGE_LIMIT,
+        keyword: keyword.trim(),
         offset: nextOffset,
+        limit: PAGE_LIMIT,
       });
 
       if (result.error || !result.data) {
@@ -83,11 +90,12 @@ export default function UserNotificationsPage() {
         append ? [...currentNotifications, ...data.notifications] : data.notifications,
       );
 
+      setTotal(data.total);
       setHasMore(data.hasMore);
-      setOffset(nextOffset + data.notifications.length);
+      setOffset(data.offset + data.notifications.length);
 
       if (data.notifications.length === 0 && !append) {
-        setPageMessage("現在、お知らせはありません。");
+        setPageMessage("条件に一致するお知らせはありません。");
         setPageMessageVariant("info");
       } else {
         setPageMessage("お知らせを取得しました。");
@@ -97,7 +105,7 @@ export default function UserNotificationsPage() {
       setIsPageLoading(false);
       setIsMoreLoading(false);
     },
-    [user],
+    [keyword, user],
   );
 
   useEffect(() => {
@@ -114,10 +122,16 @@ export default function UserNotificationsPage() {
     };
   }, [isLoading, loadNotifications, user]);
 
+  const handleSearch = () => {
+    void loadNotifications(0, false);
+  };
+
   const handleReadNotification = async (notification: Notification) => {
     if (notification.isRead) {
       return;
     }
+
+    setProcessingNotificationId(notification.id);
 
     const result = await readNotification({
       notificationId: notification.id,
@@ -126,6 +140,7 @@ export default function UserNotificationsPage() {
     if (result.error || !result.data) {
       setPageMessage(result.message || "お知らせの既読更新に失敗しました。");
       setPageMessageVariant("error");
+      setProcessingNotificationId(null);
       return;
     }
 
@@ -139,6 +154,7 @@ export default function UserNotificationsPage() {
 
     setPageMessage("お知らせを既読にしました。");
     setPageMessageVariant("success");
+    setProcessingNotificationId(null);
   };
 
   const handleLoadMore = () => {
@@ -167,9 +183,16 @@ export default function UserNotificationsPage() {
           <div className={styles.header}>
             <PageTitle title="お知らせ" description="月次申請や承認結果などのお知らせを確認できます。" />
 
-            <div className={styles.summaryBox}>
-              <p className={styles.summaryLabel}>未読</p>
-              <p className={styles.summaryValue}>{unreadCount}件</p>
+            <div className={styles.summaryArea}>
+              <div className={styles.summaryBox}>
+                <p className={styles.summaryLabel}>検索結果</p>
+                <p className={styles.summaryValue}>{total}件</p>
+              </div>
+
+              <div className={styles.summaryBox}>
+                <p className={styles.summaryLabel}>表示中の未読</p>
+                <p className={styles.summaryValue}>{unreadCount}件</p>
+              </div>
             </div>
           </div>
 
@@ -177,54 +200,98 @@ export default function UserNotificationsPage() {
             <MessageBox variant={pageMessageVariant}>{isPageLoading ? "読み込み中..." : pageMessage}</MessageBox>
           </div>
 
-          <div className={styles.notificationList}>
-            {notifications.length === 0 && !isPageLoading ? (
-              <div className={styles.emptyBox}>
-                <p className={styles.emptyTitle}>お知らせはありません</p>
-                <p className={styles.emptyText}>月次申請や承認結果があると、ここに表示されます。</p>
+          <section className={styles.searchCard}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2 className={styles.sectionTitle}>検索条件</h2>
+                <p className={styles.sectionDescription}>タイトルや本文をキーワードで検索できます。</p>
               </div>
-            ) : (
-              notifications.map((notification) => (
-                <article
-                  key={notification.id}
-                  className={`${styles.notificationCard} ${
-                    notification.isRead ? styles.readCard : styles.unreadCard
-                  }`}
-                >
-                  <div className={styles.notificationHeader}>
-                    <div className={styles.notificationTitleArea}>
-                      {!notification.isRead && <span className={styles.newBadge}>NEW</span>}
-                      <h2 className={styles.notificationTitle}>{notification.title}</h2>
+            </div>
+
+            <div className={styles.searchGrid}>
+              <label className={styles.formLabel}>
+                <span className={styles.labelText}>キーワード</span>
+                <input
+                  type="text"
+                  value={keyword}
+                  onChange={(event) => setKeyword(event.target.value)}
+                  className={styles.textInput}
+                  placeholder="タイトル・本文"
+                />
+              </label>
+
+              <div className={styles.searchActionArea}>
+                <Button type="button" variant="primary" onClick={handleSearch} disabled={isPageLoading}>
+                  検索
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          <section className={styles.listSection}>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h2 className={styles.sectionTitle}>お知らせ一覧</h2>
+                <p className={styles.sectionDescription}>ログイン中のユーザー本人宛のお知らせを確認できます。</p>
+              </div>
+            </div>
+
+            <div className={styles.notificationList}>
+              {notifications.length === 0 && !isPageLoading ? (
+                <div className={styles.emptyBox}>
+                  <p className={styles.emptyTitle}>お知らせはありません</p>
+                  <p className={styles.emptyText}>条件に一致するお知らせがあると、ここに表示されます。</p>
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <article
+                    key={notification.id}
+                    className={`${styles.notificationCard} ${
+                      notification.isRead ? styles.readCard : styles.unreadCard
+                    }`}
+                  >
+                    <div className={styles.notificationHeader}>
+                      <div className={styles.notificationTitleArea}>
+                        {!notification.isRead && <span className={styles.newBadge}>NEW</span>}
+                        <h2 className={styles.notificationTitle}>{notification.title}</h2>
+                      </div>
+
+                      <p className={styles.createdAt}>{formatDateTime(notification.createdAt)}</p>
                     </div>
 
-                    <p className={styles.createdAt}>{formatDateTime(notification.createdAt)}</p>
-                  </div>
+                    <p className={styles.notificationMessage}>{notification.message}</p>
 
-                  <p className={styles.notificationMessage}>{notification.message}</p>
+                    <div className={styles.notificationFooter}>
+                      <p className={styles.readStatus}>
+                        {notification.isRead ? `既読：${formatDateTime(notification.readAt)}` : "未読"}
+                      </p>
 
-                  <div className={styles.notificationFooter}>
-                    <p className={styles.readStatus}>
-                      {notification.isRead ? `既読：${formatDateTime(notification.readAt)}` : "未読"}
-                    </p>
-
-                    {!notification.isRead && (
-                      <Button type="button" variant="secondary" onClick={() => void handleReadNotification(notification)}>
-                        既読にする
-                      </Button>
-                    )}
-                  </div>
-                </article>
-              ))
-            )}
-          </div>
-
-          {hasMore && (
-            <div className={styles.moreArea}>
-              <Button type="button" variant="secondary" onClick={handleLoadMore} disabled={isMoreLoading}>
-                {isMoreLoading ? "読み込み中..." : "もっと見る"}
-              </Button>
+                      <div className={styles.actionArea}>
+                        {!notification.isRead && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => void handleReadNotification(notification)}
+                            disabled={processingNotificationId === notification.id}
+                          >
+                            {processingNotificationId === notification.id ? "処理中..." : "既読にする"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                ))
+              )}
             </div>
-          )}
+
+            {hasMore && (
+              <div className={styles.moreArea}>
+                <Button type="button" variant="secondary" onClick={handleLoadMore} disabled={isMoreLoading}>
+                  {isMoreLoading ? "読み込み中..." : "もっと見る"}
+                </Button>
+              </div>
+            )}
+          </section>
         </section>
       </div>
     </PageContainer>

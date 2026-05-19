@@ -14,6 +14,8 @@
  * ・管理者にも notifications は作成される
  * ・検索、既読、未読件数取得では userId / targetUserId は送らない
  * ・全員宛作成では ADMIN / USER 両方が対象になる
+ * ・keyword は title / message の検索用
+ * ・検索結果は既存の管理者検索系と同じく total / offset / limit / hasMore を返す
  */
 
 export type Notification = {
@@ -26,12 +28,16 @@ export type Notification = {
 };
 
 export type SearchNotificationsRequest = {
-  limit: number;
+  keyword: string;
   offset: number;
+  limit: number;
 };
 
 export type SearchNotificationsResponse = {
   notifications: Notification[];
+  total: number;
+  offset: number;
+  limit: number;
   hasMore: boolean;
 };
 

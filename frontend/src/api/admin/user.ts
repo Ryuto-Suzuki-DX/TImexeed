@@ -4,6 +4,8 @@ import type {
   CreateUserResponse,
   DeleteUserRequest,
   DeleteUserResponse,
+  SearchBusinessTargetUsersRequest,
+  SearchBusinessTargetUsersResponse,
   SearchUsersRequest,
   SearchUsersResponse,
   UpdateUserRequest,
@@ -12,8 +14,26 @@ import type {
   UserDetailResponse,
 } from "@/types/admin/user";
 
+/*
+ * ユーザー管理用検索
+ *
+ * ADMIN / USER の両方を検索対象にする。
+ */
 export function searchUsers(request: SearchUsersRequest) {
   return apiPost<SearchUsersResponse, SearchUsersRequest>("/admin/users/search", request);
+}
+
+/*
+ * 業務対象ユーザー検索
+ *
+ * 勤怠、給与、経費、有給、個人情報Driveなどで使う。
+ * ADMINは検索結果に含めない。
+ */
+export function searchBusinessTargetUsers(request: SearchBusinessTargetUsersRequest) {
+  return apiPost<SearchBusinessTargetUsersResponse, SearchBusinessTargetUsersRequest>(
+    "/admin/users/search-business-targets",
+    request
+  );
 }
 
 export function getUserDetail(request: UserDetailRequest) {

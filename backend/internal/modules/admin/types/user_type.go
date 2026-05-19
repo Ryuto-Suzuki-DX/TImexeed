@@ -30,29 +30,9 @@ import "time"
  *
  * POST /admin/users/search
  *
- * body例：初回表示
- * {
- *   "keyword": "",
- *   "includeDeleted": false,
- *   "offset": 0,
- *   "limit": 50
- * }
- *
- * body例：フリーワード検索
- * {
- *   "keyword": "山田",
- *   "includeDeleted": false,
- *   "offset": 0,
- *   "limit": 50
- * }
- *
- * body例：さらに表示
- * {
- *   "keyword": "山田",
- *   "includeDeleted": false,
- *   "offset": 50,
- *   "limit": 50
- * }
+ * 注意：
+ * ・これはユーザー管理画面用
+ * ・ADMIN / USER の両方を検索対象にする
  */
 type SearchUsersRequest struct {
 	// フリーワード検索
@@ -74,14 +54,35 @@ type SearchUsersRequest struct {
 }
 
 /*
+ * 業務対象ユーザー検索Request
+ *
+ * POST /admin/users/search-business-targets
+ *
+ * 注意：
+ * ・これは勤怠、給与、経費、有給、個人情報Driveなどの対象ユーザー検索用
+ * ・ADMIN は対象外
+ * ・削除済みユーザーも対象外
+ */
+type SearchBusinessTargetUsersRequest struct {
+	// フリーワード検索
+	// 名前、メールアドレスなどを対象にする想定
+	Keyword string `json:"keyword"`
+
+	// 取得開始位置
+	// 初回は0
+	// さらに表示の場合は、現在フロントに表示済みの件数を入れる
+	Offset int `json:"offset"`
+
+	// 取得件数
+	// 基本は50
+	// 未指定、0以下、50超えの場合はService側で補正する
+	Limit int `json:"limit"`
+}
+
+/*
  * ユーザー詳細取得Request
  *
  * POST /admin/users/detail
- *
- * body例：
- * {
- *   "targetUserId": 1
- * }
  */
 type UserDetailRequest struct {
 	// 詳細取得対象のユーザーID
@@ -92,16 +93,6 @@ type UserDetailRequest struct {
  * ユーザー新規作成Request
  *
  * POST /admin/users/create
- *
- * body例：
- * {
- *   "name": "山田太郎",
- *   "email": "yamada@example.com",
- *   "password": "password123",
- *   "role": "USER",
- *   "departmentId": 1,
- *   "hireDate": "2026-05-04"
- * }
  *
  * HireDate は "2026-05-04" のような文字列で受け取る。
  * time.Timeで直接受けるとJSONではRFC3339形式が必要になりやすいため、
@@ -136,17 +127,6 @@ type CreateUserRequest struct {
  *
  * POST /admin/users/update
  *
- * body例：
- * {
- *   "targetUserId": 1,
- *   "name": "山田太郎",
- *   "email": "yamada@example.com",
- *   "role": "USER",
- *   "departmentId": 1,
- *   "hireDate": "2026-05-04",
- *   "retirementDate": null
- * }
- *
  * RetirementDate は未退職なら null または空文字を想定する。
  */
 type UpdateUserRequest struct {
@@ -180,11 +160,6 @@ type UpdateUserRequest struct {
  * ユーザー論理削除Request
  *
  * POST /admin/users/delete
- *
- * body例：
- * {
- *   "targetUserId": 1
- * }
  */
 type DeleteUserRequest struct {
 	// 論理削除対象のユーザーID
@@ -223,12 +198,23 @@ type UserResponse struct {
  * hasMore：
  * ・さらに表示するデータがある場合は true
  * ・すべて取得済みの場合は false
- *
- * フロント側の使い方：
- * ・hasMore が true なら「さらに表示」ボタンを表示する
- * ・hasMore が false なら「さらに表示」ボタンを非表示にする
  */
 type SearchUsersResponse struct {
+	Users   []UserResponse `json:"users"`
+	Total   int64          `json:"total"`
+	Offset  int            `json:"offset"`
+	Limit   int            `json:"limit"`
+	HasMore bool           `json:"hasMore"`
+}
+
+/*
+ * 業務対象ユーザー検索Response
+ *
+ * 注意：
+ * ・返却形式は通常のユーザー検索と同じ
+ * ・ただし対象は USER のみ
+ */
+type SearchBusinessTargetUsersResponse struct {
 	Users   []UserResponse `json:"users"`
 	Total   int64          `json:"total"`
 	Offset  int            `json:"offset"`

@@ -6,23 +6,20 @@ import (
 	"timexeed/backend/internal/modules/admin/repositories"
 	"timexeed/backend/internal/modules/admin/types"
 	"timexeed/backend/internal/results"
+	"timexeed/backend/internal/utils"
 )
 
 /*
  * 管理者用お知らせService interface
  *
  * ControllerがServiceに求める処理だけを定義する。
- *
- * 注意：
- * ・管理者本人宛のお知らせ検索、既読更新、未読件数取得では userId / targetUserId をRequestで受け取らない
- * ・ControllerでAuthMiddleware由来のuserIdを取得し、Serviceへ渡す
- * ・全員宛作成では、有効なADMIN/USER全員にnotificationsを作成する
  */
 type NotificationService interface {
 	SearchNotifications(userID uint, req types.SearchNotificationsRequest) results.Result
 	ReadNotification(userID uint, req types.ReadNotificationRequest) results.Result
 	CountUnreadNotifications(userID uint, req types.CountUnreadNotificationsRequest) results.Result
 	CreateNotificationForAllUsers(req types.CreateNotificationForAllUsersRequest) results.Result
+	CreateNotificationForUser(userID uint, title string, message string) results.Result
 	DeleteNotification(req types.DeleteNotificationRequest) results.Result
 }
 
@@ -31,18 +28,8 @@ type NotificationService interface {
  *
  * 役割：
  * ・Controllerから受け取ったRequestをもとに処理を進める
- * ・Serviceで発生したエラーはServiceでcode/message/detailsを作る
- * ・Builderで検索クエリや保存用Modelを作成する
- * ・Builderで発生したエラーはBuilderから返されたResultをそのまま返す
- * ・RepositoryでDB処理を実行する
- * ・Repositoryで発生したエラーはRepositoryから返されたResultをそのまま返す
- * ・成功時はResponse型に変換してControllerへ返す
- *
- * 注意：
- * ・Controllerにはgin.Contextを渡さない
- * ・Serviceではc.JSONしない
- * ・DBへの直接アクセスはRepositoryに任せる
- * ・Builder/Repositoryのエラー文言をServiceで作り直さない
+ * ・ログイン中管理者本人のお知らせ検索、既読、未読件数取得を行う
+ * ・管理者による全員宛お知らせ作成、削除を行う
  */
 type notificationService struct {
 	notificationBuilder    builders.NotificationBuilder
@@ -67,12 +54,20 @@ func NewNotificationService(
  */
 func toNotificationResponse(notification models.Notification) types.NotificationResponse {
 	return types.NotificationResponse{
-		ID:        notification.ID,
-		Title:     notification.Title,
-		Message:   notification.Message,
-		IsRead:    notification.IsRead,
-		ReadAt:    notification.ReadAt,
+		ID: notification.ID,
+
+		UserID: notification.UserID,
+
+		Title:   notification.Title,
+		Message: notification.Message,
+
+		IsRead: notification.IsRead,
+		ReadAt: notification.ReadAt,
+
+		IsDeleted: notification.IsDeleted,
 		CreatedAt: notification.CreatedAt,
+		UpdatedAt: notification.UpdatedAt,
+		DeletedAt: notification.DeletedAt,
 	}
 }
 
@@ -85,59 +80,56 @@ func (service *notificationService) SearchNotifications(
 	userID uint,
 	req types.SearchNotificationsRequest,
 ) results.Result {
-	if userID == 0 {
-		return results.Unauthorized(
-			"SEARCH_NOTIFICATIONS_INVALID_USER_ID",
-			"認証情報のユーザーIDが正しくありません",
-			nil,
-		)
+	normalizedCondition, normalizeResult := utils.NormalizePageSearchCondition(
+		utils.PageSearchCondition{
+			Keyword: req.Keyword,
+			Offset:  req.Offset,
+			Limit:   req.Limit,
+		},
+		"SEARCH_NOTIFICATIONS_INVALID_OFFSET",
+		"検索開始位置が正しくありません",
+	)
+	if normalizeResult.Error {
+		return normalizeResult
 	}
 
-	if req.Limit <= 0 {
-		req.Limit = 10
+	req.Keyword = normalizedCondition.Keyword
+	req.Offset = normalizedCondition.Offset
+	req.Limit = normalizedCondition.Limit
+
+	searchQuery, buildSearchResult := service.notificationBuilder.BuildSearchNotificationsQuery(userID, req)
+	if buildSearchResult.Error {
+		return buildSearchResult
 	}
 
-	if req.Offset < 0 {
-		return results.BadRequest(
-			"SEARCH_NOTIFICATIONS_INVALID_OFFSET",
-			"お知らせ検索の開始位置が正しくありません",
-			map[string]any{
-				"offset": req.Offset,
-			},
-		)
-	}
-
-	// hasMore判定用に1件多く取得する
-	searchLimit := req.Limit + 1
-
-	// Builderでお知らせ検索用クエリを作成する
-	query, buildResult := service.notificationBuilder.BuildSearchNotificationsQuery(userID, searchLimit, req.Offset)
-	if buildResult.Error {
-		return buildResult
-	}
-
-	// Repositoryでお知らせ一覧を取得する
-	notifications, findResult := service.notificationRepository.FindNotifications(query)
+	notifications, findResult := service.notificationRepository.FindNotifications(searchQuery)
 	if findResult.Error {
 		return findResult
 	}
 
-	hasMore := false
-
-	if len(notifications) > req.Limit {
-		hasMore = true
-		notifications = notifications[:req.Limit]
+	countQuery, buildCountResult := service.notificationBuilder.BuildCountSearchNotificationsQuery(userID, req)
+	if buildCountResult.Error {
+		return buildCountResult
 	}
 
-	// DBモデルをフロント返却用Responseへ変換する
+	total, countResult := service.notificationRepository.CountNotifications(countQuery)
+	if countResult.Error {
+		return countResult
+	}
+
 	notificationResponses := make([]types.NotificationResponse, 0, len(notifications))
 	for _, notification := range notifications {
 		notificationResponses = append(notificationResponses, toNotificationResponse(notification))
 	}
 
+	hasMore := utils.HasMore(total, req.Offset, len(notifications))
+
 	return results.OK(
 		types.SearchNotificationsResponse{
 			Notifications: notificationResponses,
+			Total:         total,
+			Offset:        req.Offset,
+			Limit:         req.Limit,
 			HasMore:       hasMore,
 		},
 		"SEARCH_NOTIFICATIONS_SUCCESS",
@@ -149,49 +141,27 @@ func (service *notificationService) SearchNotifications(
 /*
  * お知らせ既読更新
  *
- * userID + notificationID で対象お知らせを取得し、既読にする。
+ * ログイン中管理者本人のお知らせだけを既読にする。
  */
 func (service *notificationService) ReadNotification(
 	userID uint,
 	req types.ReadNotificationRequest,
 ) results.Result {
-	if userID == 0 {
-		return results.Unauthorized(
-			"READ_NOTIFICATION_INVALID_USER_ID",
-			"認証情報のユーザーIDが正しくありません",
-			nil,
-		)
-	}
-
-	if req.NotificationID == 0 {
-		return results.BadRequest(
-			"READ_NOTIFICATION_INVALID_NOTIFICATION_ID",
-			"お知らせIDが正しくありません",
-			map[string]any{
-				"notificationId": req.NotificationID,
-			},
-		)
-	}
-
-	// Builderで対象お知らせ取得用クエリを作成する
 	findQuery, buildFindResult := service.notificationBuilder.BuildFindNotificationByUserIDAndIDQuery(userID, req.NotificationID)
 	if buildFindResult.Error {
 		return buildFindResult
 	}
 
-	// Repositoryで対象お知らせを取得する
 	currentNotification, findResult := service.notificationRepository.FindNotification(findQuery)
 	if findResult.Error {
 		return findResult
 	}
 
-	// Builderで既読更新用Modelを作る
 	readNotification, buildReadResult := service.notificationBuilder.BuildReadNotificationModel(currentNotification)
 	if buildReadResult.Error {
 		return buildReadResult
 	}
 
-	// Repositoryでお知らせを保存する
 	savedNotification, saveResult := service.notificationRepository.SaveNotification(readNotification)
 	if saveResult.Error {
 		return saveResult
@@ -210,27 +180,17 @@ func (service *notificationService) ReadNotification(
 /*
  * 未読お知らせ件数取得
  *
- * ログイン中管理者本人の未読お知らせ件数を取得する。
+ * ログイン中管理者本人の未読件数を取得する。
  */
 func (service *notificationService) CountUnreadNotifications(
 	userID uint,
 	req types.CountUnreadNotificationsRequest,
 ) results.Result {
-	if userID == 0 {
-		return results.Unauthorized(
-			"COUNT_UNREAD_NOTIFICATIONS_INVALID_USER_ID",
-			"認証情報のユーザーIDが正しくありません",
-			nil,
-		)
-	}
-
-	// Builderで未読お知らせ件数取得用クエリを作成する
 	query, buildResult := service.notificationBuilder.BuildCountUnreadNotificationsQuery(userID)
 	if buildResult.Error {
 		return buildResult
 	}
 
-	// Repositoryで未読お知らせ件数を取得する
 	unreadCount, countResult := service.notificationRepository.CountNotifications(query)
 	if countResult.Error {
 		return countResult
@@ -249,44 +209,22 @@ func (service *notificationService) CountUnreadNotifications(
 /*
  * 全員宛お知らせ作成
  *
- * is_deleted = false の全アカウントへ同じタイトル・本文のお知らせを作成する。
- *
  * 注意：
  * ・USERだけでなくADMINも対象に含める
- * ・通知は未読状態で作成する
  */
 func (service *notificationService) CreateNotificationForAllUsers(
 	req types.CreateNotificationForAllUsersRequest,
 ) results.Result {
-	if req.Title == "" {
-		return results.BadRequest(
-			"CREATE_NOTIFICATION_FOR_ALL_USERS_EMPTY_TITLE",
-			"お知らせタイトルを入力してください",
-			nil,
-		)
-	}
-
-	if req.Message == "" {
-		return results.BadRequest(
-			"CREATE_NOTIFICATION_FOR_ALL_USERS_EMPTY_MESSAGE",
-			"お知らせ本文を入力してください",
-			nil,
-		)
-	}
-
-	// Repositoryで有効ユーザー一覧を取得する
 	users, findUsersResult := service.notificationRepository.FindActiveUsers()
 	if findUsersResult.Error {
 		return findUsersResult
 	}
 
-	// Builderで全員宛お知らせ作成用Model配列を作る
 	notifications, buildResult := service.notificationBuilder.BuildCreateNotificationsForAllUsersModels(users, req)
 	if buildResult.Error {
 		return buildResult
 	}
 
-	// Repositoryでお知らせを一括作成する
 	createdNotifications, createResult := service.notificationRepository.CreateNotifications(notifications)
 	if createResult.Error {
 		return createResult
@@ -303,50 +241,73 @@ func (service *notificationService) CreateNotificationForAllUsers(
 }
 
 /*
- * お知らせ削除
+ * 個別ユーザー宛お知らせ作成
  *
- * 管理者がお知らせを論理削除する。
+ * 月次勤怠承認・否認など、内部処理から特定ユーザーへ通知するときに使う。
+ */
+func (service *notificationService) CreateNotificationForUser(
+	userID uint,
+	title string,
+	message string,
+) results.Result {
+	notification, buildResult := service.notificationBuilder.BuildCreateNotificationForUserModel(
+		userID,
+		title,
+		message,
+	)
+	if buildResult.Error {
+		return buildResult
+	}
+
+	createdNotifications, createResult := service.notificationRepository.CreateNotifications(
+		[]models.Notification{notification},
+	)
+	if createResult.Error {
+		return createResult
+	}
+
+	return results.Created(
+		map[string]any{
+			"createdCount": len(createdNotifications),
+			"userId":       userID,
+		},
+		"CREATE_NOTIFICATION_FOR_USER_SUCCESS",
+		"ユーザー宛のお知らせを作成しました",
+		nil,
+	)
+}
+
+/*
+ * お知らせ論理削除
+ *
+ * 管理者機能なので user_id では絞らず、notificationId で対象を取得する。
  */
 func (service *notificationService) DeleteNotification(
 	req types.DeleteNotificationRequest,
 ) results.Result {
-	if req.NotificationID == 0 {
-		return results.BadRequest(
-			"DELETE_NOTIFICATION_INVALID_NOTIFICATION_ID",
-			"お知らせIDが正しくありません",
-			map[string]any{
-				"notificationId": req.NotificationID,
-			},
-		)
-	}
-
-	// Builderで対象お知らせ取得用クエリを作成する
 	findQuery, buildFindResult := service.notificationBuilder.BuildFindNotificationByIDQuery(req.NotificationID)
 	if buildFindResult.Error {
 		return buildFindResult
 	}
 
-	// Repositoryで対象お知らせを取得する
 	currentNotification, findResult := service.notificationRepository.FindNotification(findQuery)
 	if findResult.Error {
 		return findResult
 	}
 
-	// Builderで論理削除用Modelを作る
-	deleteNotification, buildDeleteResult := service.notificationBuilder.BuildDeleteNotificationModel(currentNotification)
+	deletedNotification, buildDeleteResult := service.notificationBuilder.BuildDeleteNotificationModel(currentNotification)
 	if buildDeleteResult.Error {
 		return buildDeleteResult
 	}
 
-	// Repositoryでお知らせを保存する
-	savedNotification, saveResult := service.notificationRepository.SaveNotification(deleteNotification)
+	_, saveResult := service.notificationRepository.SaveNotification(deletedNotification)
 	if saveResult.Error {
 		return saveResult
 	}
 
 	return results.OK(
 		types.DeleteNotificationResponse{
-			Notification: toNotificationResponse(savedNotification),
+			NotificationID: req.NotificationID,
 		},
 		"DELETE_NOTIFICATION_SUCCESS",
 		"お知らせを削除しました",

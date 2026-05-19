@@ -104,13 +104,22 @@ func (service *notificationService) SearchNotifications(
 		)
 	}
 
-	// hasMore判定用に1件多く取得する
-	searchLimit := req.Limit + 1
+	// Builderでお知らせ検索件数取得用クエリを作成する
+	countQuery, buildCountResult := service.notificationBuilder.BuildCountSearchNotificationsQuery(userID, req)
+	if buildCountResult.Error {
+		return buildCountResult
+	}
+
+	// Repositoryで検索条件に一致する総件数を取得する
+	total, countResult := service.notificationRepository.CountNotifications(countQuery)
+	if countResult.Error {
+		return countResult
+	}
 
 	// Builderでお知らせ検索用クエリを作成する
-	query, buildResult := service.notificationBuilder.BuildSearchNotificationsQuery(userID, searchLimit, req.Offset)
-	if buildResult.Error {
-		return buildResult
+	query, buildSearchResult := service.notificationBuilder.BuildSearchNotificationsQuery(userID, req)
+	if buildSearchResult.Error {
+		return buildSearchResult
 	}
 
 	// Repositoryでお知らせ一覧を取得する
@@ -119,12 +128,7 @@ func (service *notificationService) SearchNotifications(
 		return findResult
 	}
 
-	hasMore := false
-
-	if len(notifications) > req.Limit {
-		hasMore = true
-		notifications = notifications[:req.Limit]
-	}
+	hasMore := int64(req.Offset+len(notifications)) < total
 
 	// DBモデルをフロント返却用Responseへ変換する
 	notificationResponses := make([]types.NotificationResponse, 0, len(notifications))
@@ -135,6 +139,9 @@ func (service *notificationService) SearchNotifications(
 	return results.OK(
 		types.SearchNotificationsResponse{
 			Notifications: notificationResponses,
+			Total:         total,
+			Offset:        req.Offset,
+			Limit:         req.Limit,
 			HasMore:       hasMore,
 		},
 		"SEARCH_NOTIFICATIONS_SUCCESS",

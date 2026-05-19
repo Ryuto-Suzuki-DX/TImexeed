@@ -871,11 +871,13 @@ export default function AdminAttendancePage() {
 
       <div className={styles.pageWrap}>
         <section className={styles.pageCard}>
-          <AdminUserSearch
-            selectedUser={selectedUser}
-            disabled={hasUnsavedChanges || isPageLoading}
-            onSelectUser={handleSelectUser}
-          />
+          <div className={styles.userSearchArea}>
+            <AdminUserSearch
+              selectedUser={selectedUser}
+              disabled={hasUnsavedChanges || isPageLoading}
+              onSelectUser={handleSelectUser}
+            />
+          </div>
 
           <AttendanceMonthHeader
             targetMonth={targetMonth}
