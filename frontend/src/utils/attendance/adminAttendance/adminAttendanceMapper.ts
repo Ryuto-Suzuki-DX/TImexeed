@@ -453,7 +453,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
       workDate: row.workDate,
 
       planAttendanceTypeId: row.planAttendanceTypeId,
-      actualWorkStatus: row.actualWorkStatus || ACTUAL_WORK_STATUS_NORMAL,
+      actualWorkStatus: ACTUAL_WORK_STATUS_NORMAL,
 
       commonStartAt: null,
       commonEndAt: null,

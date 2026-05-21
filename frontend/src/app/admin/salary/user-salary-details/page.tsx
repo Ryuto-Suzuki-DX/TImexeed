@@ -7,7 +7,7 @@ import PageContainer from "@/components/atoms/PageContainer";
 import PageTitle from "@/components/atoms/PageTitle";
 import AdminSideMenu from "@/components/sideMenu/AdminSideMenu";
 import { useRequireRole } from "@/hooks/useRequireRole";
-import { searchUsers } from "@/api/admin/user";
+import { searchBusinessTargetUsers } from "@/api/admin/user";
 import {
   createUserSalaryDetail,
   deleteUserSalaryDetail,
@@ -160,9 +160,8 @@ export default function AdminUserSalaryDetailsPage() {
 
     const searchKeyword = append ? searchedKeyword : keyword;
 
-    const result = await searchUsers({
+    const result = await searchBusinessTargetUsers({
       keyword: searchKeyword,
-      includeDeleted: false,
       offset: nextOffset,
       limit: 50,
     });
@@ -597,7 +596,8 @@ export default function AdminUserSalaryDetailsPage() {
                           適用期間：{formatDate(salaryDetail.effectiveFrom)} ～ {formatDate(salaryDetail.effectiveTo)}
                         </p>
                         <p className={styles.salaryDetailMeta}>
-                          固定手当：{formatAmount(salaryDetail.extraAllowanceAmount)} / 固定控除：{formatAmount(salaryDetail.fixedDeductionAmount)}
+                          固定手当：{formatAmount(salaryDetail.extraAllowanceAmount)} / 固定控除：
+                          {formatAmount(salaryDetail.fixedDeductionAmount)}
                         </p>
                       </div>
 

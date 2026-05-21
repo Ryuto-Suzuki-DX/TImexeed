@@ -10,6 +10,7 @@
  * ・管理者APIでは対象ユーザーIDを targetUserId で送る
  * ・管理者側では月次申請状態による勤怠編集ロックを行わない
  * ・承認者IDはフロントから送らず、バックエンドでJWTから取得する
+ * ・承認済みの月次申請は、既存の否認APIで承認情報を取り消して否認へ戻せる
  */
 
 export type MonthlyAttendanceRequestStatus =
@@ -182,6 +183,10 @@ export type ApproveMonthlyAttendanceRequestResponse = {
  * 月次勤怠申請否認
  *
  * POST /admin/monthly-attendance-requests/reject
+ *
+ * 注意：
+ * ・PENDING の申請を否認できる
+ * ・APPROVED の申請も、承認情報を取り消して否認へ戻せる
  */
 export type RejectMonthlyAttendanceRequestRequest = {
   targetRequestId: number;

@@ -697,7 +697,8 @@ func (builder *monthlyAttendanceRequestBuilder) BuildApproveMonthlyAttendanceReq
 /*
  * 月次勤怠申請 否認用Model作成
  *
- * PENDING の月次勤怠申請を REJECTED にする。
+ * PENDING または APPROVED の月次勤怠申請を REJECTED にする。
+ * APPROVED から否認へ戻す場合は、承認者ID・承認日時をクリアする。
  *
  * 注意：
  * ・否認可否の判定はServiceで行う

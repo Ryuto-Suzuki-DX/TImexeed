@@ -7,7 +7,7 @@ import PageContainer from "@/components/atoms/PageContainer";
 import PageTitle from "@/components/atoms/PageTitle";
 import AdminSideMenu from "@/components/sideMenu/AdminSideMenu";
 import { useRequireRole } from "@/hooks/useRequireRole";
-import { searchUsers } from "@/api/admin/user";
+import { searchBusinessTargetUsers } from "@/api/admin/user";
 import { getPaidLeaveBalance, searchPaidLeaveUsages } from "@/api/admin/paidLeaveUsage";
 import type { UserResponse } from "@/types/admin/user";
 import type { PaidLeaveBalanceResponse, PaidLeaveUsageResponse } from "@/types/admin/paidLeaveUsage";
@@ -208,9 +208,8 @@ export default function AdminPaidLeaveCheckPage() {
 
     const searchKeyword = append ? searchedKeyword : keyword;
 
-    const result = await searchUsers({
+    const result = await searchBusinessTargetUsers({
       keyword: searchKeyword,
-      includeDeleted: false,
       offset: nextOffset,
       limit: 50,
     });
@@ -431,7 +430,13 @@ export default function AdminPaidLeaveCheckPage() {
 
       {isUsageModalOpen && (
         <div className={styles.modalOverlay} role="presentation" onClick={() => setIsUsageModalOpen(false)}>
-          <section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="paid-leave-usage-modal-title" onClick={(event) => event.stopPropagation()}>
+          <section
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="paid-leave-usage-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className={styles.modalHeader}>
               <div>
                 <h2 id="paid-leave-usage-modal-title" className={styles.modalTitle}>

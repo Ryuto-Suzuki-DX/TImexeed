@@ -141,6 +141,11 @@
   box-sizing: border-box;
 }
 
+.horizontalBlock .actualStatusSelect {
+  width: 96px;
+  min-width: 96px;
+}
+
 .syncText {
   margin: 0;
   font-size: 12px;

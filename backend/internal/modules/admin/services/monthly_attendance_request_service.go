@@ -100,7 +100,11 @@ func NewMonthlyAttendanceRequestService(
  * 	→ 申請不可、取り下げ可能、承認可能、否認可能
  *
  * APPROVED
- * 	→ 申請不可、取り下げ不可、承認不可、否認不可
+ * 	→ 申請不可、取り下げ不可、承認不可、否認可能
+ *
+ * 注意：
+ * 	承認済みを否認する場合は、既存の reject API を使って
+ * 	承認情報をクリアし、REJECTED に戻す。
  */
 func buildMonthlyAttendanceRequestFlags(
 	status string,
@@ -109,7 +113,7 @@ func buildMonthlyAttendanceRequestFlags(
 	case "PENDING":
 		return false, false, true, true, true
 	case "APPROVED":
-		return false, false, false, false, false
+		return false, false, false, false, true
 	case "REJECTED":
 		return true, true, false, false, false
 	case "CANCELED":
@@ -997,7 +1001,8 @@ func (service *monthlyAttendanceRequestService) ApproveMonthlyAttendanceRequest(
  * 指定された月次勤怠申請を否認する。
  *
  * 仕様：
- * ・否認できるのは PENDING のみ
+ * ・否認できるのは PENDING または APPROVED
+ * ・APPROVED を否認する場合は、承認情報をクリアして REJECTED にする
  * ・否認理由は必須
  *
  * 注意：
@@ -1044,10 +1049,11 @@ func (service *monthlyAttendanceRequestService) RejectMonthlyAttendanceRequest(
 		return findResult
 	}
 
-	if currentMonthlyAttendanceRequest.Status != "PENDING" {
+	if currentMonthlyAttendanceRequest.Status != "PENDING" &&
+		currentMonthlyAttendanceRequest.Status != "APPROVED" {
 		return results.Conflict(
 			"REJECT_MONTHLY_ATTENDANCE_REQUEST_INVALID_STATUS",
-			"申請中ではないため、月次勤怠申請を否認できません",
+			"現在の月次勤怠申請状態では否認できません",
 			map[string]any{
 				"monthlyAttendanceRequestId": currentMonthlyAttendanceRequest.ID,
 				"status":                     currentMonthlyAttendanceRequest.Status,

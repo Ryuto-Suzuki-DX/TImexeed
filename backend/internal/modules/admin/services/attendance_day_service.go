@@ -302,6 +302,8 @@ func (service *attendanceDayService) SearchAttendanceDays(
  * ・休日は予定にも実績にも時間を保存しない
  * ・休日は派遣先所定労働時間、日別交通費、在宅勤務補助も保存しない
  * ・syncPlanActual = true の予定区分は開始/終了ではなく派遣先所定労働時間で扱う
+ * ・実績状態を選択できるのは通常勤務などの開始/終了を持てる予定区分だけとする
+ * ・休日、syncPlanActual = true の予定区分では実績状態を NORMAL 固定で保存する
  * ・通常勤務でも予定/実績時刻は任意入力とする
  * ・実績状態が未指定の場合は NORMAL として保存する
  * ・夜勤は実績状態ではなく、actualStartAt / actualEndAt から集計時に深夜時間として計算する
@@ -387,7 +389,14 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		 * 有給、特別休暇、休職、介護休業、育児休業などは、
 		 * 開始/終了ではなく派遣先所定労働時間で扱う。
 		 * commonStartAt / commonEndAt は plan / actual へコピーしない。
+		 *
+		 * 実績状態は通常勤務などの開始/終了を持てる予定区分だけで使う。
+		 * そのため、syncPlanActual = true の予定区分では、
+		 * フロントから実績状態が送られてきても NORMAL 固定にする。
 		 */
+		actualWorkStatus = constants.ActualWorkStatusNormal
+		req.ActualWorkStatus = nil
+
 		planStartAt = nil
 		planEndAt = nil
 		actualStartAt = nil

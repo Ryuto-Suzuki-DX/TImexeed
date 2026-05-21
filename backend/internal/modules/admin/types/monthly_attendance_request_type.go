@@ -225,7 +225,7 @@ type MonthlyAttendanceRequestResponse struct {
 	CanApprove bool `json:"canApprove"`
 
 	// 否認できるか
-	// PENDING のみ true
+	// PENDING / APPROVED は true
 	CanReject bool `json:"canReject"`
 
 	// 申請メモ

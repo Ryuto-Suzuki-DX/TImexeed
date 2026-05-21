@@ -25,6 +25,7 @@ export default function AdminApprovalActions({
 }: AdminApprovalActionsProps) {
   const approveDisabled = disabled || monthlyRequestId === null || !canApprove;
   const rejectDisabled = disabled || monthlyRequestId === null || !canReject;
+  const rejectButtonLabel = monthlyStatus === "APPROVED" ? "承認取消して否認" : "否認";
 
   return (
     <section className={styles.actionSection}>
@@ -32,7 +33,7 @@ export default function AdminApprovalActions({
         <div>
           <h2 className={styles.sectionTitle}>月次申請 承認操作</h2>
           <p className={styles.sectionDescription}>
-            承認待ちの月次申請に対して、承認または否認を行います。
+            申請中の月次申請は承認または否認できます。承認済みの月次申請は、承認情報を取り消して否認へ戻せます。
           </p>
         </div>
 
@@ -48,7 +49,7 @@ export default function AdminApprovalActions({
         </Button>
 
         <Button type="button" variant="danger" onClick={onReject} disabled={rejectDisabled}>
-          否認
+          {rejectButtonLabel}
         </Button>
       </div>
 

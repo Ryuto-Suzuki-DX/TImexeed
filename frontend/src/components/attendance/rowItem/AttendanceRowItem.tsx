@@ -10,6 +10,16 @@ import type {
 import AttendanceLockedText from "@/components/attendance/lockedText/AttendanceLockedText";
 import styles from "./AttendanceRowItem.module.css";
 
+const ACTUAL_WORK_STATUS_NORMAL = "NORMAL";
+
+const actualWorkStatusOptions = [
+  { value: "NORMAL", label: "通常" },
+  { value: "ABSENCE", label: "欠勤" },
+  { value: "SICK_LEAVE", label: "病欠" },
+  { value: "LATE", label: "遅刻" },
+  { value: "EARLY_LEAVE", label: "早退" },
+];
+
 type AttendanceRowItemProps = {
   row: AttendanceViewRow;
   attendanceTypes: AttendanceType[];
@@ -50,7 +60,6 @@ function hasRowInput(row: AttendanceViewRow) {
   return (
     row.attendanceDayId !== null ||
     row.planAttendanceTypeId !== 0 ||
-    row.actualAttendanceTypeId !== null ||
     row.commonStartTime !== "" ||
     row.commonEndTime !== "" ||
     row.planStartTime !== "" ||
@@ -162,7 +171,8 @@ export default function AttendanceRowItem({
   /*
    * 予定区分変更時の制御
    *
-   * 実績区分IDは、基本的に予定区分IDと同じ値にする。
+   * 実績状態は通常勤務系だけ選択できる。
+   * 休日・有給・休職などでは NORMAL に戻す。
    *
    * 休日の場合：
    * ・予定/実績/共通の時刻を全部クリア
@@ -176,11 +186,9 @@ export default function AttendanceRowItem({
     onChangeRow(row.workDate, "planAttendanceTypeId", attendanceTypeId);
 
     if (!nextType) {
-      onChangeRow(row.workDate, "actualAttendanceTypeId", null);
+      onChangeRow(row.workDate, "actualWorkStatus", ACTUAL_WORK_STATUS_NORMAL);
       return;
     }
-
-    onChangeRow(row.workDate, "actualAttendanceTypeId", attendanceTypeId);
 
     if (nextType.code === "HOLIDAY") {
       onChangeRow(row.workDate, "commonStartTime", "");
@@ -190,6 +198,7 @@ export default function AttendanceRowItem({
       onChangeRow(row.workDate, "actualStartTime", "");
       onChangeRow(row.workDate, "actualEndTime", "");
       onChangeRow(row.workDate, "scheduledWorkMinutes", "");
+      onChangeRow(row.workDate, "actualWorkStatus", ACTUAL_WORK_STATUS_NORMAL);
 
       onChangeRow(row.workDate, "lateFlag", false);
       onChangeRow(row.workDate, "earlyLeaveFlag", false);
@@ -212,6 +221,7 @@ export default function AttendanceRowItem({
       onChangeRow(row.workDate, "planEndTime", "");
       onChangeRow(row.workDate, "actualStartTime", "");
       onChangeRow(row.workDate, "actualEndTime", "");
+      onChangeRow(row.workDate, "actualWorkStatus", ACTUAL_WORK_STATUS_NORMAL);
     }
 
     onChangeRow(row.workDate, "lateFlag", false);
@@ -289,33 +299,50 @@ export default function AttendanceRowItem({
 
       <td className={styles.td}>
         <div className={styles.horizontalBlock}>
-          {syncPlanActual ? (
+          {isHolidayAttendanceType ? (
+            <p className={styles.syncText}>実績状態：通常 / 時間入力なし</p>
+          ) : syncPlanActual ? (
             <p className={styles.syncText}>
-              実績：{selectedPlanType?.name ?? "未選択"}
-              {isHolidayAttendanceType ? " / 時間入力なし" : ""}
+              実績状態：通常 / {selectedPlanType?.name ?? "未選択"}
             </p>
           ) : showActualWorkInput ? (
             <>
-              <p className={styles.syncText}>
-                実績：{selectedPlanType?.name ?? "未選択"}
-              </p>
+              <select
+                aria-label={`${row.dayLabel}の実績状態`}
+                value={row.actualWorkStatus || ACTUAL_WORK_STATUS_NORMAL}
+                onChange={(event) =>
+                  onChangeRow(row.workDate, "actualWorkStatus", event.target.value)
+                }
+                className={`${styles.select} ${styles.actualStatusSelect}`}
+                disabled={locked}
+              >
+                {actualWorkStatusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
 
               <Input
                 type="time"
                 value={row.actualStartTime}
-                onChange={(event) => onChangeRow(row.workDate, "actualStartTime", event.target.value)}
+                onChange={(event) =>
+                  onChangeRow(row.workDate, "actualStartTime", event.target.value)
+                }
                 disabled={locked || !allowActualTimeInput}
               />
 
               <Input
                 type="time"
                 value={row.actualEndTime}
-                onChange={(event) => onChangeRow(row.workDate, "actualEndTime", event.target.value)}
+                onChange={(event) =>
+                  onChangeRow(row.workDate, "actualEndTime", event.target.value)
+                }
                 disabled={locked || !allowActualTimeInput}
               />
             </>
           ) : (
-            <p className={styles.syncText}>実績：未選択</p>
+            <p className={styles.syncText}>実績状態：通常</p>
           )}
         </div>
       </td>
