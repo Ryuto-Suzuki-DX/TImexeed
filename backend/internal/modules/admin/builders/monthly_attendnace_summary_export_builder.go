@@ -105,109 +105,132 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildCSV(
 
 /*
  * CSVヘッダー生成
+ *
+ * 給与計算担当者がそのまま見られるように、日本語ヘッダーで出力する。
  */
 func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 	return []string{
-		"export_target_year",
-		"export_target_month",
-		"exported_at",
-		"export_status",
-		"calculation_status",
+		"対象年",
+		"対象月",
+		"出力日時",
+		"出力状態",
+		"集計状態",
 
-		"user_id",
-		"user_name",
-		"user_email",
-		"department_id",
-		"department_name",
-		"role",
-		"hire_date",
-		"retirement_date",
-		"is_retired_in_target_month",
+		"従業員ID",
+		"従業員名",
+		"メールアドレス",
+		"部署ID",
+		"部署名",
+		"権限",
+		"入社日",
+		"退職日",
+		"対象月退職済み",
 
-		"monthly_request_id",
-		"monthly_status",
-		"request_memo",
-		"requested_at",
-		"approved_by",
-		"approved_at",
-		"rejected_reason",
-		"rejected_at",
-		"canceled_reason",
-		"canceled_at",
+		"月次申請ID",
+		"月次申請状態",
+		"申請メモ",
+		"申請日時",
+		"承認者ID",
+		"承認日時",
+		"否認理由",
+		"否認日時",
+		"取下理由",
+		"取下日時",
 
-		"user_salary_detail_id",
-		"salary_type",
-		"base_salary",
-		"hourly_wage",
-		"daily_wage",
-		"extra_allowance_amount",
-		"extra_allowance_memo",
-		"fixed_deduction_amount",
-		"fixed_deduction_memo",
-		"is_payroll_target",
-		"salary_effective_from",
-		"salary_effective_to",
+		"給与詳細ID",
+		"給与区分",
+		"月給",
+		"時給",
+		"日給",
+		"追加手当",
+		"追加手当メモ",
+		"固定控除",
+		"固定控除メモ",
+		"給与計算対象",
+		"給与設定適用開始日",
+		"給与設定適用終了日",
 
-		"calendar_days",
-		"registered_attendance_days",
-		"scheduled_work_days",
-		"actual_work_days",
-		"paid_leave_days",
-		"half_paid_leave_days",
-		"absence_days",
-		"sick_leave_days",
-		"holiday_work_days",
-		"late_days",
-		"early_leave_days",
+		"暦日数",
+		"勤怠登録日数",
+		"勤怠未登録日数",
+		"予定出勤日数",
+		"実出勤日数",
+		"日勤出勤日数",
+		"夜勤出勤日数",
+		"有給日数",
+		"半日有給回数",
+		"欠勤日数",
+		"病欠日数",
+		"休日出勤日数",
+		"遅刻回数",
+		"早退回数",
+		"予定あり実績なし日数",
+		"実績あり予定なし日数",
+		"予定労働時間未設定日数",
+		"平日数",
+		"祝日数",
 
-		"company_daily_standard_work_minutes",
-		"company_weekly_standard_work_minutes",
-		"scheduled_work_minutes",
-		"actual_work_minutes",
-		"break_minutes",
-		"work_shortage_minutes",
-		"work_excess_against_scheduled_minutes",
-		"daily_overtime_threshold_minutes",
-		"weekly_scheduled_work_minutes",
-		"weekly_overtime_threshold_minutes",
-		"daily_overtime_minutes",
-		"weekly_overtime_minutes",
-		"overtime_minutes",
-		"late_night_work_minutes",
-		"holiday_work_minutes",
-		"paid_leave_minutes",
-		"absence_minutes",
-		"late_minutes",
-		"early_leave_minutes",
+		"会社1日標準労働時間_分",
+		"会社週標準労働時間_分",
+		"予定労働時間_分",
+		"総労働時間_分",
+		"日中労働時間_分",
+		"夜勤労働時間_分",
+		"休憩時間_分",
+		"所定内労働時間_分",
+		"控除対象不足時間_分",
+		"予定超過時間_分",
+		"日別残業基準時間_分",
+		"週予定労働時間_分",
+		"週残業基準時間_分",
+		"日別残業時間_分",
+		"週残業時間_分",
+		"総残業時間_分",
+		"日中残業時間_分",
+		"夜勤残業時間_分",
+		"深夜労働時間_分",
+		"休日労働時間_分",
+		"休日深夜労働時間_分",
+		"有給換算時間_分",
+		"欠勤控除時間_分",
+		"病欠控除時間_分",
+		"遅刻控除時間_分",
+		"早退控除時間_分",
 
-		"daily_transportation_amount",
-		"commuter_pass_amount",
-		"total_transportation_amount",
-		"commuter_pass_from",
-		"commuter_pass_to",
-		"commuter_pass_method",
-		"daily_transportation_count",
+		"実労働稼働率_％",
+		"給与対象稼働率_％",
+		"稼働率判定",
 
-		"paid_leave_used_days",
-		"paid_leave_used_minutes",
+		"日別交通費合計",
+		"月次定期代",
+		"交通費合計",
+		"通勤区間From",
+		"通勤区間To",
+		"通勤方法",
+		"日別交通費登録回数",
 
-		"expense_total_amount",
-		"salary_included_expense_amount",
-		"expense_count",
-		"transportation_expense_amount",
-		"supplies_expense_amount",
-		"communication_expense_amount",
-		"other_expense_amount",
+		"有給使用日数",
+		"有給使用換算時間_分",
 
-		"holiday_count",
-		"working_day_count",
+		"経費合計",
+		"給与含め経費合計",
+		"経費件数",
+		"交通費系経費",
+		"備品系経費",
+		"通信費系経費",
+		"その他経費",
 
-		"warning_count",
-		"warnings",
-		"missing_attendance_days",
-		"invalid_break_count",
-		"invalid_time_count",
-		"has_data_warning",
+		"警告件数",
+		"警告内容",
+		"休憩不整合件数",
+		"時刻不整合件数",
+		"データ警告あり",
+		"給与設定警告あり",
+		"給与計算対象外警告あり",
+		"月次承認警告あり",
+		"勤怠未登録警告あり",
+		"予定実績不整合警告あり",
+		"経費カテゴリ警告あり",
 	}
 }
 
@@ -215,7 +238,9 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
  * CSVレコード生成
  */
 func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.MonthlyAttendanceSummaryCsvRow) []string {
-	baseColumns := []string{
+	calculated := row.CalculationStatus == types.MonthlyAttendanceSummaryCalculationStatusCalculated
+
+	return []string{
 		strconv.Itoa(row.ExportTargetYear),
 		strconv.Itoa(row.ExportTargetMonth),
 		row.ExportedAt,
@@ -242,122 +267,142 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		row.RejectedAt,
 		row.CanceledReason,
 		row.CanceledAt,
-	}
 
-	/*
-	 * APPROVED以外、またはERRORの場合は、
-	 * 従業員情報・月次ステータス・警告系だけを出し、
-	 * 集計系は空欄にする。
-	 */
-	if row.CalculationStatus != types.MonthlyAttendanceSummaryCalculationStatusCalculated {
-		return append(baseColumns, builder.buildBlankCalculatedColumns(row)...)
-	}
+		calcUintToString(calculated, row.UserSalaryDetailID),
+		calcString(calculated, row.SalaryType),
+		calcIntToString(calculated, row.BaseSalary),
+		calcIntToString(calculated, row.HourlyWage),
+		calcIntToString(calculated, row.DailyWage),
+		calcIntToString(calculated, row.ExtraAllowanceAmount),
+		calcString(calculated, row.ExtraAllowanceMemo),
+		calcIntToString(calculated, row.FixedDeductionAmount),
+		calcString(calculated, row.FixedDeductionMemo),
+		calcBoolToString(calculated, row.IsPayrollTarget),
+		calcString(calculated, row.SalaryEffectiveFrom),
+		calcString(calculated, row.SalaryEffectiveTo),
 
-	return append(baseColumns,
-		uintToString(row.UserSalaryDetailID),
-		row.SalaryType,
-		intToString(row.BaseSalary),
-		intToString(row.HourlyWage),
-		intToString(row.DailyWage),
-		intToString(row.ExtraAllowanceAmount),
-		row.ExtraAllowanceMemo,
-		intToString(row.FixedDeductionAmount),
-		row.FixedDeductionMemo,
-		boolToString(row.IsPayrollTarget),
-		row.SalaryEffectiveFrom,
-		row.SalaryEffectiveTo,
+		calcIntToString(calculated, row.CalendarDays),
+		calcIntToString(calculated, row.RegisteredAttendanceDays),
+		calcIntToString(calculated, row.MissingAttendanceDays),
+		calcIntToString(calculated, row.ScheduledWorkDays),
+		calcIntToString(calculated, row.ActualWorkDays),
+		calcIntToString(calculated, row.DayShiftWorkDays),
+		calcIntToString(calculated, row.NightShiftWorkDays),
+		calcIntToString(calculated, row.PaidLeaveDays),
+		calcIntToString(calculated, row.HalfPaidLeaveDays),
+		calcIntToString(calculated, row.AbsenceDays),
+		calcIntToString(calculated, row.SickLeaveDays),
+		calcIntToString(calculated, row.HolidayWorkDays),
+		calcIntToString(calculated, row.LateDays),
+		calcIntToString(calculated, row.EarlyLeaveDays),
+		calcIntToString(calculated, row.ScheduledButNoActualDays),
+		calcIntToString(calculated, row.ActualButNoScheduledDays),
+		calcIntToString(calculated, row.MissingScheduledWorkDays),
+		calcIntToString(calculated, row.WorkingDayCount),
+		calcIntToString(calculated, row.HolidayCount),
 
-		intToString(row.CalendarDays),
-		intToString(row.RegisteredAttendanceDays),
-		intToString(row.ScheduledWorkDays),
-		intToString(row.ActualWorkDays),
-		intToString(row.PaidLeaveDays),
-		intToString(row.HalfPaidLeaveDays),
-		intToString(row.AbsenceDays),
-		intToString(row.SickLeaveDays),
-		intToString(row.HolidayWorkDays),
-		intToString(row.LateDays),
-		intToString(row.EarlyLeaveDays),
+		calcIntToString(calculated, row.CompanyDailyStandardWorkMinutes),
+		calcIntToString(calculated, row.CompanyWeeklyStandardWorkMinutes),
+		calcIntToString(calculated, row.ScheduledWorkMinutes),
+		calcIntToString(calculated, row.ActualWorkMinutes),
+		calcIntToString(calculated, row.DayWorkMinutes),
+		calcIntToString(calculated, row.NightWorkMinutes),
+		calcIntToString(calculated, row.BreakMinutes),
+		calcIntToString(calculated, row.RegularWorkMinutes),
+		calcIntToString(calculated, row.WorkShortageMinutes),
+		calcIntToString(calculated, row.WorkExcessAgainstScheduledMinutes),
+		calcIntToString(calculated, row.DailyOvertimeThresholdMinutes),
+		calcIntToString(calculated, row.WeeklyScheduledWorkMinutes),
+		calcIntToString(calculated, row.WeeklyOvertimeThresholdMinutes),
+		calcIntToString(calculated, row.DailyOvertimeMinutes),
+		calcIntToString(calculated, row.WeeklyOvertimeMinutes),
+		calcIntToString(calculated, row.OvertimeMinutes),
+		calcIntToString(calculated, row.DayOvertimeMinutes),
+		calcIntToString(calculated, row.NightOvertimeMinutes),
+		calcIntToString(calculated, row.LateNightWorkMinutes),
+		calcIntToString(calculated, row.HolidayWorkMinutes),
+		calcIntToString(calculated, row.HolidayLateNightWorkMinutes),
+		calcIntToString(calculated, row.PaidLeaveMinutes),
+		calcIntToString(calculated, row.AbsenceMinutes),
+		calcIntToString(calculated, row.SickLeaveMinutes),
+		calcIntToString(calculated, row.LateMinutes),
+		calcIntToString(calculated, row.EarlyLeaveMinutes),
 
-		intToString(row.CompanyDailyStandardWorkMinutes),
-		intToString(row.CompanyWeeklyStandardWorkMinutes),
-		intToString(row.ScheduledWorkMinutes),
-		intToString(row.ActualWorkMinutes),
-		intToString(row.BreakMinutes),
-		intToString(row.WorkShortageMinutes),
-		intToString(row.WorkExcessAgainstScheduledMinutes),
-		intToString(row.DailyOvertimeThresholdMinutes),
-		intToString(row.WeeklyScheduledWorkMinutes),
-		intToString(row.WeeklyOvertimeThresholdMinutes),
-		intToString(row.DailyOvertimeMinutes),
-		intToString(row.WeeklyOvertimeMinutes),
-		intToString(row.OvertimeMinutes),
-		intToString(row.LateNightWorkMinutes),
-		intToString(row.HolidayWorkMinutes),
-		intToString(row.PaidLeaveMinutes),
-		intToString(row.AbsenceMinutes),
-		intToString(row.LateMinutes),
-		intToString(row.EarlyLeaveMinutes),
+		calcFloatToString(calculated, row.ActualOperationRate),
+		calcFloatToString(calculated, row.PayrollTargetOperationRate),
+		calcString(calculated, row.OperationRateJudge),
 
-		intToString(row.DailyTransportationAmount),
-		intToString(row.CommuterPassAmount),
-		intToString(row.TotalTransportationAmount),
-		row.CommuterPassFrom,
-		row.CommuterPassTo,
-		row.CommuterPassMethod,
-		intToString(row.DailyTransportationCount),
+		calcIntToString(calculated, row.DailyTransportationAmount),
+		calcIntToString(calculated, row.CommuterPassAmount),
+		calcIntToString(calculated, row.TotalTransportationAmount),
+		calcString(calculated, row.CommuterPassFrom),
+		calcString(calculated, row.CommuterPassTo),
+		calcString(calculated, row.CommuterPassMethod),
+		calcIntToString(calculated, row.DailyTransportationCount),
 
-		floatToString(row.PaidLeaveUsedDays),
-		intToString(row.PaidLeaveUsedMinutes),
+		calcFloatToString(calculated, row.PaidLeaveUsedDays),
+		calcIntToString(calculated, row.PaidLeaveUsedMinutes),
 
-		intToString(row.ExpenseTotalAmount),
-		intToString(row.SalaryIncludedExpenseAmount),
-		intToString(row.ExpenseCount),
-		intToString(row.TransportationExpenseAmount),
-		intToString(row.SuppliesExpenseAmount),
-		intToString(row.CommunicationExpenseAmount),
-		intToString(row.OtherExpenseAmount),
-
-		intToString(row.HolidayCount),
-		intToString(row.WorkingDayCount),
+		calcIntToString(calculated, row.ExpenseTotalAmount),
+		calcIntToString(calculated, row.SalaryIncludedExpenseAmount),
+		calcIntToString(calculated, row.ExpenseCount),
+		calcIntToString(calculated, row.TransportationExpenseAmount),
+		calcIntToString(calculated, row.SuppliesExpenseAmount),
+		calcIntToString(calculated, row.CommunicationExpenseAmount),
+		calcIntToString(calculated, row.OtherExpenseAmount),
 
 		intToString(row.WarningCount),
 		row.Warnings,
-		intToString(row.MissingAttendanceDays),
 		intToString(row.InvalidBreakCount),
 		intToString(row.InvalidTimeCount),
 		boolToString(row.HasDataWarning),
-	)
+		boolToString(row.HasSalarySettingWarning),
+		boolToString(row.HasPayrollExcludedWarning),
+		boolToString(row.HasMonthlyApprovalWarning),
+		boolToString(row.HasAttendanceMissingWarning),
+		boolToString(row.HasScheduleActualMismatchWarning),
+		boolToString(row.HasExpenseCategoryWarning),
+	}
 }
 
-/*
- * APPROVED以外/ERROR行の集計系空欄生成
- */
-func (builder *monthlyAttendanceSummaryExportBuilder) buildBlankCalculatedColumns(
-	row types.MonthlyAttendanceSummaryCsvRow,
-) []string {
-	return []string{
-		"", "", "", "", "", "", "", "", "", "", "", "",
-
-		"", "", "", "", "", "", "", "", "", "", "",
-
-		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-
-		"", "", "", "", "", "", "",
-
-		"", "",
-
-		"", "", "", "", "", "", "",
-
-		"", "",
-
-		intToString(row.WarningCount),
-		row.Warnings,
-		intToString(row.MissingAttendanceDays),
-		intToString(row.InvalidBreakCount),
-		intToString(row.InvalidTimeCount),
-		boolToString(row.HasDataWarning),
+func calcString(calculated bool, value string) string {
+	if !calculated {
+		return ""
 	}
+
+	return value
+}
+
+func calcUintToString(calculated bool, value uint) string {
+	if !calculated {
+		return ""
+	}
+
+	return uintToString(value)
+}
+
+func calcIntToString(calculated bool, value int) string {
+	if !calculated {
+		return ""
+	}
+
+	return intToString(value)
+}
+
+func calcFloatToString(calculated bool, value float64) string {
+	if !calculated {
+		return ""
+	}
+
+	return floatToString(value)
+}
+
+func calcBoolToString(calculated bool, value bool) string {
+	if !calculated {
+		return ""
+	}
+
+	return boolToString(value)
 }
 
 func uintToString(value uint) string {

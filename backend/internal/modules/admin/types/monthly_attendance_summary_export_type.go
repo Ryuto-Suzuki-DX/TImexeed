@@ -7,8 +7,9 @@ package types
  *
  * 注意：
  * ・給与計算そのものは行わない
+ * ・給与計算に必要な、Timexeed内に存在する月次情報をCSVへ出力する
  * ・APPROVED の月だけ集計値を出力する
- * ・APPROVED 以外の月はステータスのみ出力する
+ * ・APPROVED 以外の月はステータスと警告のみ出力する
  * ・変形労働制フラグは持たず、AttendanceDay.ScheduledWorkMinutes の値だけで判断する
  * ・予定区分は attendance_types を参照する
  * ・実績状態は constants/attendance_status_constants.go の固定値を使う
@@ -29,7 +30,7 @@ package types
  *   指定がある場合、ユーザー名/メールアドレスなどのフリーワード検索に使う。
  *
  * IncludeNotApproved:
- *   true の場合、APPROVED 以外のユーザーもステータスのみCSVへ出力する。
+ *   true の場合、APPROVED 以外のユーザーもステータスと警告のみCSVへ出力する。
  *   false の場合、APPROVED のユーザーだけ出力する。
  */
 type ExportMonthlyAttendanceSummaryCsvRequest struct {
@@ -62,7 +63,7 @@ type ExportMonthlyAttendanceSummaryCsvResponse struct {
  * 基本は「対象年月 × ユーザー」で1行。
  *
  * APPROVED 以外の場合：
- *   ユーザー情報、対象年月、月次申請ステータス、calculationStatus のみセットし、
+ *   ユーザー情報、対象年月、月次申請ステータス、calculationStatus、警告のみセットし、
  *   集計系の値はCSV生成時に空欄で出力する。
  */
 type MonthlyAttendanceSummaryCsvRow struct {
@@ -113,8 +114,11 @@ type MonthlyAttendanceSummaryCsvRow struct {
 	// 勤怠日数集計
 	CalendarDays             int `json:"calendarDays"`
 	RegisteredAttendanceDays int `json:"registeredAttendanceDays"`
+	MissingAttendanceDays    int `json:"missingAttendanceDays"`
 	ScheduledWorkDays        int `json:"scheduledWorkDays"`
 	ActualWorkDays           int `json:"actualWorkDays"`
+	DayShiftWorkDays         int `json:"dayShiftWorkDays"`
+	NightShiftWorkDays       int `json:"nightShiftWorkDays"`
 	PaidLeaveDays            int `json:"paidLeaveDays"`
 	HalfPaidLeaveDays        int `json:"halfPaidLeaveDays"`
 	AbsenceDays              int `json:"absenceDays"`
@@ -122,6 +126,11 @@ type MonthlyAttendanceSummaryCsvRow struct {
 	HolidayWorkDays          int `json:"holidayWorkDays"`
 	LateDays                 int `json:"lateDays"`
 	EarlyLeaveDays           int `json:"earlyLeaveDays"`
+	ScheduledButNoActualDays int `json:"scheduledButNoActualDays"`
+	ActualButNoScheduledDays int `json:"actualButNoScheduledDays"`
+	MissingScheduledWorkDays int `json:"missingScheduledWorkDays"`
+	WorkingDayCount          int `json:"workingDayCount"`
+	HolidayCount             int `json:"holidayCount"`
 
 	// 勤怠時間集計
 	CompanyDailyStandardWorkMinutes  int `json:"companyDailyStandardWorkMinutes"`
@@ -129,7 +138,10 @@ type MonthlyAttendanceSummaryCsvRow struct {
 
 	ScheduledWorkMinutes              int `json:"scheduledWorkMinutes"`
 	ActualWorkMinutes                 int `json:"actualWorkMinutes"`
+	DayWorkMinutes                    int `json:"dayWorkMinutes"`
+	NightWorkMinutes                  int `json:"nightWorkMinutes"`
 	BreakMinutes                      int `json:"breakMinutes"`
+	RegularWorkMinutes                int `json:"regularWorkMinutes"`
 	WorkShortageMinutes               int `json:"workShortageMinutes"`
 	WorkExcessAgainstScheduledMinutes int `json:"workExcessAgainstScheduledMinutes"`
 
@@ -139,13 +151,23 @@ type MonthlyAttendanceSummaryCsvRow struct {
 	DailyOvertimeMinutes           int `json:"dailyOvertimeMinutes"`
 	WeeklyOvertimeMinutes          int `json:"weeklyOvertimeMinutes"`
 	OvertimeMinutes                int `json:"overtimeMinutes"`
+	DayOvertimeMinutes             int `json:"dayOvertimeMinutes"`
+	NightOvertimeMinutes           int `json:"nightOvertimeMinutes"`
 
-	LateNightWorkMinutes int `json:"lateNightWorkMinutes"`
-	HolidayWorkMinutes   int `json:"holidayWorkMinutes"`
-	PaidLeaveMinutes     int `json:"paidLeaveMinutes"`
-	AbsenceMinutes       int `json:"absenceMinutes"`
-	LateMinutes          int `json:"lateMinutes"`
-	EarlyLeaveMinutes    int `json:"earlyLeaveMinutes"`
+	LateNightWorkMinutes        int `json:"lateNightWorkMinutes"`
+	HolidayWorkMinutes          int `json:"holidayWorkMinutes"`
+	HolidayLateNightWorkMinutes int `json:"holidayLateNightWorkMinutes"`
+	PaidLeaveMinutes            int `json:"paidLeaveMinutes"`
+	AbsenceMinutes              int `json:"absenceMinutes"`
+	SickLeaveMinutes            int `json:"sickLeaveMinutes"`
+	LateMinutes                 int `json:"lateMinutes"`
+	EarlyLeaveMinutes           int `json:"earlyLeaveMinutes"`
+	DeductionTargetMinutes      int `json:"deductionTargetMinutes"`
+
+	// 稼働率
+	ActualOperationRate        float64 `json:"actualOperationRate"`
+	PayrollTargetOperationRate float64 `json:"payrollTargetOperationRate"`
+	OperationRateJudge         string  `json:"operationRateJudge"`
 
 	// 交通費集計
 	DailyTransportationAmount int    `json:"dailyTransportationAmount"`
@@ -169,28 +191,24 @@ type MonthlyAttendanceSummaryCsvRow struct {
 	CommunicationExpenseAmount  int `json:"communicationExpenseAmount"`
 	OtherExpenseAmount          int `json:"otherExpenseAmount"`
 
-	// 祝日・営業日補助
-	HolidayCount    int `json:"holidayCount"`
-	WorkingDayCount int `json:"workingDayCount"`
-
 	// 警告・不整合
-	WarningCount          int    `json:"warningCount"`
-	Warnings              string `json:"warnings"`
-	MissingAttendanceDays int    `json:"missingAttendanceDays"`
-	InvalidBreakCount     int    `json:"invalidBreakCount"`
-	InvalidTimeCount      int    `json:"invalidTimeCount"`
-	HasDataWarning        bool   `json:"hasDataWarning"`
+	WarningCount                     int    `json:"warningCount"`
+	Warnings                         string `json:"warnings"`
+	InvalidBreakCount                int    `json:"invalidBreakCount"`
+	InvalidTimeCount                 int    `json:"invalidTimeCount"`
+	HasDataWarning                   bool   `json:"hasDataWarning"`
+	HasSalarySettingWarning          bool   `json:"hasSalarySettingWarning"`
+	HasPayrollExcludedWarning        bool   `json:"hasPayrollExcludedWarning"`
+	HasMonthlyApprovalWarning        bool   `json:"hasMonthlyApprovalWarning"`
+	HasAttendanceMissingWarning      bool   `json:"hasAttendanceMissingWarning"`
+	HasScheduleActualMismatchWarning bool   `json:"hasScheduleActualMismatchWarning"`
+	HasExpenseCategoryWarning        bool   `json:"hasExpenseCategoryWarning"`
 }
 
 /*
  * 月次勤怠集計用の日別内部データ
  *
  * service 内で日別計算・週別計算を行うための作業用。
- *
- * 注意：
- * ・予定区分は attendance_types を参照する
- * ・実績状態は constants/attendance_status_constants.go の固定値を使う
- * ・ActualAttendanceTypeID / ActualAttendanceTypeCode / ActualAttendanceTypeIsWorked は使わない
  */
 type MonthlyAttendanceSummaryWorkRow struct {
 	UserID   uint
@@ -210,9 +228,16 @@ type MonthlyAttendanceSummaryWorkRow struct {
 	ScheduledWorkMinutes int
 
 	ActualWorkMinutes int
+	DayWorkMinutes    int
+	NightWorkMinutes  int
 	BreakMinutes      int
 
-	LateNightWorkMinutes int
+	WorkMinuteSegments []MonthlyAttendanceSummaryWorkMinuteSegment
+
+	RegularWorkMinutes int
+
+	LateNightWorkMinutes        int
+	HolidayLateNightWorkMinutes int
 
 	IsActualWorkDay    bool
 	IsPlannedHoliday   bool
@@ -222,15 +247,34 @@ type MonthlyAttendanceSummaryWorkRow struct {
 	IsAbsenceDay       bool
 	IsSickLeaveDay     bool
 
+	IsScheduledButNoActual bool
+	IsActualButNoScheduled bool
+	IsMissingScheduledWork bool
+
 	DailyOvertimeThresholdMinutes int
 	DailyOvertimeMinutes          int
+	DayOvertimeMinutes            int
+	NightOvertimeMinutes          int
 
 	WorkShortageMinutes               int
 	WorkExcessAgainstScheduledMinutes int
 
+	AbsenceMinutes    int
+	SickLeaveMinutes  int
+	LateMinutes       int
+	EarlyLeaveMinutes int
+
 	TransportAmount int
 
 	Warnings []string
+}
+
+/*
+ * 月次勤怠集計用の日中/深夜分解済み勤務区間
+ */
+type MonthlyAttendanceSummaryWorkMinuteSegment struct {
+	Minutes     int
+	IsLateNight bool
 }
 
 /*
@@ -282,3 +326,10 @@ const MonthlyAttendanceSummaryCalculationStatusError = "ERROR"
  */
 const MonthlyAttendanceSummaryMonthlyStatusNotSubmitted = "NOT_SUBMITTED"
 const MonthlyAttendanceSummaryMonthlyStatusApproved = "APPROVED"
+
+/*
+ * 稼働率判定
+ */
+const MonthlyAttendanceSummaryOperationRateJudgeNotAvailable = "判定不可"
+const MonthlyAttendanceSummaryOperationRateJudgeOver80 = "80%以上"
+const MonthlyAttendanceSummaryOperationRateJudgeUnder80 = "80%未満"

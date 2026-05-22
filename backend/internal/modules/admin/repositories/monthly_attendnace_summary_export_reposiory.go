@@ -84,7 +84,8 @@ func (repository *monthlyAttendanceSummaryExportRepository) SearchExportTargetUs
 			users.is_deleted
 		`).
 		Joins("LEFT JOIN departments ON departments.id = users.department_id AND departments.is_deleted = false").
-		Where("users.is_deleted = false")
+		Where("users.is_deleted = false").
+		Where("users.role = ?", "USER")
 
 	if len(req.TargetUserIDs) > 0 {
 		query = query.Where("users.id IN ?", req.TargetUserIDs)
@@ -188,7 +189,6 @@ func (repository *monthlyAttendanceSummaryExportRepository) FindAttendanceDays(
 	var attendanceDays []models.AttendanceDay
 	if err := repository.db.
 		Preload("PlanAttendanceType").
-		Preload("ActualAttendanceType").
 		Where("is_deleted = false").
 		Where("user_id IN ?", userIDs).
 		Where("work_date >= ?", fromDate).

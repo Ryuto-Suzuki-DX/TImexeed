@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -80,7 +81,8 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		)
 	}
 
-	targetMonthStart := time.Date(request.TargetYear, time.Month(request.TargetMonth), 1, 0, 0, 0, 0, time.Local)
+	targetLocation := jstLocation()
+	targetMonthStart := time.Date(request.TargetYear, time.Month(request.TargetMonth), 1, 0, 0, 0, 0, targetLocation)
 	targetMonthEnd := targetMonthStart.AddDate(0, 1, -1)
 
 	/*
@@ -90,7 +92,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 	extendedFromDate := startOfWeek(targetMonthStart)
 	extendedToDate := startOfWeek(targetMonthEnd).AddDate(0, 0, 6)
 
-	exportedAt := time.Now().Format("2006-01-02 15:04:05")
+	exportedAt := toJST(time.Now()).Format("2006-01-02 15:04:05")
 
 	users, usersResult := service.monthlyAttendanceSummaryExportRepository.SearchExportTargetUsers(request)
 	if usersResult.Error {
@@ -184,6 +186,12 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		if !hasMonthlyAttendanceRequest || monthlyAttendanceRequest.Status != types.MonthlyAttendanceSummaryMonthlyStatusApproved {
 			if request.IncludeNotApproved {
 				row.CalculationStatus = types.MonthlyAttendanceSummaryCalculationStatusSkippedNotApproved
+				row.HasMonthlyApprovalWarning = true
+				row.HasDataWarning = true
+				row.Warnings = buildWarningText([]string{
+					"月次承認警告: 月次申請がAPPROVEDではないため、給与計算用の集計値は出力していません",
+				})
+				row.WarningCount = 1
 				rows = append(rows, row)
 			}
 
@@ -338,16 +346,25 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 		}
 
 		row.ActualWorkMinutes += workRow.ActualWorkMinutes
+		row.DayWorkMinutes += workRow.DayWorkMinutes
+		row.NightWorkMinutes += workRow.NightWorkMinutes
 		row.BreakMinutes += workRow.BreakMinutes
+		row.RegularWorkMinutes += workRow.RegularWorkMinutes
 		row.LateNightWorkMinutes += workRow.LateNightWorkMinutes
 
 		if workRow.IsActualWorkDay {
 			row.ActualWorkDays++
+			if workRow.NightWorkMinutes > 0 {
+				row.NightShiftWorkDays++
+			} else {
+				row.DayShiftWorkDays++
+			}
 		}
 
 		if workRow.IsHolidayWorkDay {
 			row.HolidayWorkDays++
 			row.HolidayWorkMinutes += workRow.ActualWorkMinutes
+			row.HolidayLateNightWorkMinutes += workRow.HolidayLateNightWorkMinutes
 		}
 
 		if workRow.IsPaidLeaveDay {
@@ -360,11 +377,12 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 
 		if workRow.IsAbsenceDay {
 			row.AbsenceDays++
-			row.AbsenceMinutes += workRow.ScheduledWorkMinutes
+			row.AbsenceMinutes += workRow.AbsenceMinutes
 		}
 
 		if workRow.IsSickLeaveDay {
 			row.SickLeaveDays++
+			row.SickLeaveMinutes += workRow.SickLeaveMinutes
 		}
 
 		if workRow.ActualWorkStatus == constants.ActualWorkStatusLate {
@@ -377,8 +395,21 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 
 		row.DailyOvertimeThresholdMinutes += workRow.DailyOvertimeThresholdMinutes
 		row.DailyOvertimeMinutes += workRow.DailyOvertimeMinutes
+		row.DayOvertimeMinutes += workRow.DayOvertimeMinutes
+		row.NightOvertimeMinutes += workRow.NightOvertimeMinutes
 		row.WorkShortageMinutes += workRow.WorkShortageMinutes
 		row.WorkExcessAgainstScheduledMinutes += workRow.WorkExcessAgainstScheduledMinutes
+		row.LateMinutes += workRow.LateMinutes
+		row.EarlyLeaveMinutes += workRow.EarlyLeaveMinutes
+		if workRow.IsScheduledButNoActual {
+			row.ScheduledButNoActualDays++
+		}
+		if workRow.IsActualButNoScheduled {
+			row.ActualButNoScheduledDays++
+		}
+		if workRow.IsMissingScheduledWork {
+			row.MissingScheduledWorkDays++
+		}
 
 		row.DailyTransportationAmount += workRow.TransportAmount
 		if workRow.TransportAmount > 0 {
@@ -397,6 +428,7 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 	}
 
 	row.OvertimeMinutes = row.DailyOvertimeMinutes + row.WeeklyOvertimeMinutes
+	row.DeductionTargetMinutes = row.WorkShortageMinutes
 
 	row.RegisteredAttendanceDays = attendanceDaysInMonth
 	row.MissingAttendanceDays = row.CalendarDays - len(dateWithAttendance)
@@ -406,6 +438,7 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 
 	service.applyCommuterPassToRow(&row, monthlyCommuterPass)
 	service.applyUserSalaryDetailToRow(&row, userSalaryDetail)
+	service.applySalaryWarningsToRow(&row, userSalaryDetail, &warnings)
 
 	paidLeaveUsedDays := 0.0
 	paidLeaveUsedMinutes := 0
@@ -422,10 +455,13 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 
 	row.TotalTransportationAmount = row.DailyTransportationAmount + row.CommuterPassAmount
 
+	service.applyOperationRateToRow(&row)
+	service.applyDataWarningFlagsToRow(&row, &warnings)
+
 	row.InvalidBreakCount = countWarningsByPrefix(warnings, "休憩")
 	row.InvalidTimeCount = countWarningsByPrefix(warnings, "時刻")
 	row.WarningCount = len(warnings)
-	row.Warnings = strings.Join(warnings, "; ")
+	row.Warnings = buildWarningText(warnings)
 	row.HasDataWarning = row.WarningCount > 0
 
 	return row
@@ -466,7 +502,26 @@ func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 			}
 		}
 
+		if !workRow.IsPlannedHoliday && !workRow.IsPaidLeaveDay && scheduledWorkMinutes == 0 {
+			workRow.IsMissingScheduledWork = true
+			workRow.Warnings = append(workRow.Warnings, workDate+" 予定不整合: 予定労働時間が未設定です")
+		}
+
+		if workRow.IsAbsenceDay {
+			workRow.AbsenceMinutes = scheduledWorkMinutes
+		}
+
+		if workRow.IsSickLeaveDay {
+			workRow.SickLeaveMinutes = scheduledWorkMinutes
+		}
+
 		if attendanceDay.ActualStartAt == nil && attendanceDay.ActualEndAt == nil {
+			if scheduledWorkMinutes > 0 && !workRow.IsAbsenceDay && !workRow.IsSickLeaveDay && !workRow.IsPaidLeaveDay {
+				workRow.IsScheduledButNoActual = true
+				workRow.WorkShortageMinutes = scheduledWorkMinutes
+				workRow.Warnings = append(workRow.Warnings, workDate+" 実績未入力: 予定労働時間がありますが実績時刻が未入力です")
+			}
+
 			workRows = append(workRows, workRow)
 			continue
 		}
@@ -477,31 +532,38 @@ func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 			continue
 		}
 
-		if !attendanceDay.ActualEndAt.After(*attendanceDay.ActualStartAt) {
+		actualStartAt := toJST(*attendanceDay.ActualStartAt)
+		actualEndAt := toJST(*attendanceDay.ActualEndAt)
+
+		if !actualEndAt.After(actualStartAt) {
 			workRow.Warnings = append(workRow.Warnings, workDate+" 時刻不整合: 実績終了が実績開始以前です")
 			workRows = append(workRows, workRow)
 			continue
 		}
 
-		actualStartAt := *attendanceDay.ActualStartAt
-		actualEndAt := *attendanceDay.ActualEndAt
-
+		validBreaks := make([]models.AttendanceBreak, 0, len(attendanceBreakMap[attendanceDay.ID]))
 		validBreakMinutes := 0
-		lateNightBreakMinutes := 0
 
 		for _, attendanceBreak := range attendanceBreakMap[attendanceDay.ID] {
-			if !attendanceBreak.BreakEndAt.After(attendanceBreak.BreakStartAt) {
+			breakStartAt := toJST(attendanceBreak.BreakStartAt)
+			breakEndAt := toJST(attendanceBreak.BreakEndAt)
+
+			if !breakEndAt.After(breakStartAt) {
 				workRow.Warnings = append(workRow.Warnings, workDate+" 休憩不整合: 休憩終了が休憩開始以前です")
 				continue
 			}
 
-			if attendanceBreak.BreakStartAt.Before(actualStartAt) || attendanceBreak.BreakEndAt.After(actualEndAt) {
+			if breakStartAt.Before(actualStartAt) || breakEndAt.After(actualEndAt) {
 				workRow.Warnings = append(workRow.Warnings, workDate+" 休憩不整合: 休憩が実績勤務時間外です")
 				continue
 			}
 
-			validBreakMinutes += minutesBetween(attendanceBreak.BreakStartAt, attendanceBreak.BreakEndAt)
-			lateNightBreakMinutes += calculateLateNightOverlapMinutes(attendanceBreak.BreakStartAt, attendanceBreak.BreakEndAt)
+			convertedBreak := attendanceBreak
+			convertedBreak.BreakStartAt = breakStartAt
+			convertedBreak.BreakEndAt = breakEndAt
+
+			validBreaks = append(validBreaks, convertedBreak)
+			validBreakMinutes += minutesBetween(breakStartAt, breakEndAt)
 		}
 
 		grossActualMinutes := minutesBetween(actualStartAt, actualEndAt)
@@ -511,14 +573,8 @@ func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 			workRow.Warnings = append(workRow.Warnings, workDate+" 時刻不整合: 休憩時間が実績勤務時間を超えています")
 		}
 
-		lateNightWorkMinutes := calculateLateNightOverlapMinutes(actualStartAt, actualEndAt) - lateNightBreakMinutes
-		if lateNightWorkMinutes < 0 {
-			lateNightWorkMinutes = 0
-		}
-
 		workRow.BreakMinutes = validBreakMinutes
 		workRow.ActualWorkMinutes = actualWorkMinutes
-		workRow.LateNightWorkMinutes = lateNightWorkMinutes
 
 		/*
 		 * 実勤務日判定
@@ -529,6 +585,33 @@ func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 		workRow.IsActualWorkDay = actualWorkMinutes > 0 &&
 			attendanceDay.ActualWorkStatus != constants.ActualWorkStatusAbsence &&
 			attendanceDay.ActualWorkStatus != constants.ActualWorkStatusSickLeave
+
+		if actualWorkMinutes > 0 && scheduledWorkMinutes == 0 && !workRow.IsPlannedHoliday {
+			workRow.IsActualButNoScheduled = true
+			workRow.Warnings = append(workRow.Warnings, workDate+" 予定不整合: 実績がありますが予定労働時間が未設定です")
+		}
+
+		if scheduledWorkMinutes > 0 && actualWorkMinutes == 0 && !workRow.IsAbsenceDay && !workRow.IsSickLeaveDay && !workRow.IsPaidLeaveDay {
+			workRow.IsScheduledButNoActual = true
+			workRow.Warnings = append(workRow.Warnings, workDate+" 実績未入力: 予定労働時間がありますが有効な実績労働時間がありません")
+		}
+
+		if attendanceDay.ActualWorkStatus == constants.ActualWorkStatusLate {
+			workRow.LateMinutes = calculateLateMinutes(attendanceDay.PlanStartAt, attendanceDay.ActualStartAt)
+			if workRow.LateMinutes == 0 && scheduledWorkMinutes > actualWorkMinutes {
+				workRow.LateMinutes = scheduledWorkMinutes - actualWorkMinutes
+			}
+		}
+
+		if attendanceDay.ActualWorkStatus == constants.ActualWorkStatusEarlyLeave {
+			workRow.EarlyLeaveMinutes = calculateEarlyLeaveMinutes(attendanceDay.PlanEndAt, attendanceDay.ActualEndAt)
+			if workRow.EarlyLeaveMinutes == 0 && scheduledWorkMinutes > actualWorkMinutes {
+				workRow.EarlyLeaveMinutes = scheduledWorkMinutes - actualWorkMinutes
+			}
+		}
+
+		workSegments := buildWorkSegments(actualStartAt, actualEndAt, validBreaks)
+		service.applyDayNightWorkMinutes(workRow, workSegments)
 
 		workRows = append(workRows, workRow)
 	}
@@ -595,16 +678,6 @@ func (service *monthlyAttendanceSummaryExportService) applyDailyOvertime(
 			workRow.ScheduledWorkMinutes,
 		)
 
-		if workRow.IsHolidayWorkDay {
-			workRow.DailyOvertimeMinutes = 0
-			continue
-		}
-
-		workRow.DailyOvertimeMinutes = maxInt(
-			workRow.ActualWorkMinutes-workRow.DailyOvertimeThresholdMinutes,
-			0,
-		)
-
 		workRow.WorkShortageMinutes = maxInt(
 			workRow.ScheduledWorkMinutes-workRow.ActualWorkMinutes,
 			0,
@@ -614,6 +687,23 @@ func (service *monthlyAttendanceSummaryExportService) applyDailyOvertime(
 			workRow.ActualWorkMinutes-workRow.ScheduledWorkMinutes,
 			0,
 		)
+
+		if workRow.IsHolidayWorkDay {
+			workRow.RegularWorkMinutes = 0
+			workRow.DailyOvertimeMinutes = 0
+			workRow.DayOvertimeMinutes = 0
+			workRow.NightOvertimeMinutes = 0
+			workRow.HolidayLateNightWorkMinutes = workRow.NightWorkMinutes
+			continue
+		}
+
+		workRow.RegularWorkMinutes = minInt(workRow.ActualWorkMinutes, workRow.DailyOvertimeThresholdMinutes)
+		workRow.DailyOvertimeMinutes = maxInt(
+			workRow.ActualWorkMinutes-workRow.DailyOvertimeThresholdMinutes,
+			0,
+		)
+
+		service.applyDayNightOvertimeMinutes(workRow)
 	}
 }
 
@@ -779,6 +869,98 @@ func (service *monthlyAttendanceSummaryExportService) buildPaidLeaveMinutesByDat
 }
 
 /*
+ * 給与設定警告をCSV行へ反映
+ */
+func (service *monthlyAttendanceSummaryExportService) applySalaryWarningsToRow(
+	row *types.MonthlyAttendanceSummaryCsvRow,
+	userSalaryDetail models.UserSalaryDetail,
+	warnings *[]string,
+) {
+	if userSalaryDetail.ID == 0 {
+		row.HasSalarySettingWarning = true
+		*warnings = append(*warnings, "給与設定警告: 対象月に有効な給与詳細が未登録です")
+		return
+	}
+
+	if !row.IsPayrollTarget {
+		row.HasPayrollExcludedWarning = true
+		*warnings = append(*warnings, "給与計算対象外警告: 給与詳細が給与計算対象外に設定されています")
+	}
+
+	if row.SalaryType == "" {
+		row.HasSalarySettingWarning = true
+		*warnings = append(*warnings, "給与設定警告: 給与区分が未設定です")
+	}
+
+	if row.BaseSalary == 0 && row.HourlyWage == 0 && row.DailyWage == 0 {
+		row.HasSalarySettingWarning = true
+		*warnings = append(*warnings, "給与設定警告: 基本金額が未設定です")
+	}
+}
+
+/*
+ * 稼働率をCSV行へ反映
+ *
+ * 実労働稼働率:
+ *   実績労働時間 ÷ 予定労働時間 × 100
+ *
+ * 給与対象稼働率:
+ *   (実績労働時間 + 有給換算時間) ÷ 予定労働時間 × 100
+ */
+func (service *monthlyAttendanceSummaryExportService) applyOperationRateToRow(
+	row *types.MonthlyAttendanceSummaryCsvRow,
+) {
+	if row.ScheduledWorkMinutes <= 0 {
+		row.OperationRateJudge = types.MonthlyAttendanceSummaryOperationRateJudgeNotAvailable
+		return
+	}
+
+	row.ActualOperationRate = roundToOneDecimal(float64(row.ActualWorkMinutes) / float64(row.ScheduledWorkMinutes) * 100)
+	row.PayrollTargetOperationRate = roundToOneDecimal(float64(row.ActualWorkMinutes+row.PaidLeaveMinutes) / float64(row.ScheduledWorkMinutes) * 100)
+
+	if row.PayrollTargetOperationRate >= 80 {
+		row.OperationRateJudge = types.MonthlyAttendanceSummaryOperationRateJudgeOver80
+		return
+	}
+
+	row.OperationRateJudge = types.MonthlyAttendanceSummaryOperationRateJudgeUnder80
+}
+
+/*
+ * 給与計算向けのデータ警告をCSV行へ反映
+ */
+func (service *monthlyAttendanceSummaryExportService) applyDataWarningFlagsToRow(
+	row *types.MonthlyAttendanceSummaryCsvRow,
+	warnings *[]string,
+) {
+	if row.MissingAttendanceDays > 0 {
+		row.HasAttendanceMissingWarning = true
+		*warnings = append(*warnings, fmt.Sprintf("勤怠未登録警告: 対象月に勤怠未登録日が%d日あります", row.MissingAttendanceDays))
+	}
+
+	if row.ScheduledButNoActualDays > 0 || row.ActualButNoScheduledDays > 0 || row.MissingScheduledWorkDays > 0 {
+		row.HasScheduleActualMismatchWarning = true
+	}
+
+	if row.ScheduledButNoActualDays > 0 {
+		*warnings = append(*warnings, fmt.Sprintf("予定実績不整合: 予定あり実績なしが%d日あります", row.ScheduledButNoActualDays))
+	}
+
+	if row.ActualButNoScheduledDays > 0 {
+		*warnings = append(*warnings, fmt.Sprintf("予定実績不整合: 実績あり予定なしが%d日あります", row.ActualButNoScheduledDays))
+	}
+
+	if row.MissingScheduledWorkDays > 0 {
+		*warnings = append(*warnings, fmt.Sprintf("予定不整合: 予定労働時間未設定日が%d日あります", row.MissingScheduledWorkDays))
+	}
+
+	if row.ExpenseCount > 0 && row.OtherExpenseAmount == row.ExpenseTotalAmount {
+		row.HasExpenseCategoryWarning = true
+		*warnings = append(*warnings, "経費カテゴリ警告: Expenseにカテゴリがないため、経費はすべてその他経費として出力しています")
+	}
+}
+
+/*
  * 経費をCSV行へ反映
  *
  * 現時点の Expense model にはカテゴリカラムが存在しない。
@@ -794,6 +976,231 @@ func (service *monthlyAttendanceSummaryExportService) applyExpensesToRow(
 		row.ExpenseCount++
 		row.OtherExpenseAmount += expense.Amount
 	}
+}
+
+type monthlyAttendanceSummaryWorkSegment struct {
+	StartAt time.Time
+	EndAt   time.Time
+}
+
+type monthlyAttendanceSummaryClassifiedSegment struct {
+	Minutes     int
+	IsLateNight bool
+}
+
+/*
+ * 有効な勤務区間を生成する
+ *
+ * 実績時間から有効な休憩時間を差し引き、残った勤務区間を時系列で返す。
+ */
+func buildWorkSegments(
+	actualStartAt time.Time,
+	actualEndAt time.Time,
+	validBreaks []models.AttendanceBreak,
+) []monthlyAttendanceSummaryWorkSegment {
+	if !actualEndAt.After(actualStartAt) {
+		return []monthlyAttendanceSummaryWorkSegment{}
+	}
+
+	sort.Slice(validBreaks, func(i int, j int) bool {
+		return validBreaks[i].BreakStartAt.Before(validBreaks[j].BreakStartAt)
+	})
+
+	segments := []monthlyAttendanceSummaryWorkSegment{}
+	currentStartAt := actualStartAt
+
+	for _, attendanceBreak := range validBreaks {
+		if attendanceBreak.BreakStartAt.After(currentStartAt) {
+			segments = append(segments, monthlyAttendanceSummaryWorkSegment{
+				StartAt: currentStartAt,
+				EndAt:   attendanceBreak.BreakStartAt,
+			})
+		}
+
+		if attendanceBreak.BreakEndAt.After(currentStartAt) {
+			currentStartAt = attendanceBreak.BreakEndAt
+		}
+	}
+
+	if actualEndAt.After(currentStartAt) {
+		segments = append(segments, monthlyAttendanceSummaryWorkSegment{
+			StartAt: currentStartAt,
+			EndAt:   actualEndAt,
+		})
+	}
+
+	return segments
+}
+
+/*
+ * 勤務区間を日中/深夜に分解し、日別行へ反映する
+ */
+func (service *monthlyAttendanceSummaryExportService) applyDayNightWorkMinutes(
+	workRow *types.MonthlyAttendanceSummaryWorkRow,
+	workSegments []monthlyAttendanceSummaryWorkSegment,
+) {
+	workRow.WorkMinuteSegments = []types.MonthlyAttendanceSummaryWorkMinuteSegment{}
+
+	for _, segment := range workSegments {
+		for _, classifiedSegment := range splitSegmentByLateNight(segment.StartAt, segment.EndAt) {
+			if classifiedSegment.Minutes <= 0 {
+				continue
+			}
+
+			workRow.WorkMinuteSegments = append(workRow.WorkMinuteSegments, types.MonthlyAttendanceSummaryWorkMinuteSegment{
+				Minutes:     classifiedSegment.Minutes,
+				IsLateNight: classifiedSegment.IsLateNight,
+			})
+
+			if classifiedSegment.IsLateNight {
+				workRow.NightWorkMinutes += classifiedSegment.Minutes
+				workRow.LateNightWorkMinutes += classifiedSegment.Minutes
+			} else {
+				workRow.DayWorkMinutes += classifiedSegment.Minutes
+			}
+		}
+	}
+}
+
+/*
+ * 日別残業時間を日中/夜勤に分解する
+ *
+ * 勤務開始から日別残業基準時間までは所定内、
+ * それを超えた部分を日別残業として扱う。
+ */
+func (service *monthlyAttendanceSummaryExportService) applyDayNightOvertimeMinutes(
+	workRow *types.MonthlyAttendanceSummaryWorkRow,
+) {
+	if workRow.DailyOvertimeMinutes <= 0 {
+		return
+	}
+
+	workedMinutesBeforeCurrentSegment := 0
+	for _, segment := range workRow.WorkMinuteSegments {
+		segmentStartWorkedMinutes := workedMinutesBeforeCurrentSegment
+		segmentEndWorkedMinutes := workedMinutesBeforeCurrentSegment + segment.Minutes
+
+		overtimeStartInSegment := maxInt(workRow.DailyOvertimeThresholdMinutes, segmentStartWorkedMinutes)
+		overtimeEndInSegment := segmentEndWorkedMinutes
+		overtimeMinutes := overtimeEndInSegment - overtimeStartInSegment
+		if overtimeMinutes < 0 {
+			overtimeMinutes = 0
+		}
+
+		if segment.IsLateNight {
+			workRow.NightOvertimeMinutes += overtimeMinutes
+		} else {
+			workRow.DayOvertimeMinutes += overtimeMinutes
+		}
+
+		workedMinutesBeforeCurrentSegment = segmentEndWorkedMinutes
+	}
+
+	allocatedOvertimeMinutes := workRow.DayOvertimeMinutes + workRow.NightOvertimeMinutes
+	if allocatedOvertimeMinutes != workRow.DailyOvertimeMinutes {
+		gapMinutes := workRow.DailyOvertimeMinutes - allocatedOvertimeMinutes
+		if gapMinutes > 0 {
+			workRow.DayOvertimeMinutes += gapMinutes
+		}
+	}
+}
+
+/*
+ * 1つの勤務区間を日中/深夜に分解する
+ */
+func splitSegmentByLateNight(
+	startAt time.Time,
+	endAt time.Time,
+) []monthlyAttendanceSummaryClassifiedSegment {
+	classifiedSegments := []monthlyAttendanceSummaryClassifiedSegment{}
+
+	if !endAt.After(startAt) {
+		return classifiedSegments
+	}
+
+	currentAt := startAt
+	for currentAt.Before(endAt) {
+		nextBoundary := nextLateNightBoundary(currentAt)
+		segmentEndAt := minTime(nextBoundary, endAt)
+		minutes := minutesBetween(currentAt, segmentEndAt)
+
+		if minutes > 0 {
+			classifiedSegments = append(classifiedSegments, monthlyAttendanceSummaryClassifiedSegment{
+				Minutes:     minutes,
+				IsLateNight: isLateNightTime(currentAt),
+			})
+		}
+
+		currentAt = segmentEndAt
+	}
+
+	return classifiedSegments
+}
+
+func nextLateNightBoundary(currentAt time.Time) time.Time {
+	currentDate := truncateDate(currentAt)
+
+	boundaries := []time.Time{
+		time.Date(currentDate.Year(), currentDate.Month(), currentDate.Day(), constants.LateNightWorkEndHour, 0, 0, 0, currentAt.Location()),
+		time.Date(currentDate.Year(), currentDate.Month(), currentDate.Day(), constants.LateNightWorkStartHour, 0, 0, 0, currentAt.Location()),
+		time.Date(currentDate.AddDate(0, 0, 1).Year(), currentDate.AddDate(0, 0, 1).Month(), currentDate.AddDate(0, 0, 1).Day(), constants.LateNightWorkEndHour, 0, 0, 0, currentAt.Location()),
+		time.Date(currentDate.AddDate(0, 0, 1).Year(), currentDate.AddDate(0, 0, 1).Month(), currentDate.AddDate(0, 0, 1).Day(), constants.LateNightWorkStartHour, 0, 0, 0, currentAt.Location()),
+	}
+
+	sort.Slice(boundaries, func(i int, j int) bool {
+		return boundaries[i].Before(boundaries[j])
+	})
+
+	for _, boundary := range boundaries {
+		if boundary.After(currentAt) {
+			return boundary
+		}
+	}
+
+	return currentAt.Add(24 * time.Hour)
+}
+
+func isLateNightTime(currentAt time.Time) bool {
+	hour := currentAt.Hour()
+	return hour >= constants.LateNightWorkStartHour || hour < constants.LateNightWorkEndHour
+}
+
+func calculateLateMinutes(planStartAt *time.Time, actualStartAt *time.Time) int {
+	if planStartAt == nil || actualStartAt == nil {
+		return 0
+	}
+
+	planStartAtJST := toJST(*planStartAt)
+	actualStartAtJST := toJST(*actualStartAt)
+
+	if !actualStartAtJST.After(planStartAtJST) {
+		return 0
+	}
+
+	return minutesBetween(planStartAtJST, actualStartAtJST)
+}
+
+func calculateEarlyLeaveMinutes(planEndAt *time.Time, actualEndAt *time.Time) int {
+	if planEndAt == nil || actualEndAt == nil {
+		return 0
+	}
+
+	planEndAtJST := toJST(*planEndAt)
+	actualEndAtJST := toJST(*actualEndAt)
+
+	if !planEndAtJST.After(actualEndAtJST) {
+		return 0
+	}
+
+	return minutesBetween(actualEndAtJST, planEndAtJST)
+}
+
+func roundToOneDecimal(value float64) float64 {
+	return math.Round(value*10) / 10
+}
+
+func buildWarningText(warnings []string) string {
+	return strings.Join(warnings, "; ")
 }
 
 /*
@@ -911,6 +1318,19 @@ func overlapMinutes(
 	return minutesBetween(start, end)
 }
 
+func jstLocation() *time.Location {
+	location, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		return time.Local
+	}
+
+	return location
+}
+
+func toJST(value time.Time) time.Time {
+	return value.In(jstLocation())
+}
+
 func minutesBetween(startAt time.Time, endAt time.Time) int {
 	return int(endAt.Sub(startAt).Minutes())
 }
@@ -924,7 +1344,7 @@ func formatDate(date time.Time) string {
 }
 
 func parseDate(value string) (time.Time, error) {
-	return time.ParseInLocation("2006-01-02", value, time.Local)
+	return time.ParseInLocation("2006-01-02", value, jstLocation())
 }
 
 func timePtrValue(value *time.Time) string {
@@ -932,7 +1352,7 @@ func timePtrValue(value *time.Time) string {
 		return ""
 	}
 
-	return value.Format("2006-01-02 15:04:05")
+	return toJST(*value).Format("2006-01-02 15:04:05")
 }
 
 func stringPtrValue(value *string) string {
@@ -961,6 +1381,14 @@ func intPtrValue(value *int) int {
 
 func maxInt(a int, b int) int {
 	if a > b {
+		return a
+	}
+
+	return b
+}
+
+func minInt(a int, b int) int {
+	if a < b {
 		return a
 	}
 
