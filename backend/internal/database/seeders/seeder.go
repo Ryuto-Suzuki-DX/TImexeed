@@ -16,8 +16,10 @@ import (
  * 1. 所属
  * 2. 勤怠区分マスタ
  * 3. ユーザー
+ * 4. 外部ストレージリンク
  *
  * ユーザーは所属IDを持つため、所属を先に作成する。
+ * 外部ストレージリンクは他テーブルに依存しないため最後に作成する。
  */
 func RunSeeders(db *gorm.DB) error {
 	for _, department := range departments {
@@ -34,6 +36,12 @@ func RunSeeders(db *gorm.DB) error {
 
 	for _, user := range users {
 		if err := createUserIfNotExists(db, user); err != nil {
+			return err
+		}
+	}
+
+	for _, externalStorageLink := range externalStorageLinks {
+		if err := createExternalStorageLinkIfNotExists(db, externalStorageLink); err != nil {
 			return err
 		}
 	}
@@ -163,4 +171,43 @@ func createAttendanceTypeIfNotExists(db *gorm.DB, seed SeedAttendanceType) error
 	}
 
 	return db.Create(&attendanceType).Error
+}
+
+/*
+ * 外部ストレージリンク種別が存在しない場合のみ作成する
+ *
+ * 既に存在する場合は、Seed定義の内容で更新する。
+ * 論理削除済みの場合も IsDeleted=false に戻す。
+ */
+func createExternalStorageLinkIfNotExists(db *gorm.DB, seed SeedExternalStorageLink) error {
+	description := seed.Description
+	memo := seed.Memo
+
+	var existing models.ExternalStorageLink
+
+	err := db.Where("link_type = ?", seed.LinkType).First(&existing).Error
+	if err == nil {
+		existing.LinkName = seed.LinkName
+		existing.URL = seed.URL
+		existing.Description = &description
+		existing.Memo = &memo
+		existing.IsDeleted = false
+
+		return db.Save(&existing).Error
+	}
+
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	externalStorageLink := models.ExternalStorageLink{
+		LinkType:    seed.LinkType,
+		LinkName:    seed.LinkName,
+		URL:         seed.URL,
+		Description: &description,
+		Memo:        &memo,
+		IsDeleted:   false,
+	}
+
+	return db.Create(&externalStorageLink).Error
 }

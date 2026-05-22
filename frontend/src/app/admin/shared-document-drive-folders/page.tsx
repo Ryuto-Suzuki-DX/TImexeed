@@ -132,41 +132,59 @@ export default function AdminSharedDocumentDriveFoldersPage() {
         setPageMessageVariant("info");
       }
 
-      const result = await searchSharedDocumentDriveFolders({
-        keyword: keyword.trim(),
-        offset: nextOffset,
-        limit: PAGE_LIMIT,
-      });
+      try {
+        const result = await searchSharedDocumentDriveFolders({
+          keyword: keyword.trim(),
+          offset: nextOffset,
+          limit: PAGE_LIMIT,
+        });
 
-      if (result.error || !result.data) {
-        setPageMessage(result.message || "共有資料Driveフォルダ一覧の取得に失敗しました。");
+        if (result.error || !result.data) {
+          if (!append) {
+            setFolders([]);
+            setTotal(0);
+            setOffset(0);
+            setHasMore(false);
+          }
+
+          setPageMessage(result.message || "共有資料Driveフォルダ一覧の取得に失敗しました。");
+          setPageMessageVariant("error");
+          return;
+        }
+
+        const data = result.data;
+        const nextFolders = data.sharedDocumentDriveFolders ?? [];
+
+        setFolders((currentFolders) =>
+          append ? [...currentFolders, ...nextFolders] : nextFolders,
+        );
+        setTotal(data.total ?? 0);
+        setHasMore(data.hasMore ?? false);
+        setOffset((data.offset ?? nextOffset) + nextFolders.length);
+
+        if (nextFolders.length === 0 && !append) {
+          setPageMessage("条件に一致する共有資料Driveフォルダはありません。");
+          setPageMessageVariant("info");
+        } else {
+          setPageMessage("共有資料Driveフォルダを取得しました。");
+          setPageMessageVariant("success");
+        }
+      } catch (error) {
+        console.error(error);
+
+        if (!append) {
+          setFolders([]);
+          setTotal(0);
+          setOffset(0);
+          setHasMore(false);
+        }
+
+        setPageMessage("共有資料Driveフォルダ一覧の取得中に予期しないエラーが発生しました。");
         setPageMessageVariant("error");
+      } finally {
         setIsPageLoading(false);
         setIsMoreLoading(false);
-        return;
       }
-
-      const data = result.data;
-
-      setFolders((currentFolders) =>
-        append
-          ? [...currentFolders, ...data.sharedDocumentDriveFolders]
-          : data.sharedDocumentDriveFolders,
-      );
-      setTotal(data.total);
-      setHasMore(data.hasMore);
-      setOffset(data.offset + data.sharedDocumentDriveFolders.length);
-
-      if (data.sharedDocumentDriveFolders.length === 0 && !append) {
-        setPageMessage("条件に一致する共有資料Driveフォルダはありません。");
-        setPageMessageVariant("info");
-      } else {
-        setPageMessage("共有資料Driveフォルダを取得しました。");
-        setPageMessageVariant("success");
-      }
-
-      setIsPageLoading(false);
-      setIsMoreLoading(false);
     },
     [keyword, user],
   );
@@ -177,31 +195,37 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     setPageMessage("共有資料Driveフォルダの詳細を取得しています。");
     setPageMessageVariant("info");
 
-    const result = await getSharedDocumentDriveFolderDetail({
-      targetSharedDocumentDriveFolderId,
-    });
+    try {
+      const result = await getSharedDocumentDriveFolderDetail({
+        targetSharedDocumentDriveFolderId,
+      });
 
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "共有資料Driveフォルダ詳細の取得に失敗しました。");
+      if (result.error || !result.data) {
+        setPageMessage(result.message || "共有資料Driveフォルダ詳細の取得に失敗しました。");
+        setPageMessageVariant("error");
+        return;
+      }
+
+      const data = result.data;
+      const nextSharedUsers = data.sharedUsers ?? [];
+
+      setSelectedFolder(data.sharedDocumentDriveFolder);
+      setSelectedUsers(nextSharedUsers.map(toSelectedSharedUser));
+
+      setFolderName(data.sharedDocumentDriveFolder.folderName);
+      setDescription(data.sharedDocumentDriveFolder.description ?? "");
+      setDriveFolderUrlOrId(data.sharedDocumentDriveFolder.folderUrl);
+
+      setPageMessage("共有資料Driveフォルダを選択しました。");
+      setPageMessageVariant("success");
+    } catch (error) {
+      console.error(error);
+      setPageMessage("共有資料Driveフォルダ詳細の取得中に予期しないエラーが発生しました。");
       setPageMessageVariant("error");
+    } finally {
       setIsDetailLoading(false);
       setProcessingFolderId(null);
-      return;
     }
-
-    const data = result.data;
-
-    setSelectedFolder(data.sharedDocumentDriveFolder);
-    setSelectedUsers(data.sharedUsers.map(toSelectedSharedUser));
-
-    setFolderName(data.sharedDocumentDriveFolder.folderName);
-    setDescription(data.sharedDocumentDriveFolder.description ?? "");
-    setDriveFolderUrlOrId(data.sharedDocumentDriveFolder.folderUrl);
-
-    setPageMessage("共有資料Driveフォルダを選択しました。");
-    setPageMessageVariant("success");
-    setIsDetailLoading(false);
-    setProcessingFolderId(null);
   }, []);
 
   useEffect(() => {
@@ -253,62 +277,66 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     setPageMessage(selectedFolder ? "共有資料Driveフォルダを更新しています。" : "共有資料Driveフォルダを作成しています。");
     setPageMessageVariant("info");
 
-    if (selectedFolder) {
-      const result = await updateSharedDocumentDriveFolder({
-        targetSharedDocumentDriveFolderId: selectedFolder.id,
+    try {
+      if (selectedFolder) {
+        const result = await updateSharedDocumentDriveFolder({
+          targetSharedDocumentDriveFolderId: selectedFolder.id,
+          folderName: trimmedFolderName,
+          description: trimmedDescription || null,
+          driveFolderUrlOrId: trimmedDriveFolderUrlOrId,
+        });
+
+        if (result.error || !result.data) {
+          setPageMessage(result.message || "共有資料Driveフォルダの更新に失敗しました。");
+          setPageMessageVariant("error");
+          return;
+        }
+
+        const updatedFolder = result.data.sharedDocumentDriveFolder;
+
+        setSelectedFolder(updatedFolder);
+        setFolderName(updatedFolder.folderName);
+        setDescription(updatedFolder.description ?? "");
+        setDriveFolderUrlOrId(updatedFolder.folderUrl);
+
+        setPageMessage("共有資料Driveフォルダを更新しました。");
+        setPageMessageVariant("success");
+
+        void loadFolders(0, false);
+        return;
+      }
+
+      const result = await createSharedDocumentDriveFolder({
         folderName: trimmedFolderName,
         description: trimmedDescription || null,
         driveFolderUrlOrId: trimmedDriveFolderUrlOrId,
       });
 
       if (result.error || !result.data) {
-        setPageMessage(result.message || "共有資料Driveフォルダの更新に失敗しました。");
+        setPageMessage(result.message || "共有資料Driveフォルダの作成に失敗しました。");
         setPageMessageVariant("error");
-        setIsSaving(false);
         return;
       }
 
-      const updatedFolder = result.data.sharedDocumentDriveFolder;
+      const createdFolder = result.data.sharedDocumentDriveFolder;
 
-      setSelectedFolder(updatedFolder);
-      setFolderName(updatedFolder.folderName);
-      setDescription(updatedFolder.description ?? "");
-      setDriveFolderUrlOrId(updatedFolder.folderUrl);
+      setSelectedFolder(createdFolder);
+      setFolderName(createdFolder.folderName);
+      setDescription(createdFolder.description ?? "");
+      setDriveFolderUrlOrId(createdFolder.folderUrl);
+      setSelectedUsers([]);
 
-      setPageMessage("共有資料Driveフォルダを更新しました。");
+      setPageMessage("共有資料Driveフォルダを作成しました。続けて共有対象ユーザーを設定できます。");
       setPageMessageVariant("success");
-      setIsSaving(false);
 
       void loadFolders(0, false);
-      return;
-    }
-
-    const result = await createSharedDocumentDriveFolder({
-      folderName: trimmedFolderName,
-      description: trimmedDescription || null,
-      driveFolderUrlOrId: trimmedDriveFolderUrlOrId,
-    });
-
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "共有資料Driveフォルダの作成に失敗しました。");
+    } catch (error) {
+      console.error(error);
+      setPageMessage("共有資料Driveフォルダの保存中に予期しないエラーが発生しました。");
       setPageMessageVariant("error");
+    } finally {
       setIsSaving(false);
-      return;
     }
-
-    const createdFolder = result.data.sharedDocumentDriveFolder;
-
-    setSelectedFolder(createdFolder);
-    setFolderName(createdFolder.folderName);
-    setDescription(createdFolder.description ?? "");
-    setDriveFolderUrlOrId(createdFolder.folderUrl);
-    setSelectedUsers([]);
-
-    setPageMessage("共有資料Driveフォルダを作成しました。続けて共有対象ユーザーを設定できます。");
-    setPageMessageVariant("success");
-    setIsSaving(false);
-
-    void loadFolders(0, false);
   };
 
   const handleDeleteFolder = async () => {
@@ -330,24 +358,30 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     setPageMessage("共有資料Driveフォルダを削除しています。");
     setPageMessageVariant("info");
 
-    const result = await deleteSharedDocumentDriveFolder({
-      targetSharedDocumentDriveFolderId: selectedFolder.id,
-    });
+    try {
+      const result = await deleteSharedDocumentDriveFolder({
+        targetSharedDocumentDriveFolderId: selectedFolder.id,
+      });
 
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "共有資料Driveフォルダの削除に失敗しました。");
+      if (result.error || !result.data) {
+        setPageMessage(result.message || "共有資料Driveフォルダの削除に失敗しました。");
+        setPageMessageVariant("error");
+        return;
+      }
+
+      handleResetForm();
+
+      setPageMessage("共有資料Driveフォルダを削除しました。");
+      setPageMessageVariant("success");
+
+      void loadFolders(0, false);
+    } catch (error) {
+      console.error(error);
+      setPageMessage("共有資料Driveフォルダの削除中に予期しないエラーが発生しました。");
       setPageMessageVariant("error");
+    } finally {
       setProcessingFolderId(null);
-      return;
     }
-
-    handleResetForm();
-
-    setPageMessage("共有資料Driveフォルダを削除しました。");
-    setPageMessageVariant("success");
-    setProcessingFolderId(null);
-
-    void loadFolders(0, false);
   };
 
   const handleOpenDriveFolder = () => {
@@ -365,34 +399,41 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     setPageMessage("ユーザーを検索しています。");
     setPageMessageVariant("info");
 
-    const result = await searchUsers({
-      keyword: userKeyword.trim(),
-      includeDeleted: false,
-      offset: 0,
-      limit: USER_SEARCH_LIMIT,
-    });
+    try {
+      const result = await searchUsers({
+        keyword: userKeyword.trim(),
+        includeDeleted: false,
+        offset: 0,
+        limit: USER_SEARCH_LIMIT,
+      });
 
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "ユーザー検索に失敗しました。");
+      if (result.error || !result.data) {
+        setUserSearchResults([]);
+        setPageMessage(result.message || "ユーザー検索に失敗しました。");
+        setPageMessageVariant("error");
+        return;
+      }
+
+      const users = (result.data.users ?? []) as UserSearchResult[];
+      const targetUsers = users.filter((searchedUser) => searchedUser.role === "USER");
+
+      setUserSearchResults(targetUsers);
+
+      if (targetUsers.length === 0) {
+        setPageMessage("条件に一致する従業員ユーザーはありません。");
+        setPageMessageVariant("info");
+      } else {
+        setPageMessage("ユーザーを検索しました。");
+        setPageMessageVariant("success");
+      }
+    } catch (error) {
+      console.error(error);
+      setUserSearchResults([]);
+      setPageMessage("ユーザー検索中に予期しないエラーが発生しました。");
       setPageMessageVariant("error");
+    } finally {
       setIsUserSearching(false);
-      return;
     }
-
-    const users = (result.data.users ?? []) as UserSearchResult[];
-    const targetUsers = users.filter((searchedUser) => searchedUser.role === "USER");
-
-    setUserSearchResults(targetUsers);
-
-    if (targetUsers.length === 0) {
-      setPageMessage("条件に一致する従業員ユーザーはありません。");
-      setPageMessageVariant("info");
-    } else {
-      setPageMessage("ユーザーを検索しました。");
-      setPageMessageVariant("success");
-    }
-
-    setIsUserSearching(false);
   };
 
   const handleAddSharedUser = (searchedUser: UserSearchResult) => {
@@ -432,25 +473,31 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     setPageMessage("共有対象ユーザーを適用しています。");
     setPageMessageVariant("info");
 
-    const result = await updateSharedDocumentDriveFolderUsers({
-      targetSharedDocumentDriveFolderId: selectedFolder.id,
-      targetUserIds: selectedUsers.map((selectedUser) => selectedUser.userId),
-      shareAllUsers: false,
-    });
+    try {
+      const result = await updateSharedDocumentDriveFolderUsers({
+        targetSharedDocumentDriveFolderId: selectedFolder.id,
+        targetUserIds: selectedUsers.map((selectedUser) => selectedUser.userId),
+        shareAllUsers: false,
+      });
 
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "共有対象ユーザーの適用に失敗しました。");
+      if (result.error || !result.data) {
+        setPageMessage(result.message || "共有対象ユーザーの適用に失敗しました。");
+        setPageMessageVariant("error");
+        return;
+      }
+
+      setSelectedUsers((result.data.sharedUsers ?? []).map(toSelectedSharedUser));
+      setPageMessage("共有対象ユーザーを適用しました。Drive権限へ反映するには権限同期を実行してください。");
+      setPageMessageVariant("success");
+
+      void loadFolders(0, false);
+    } catch (error) {
+      console.error(error);
+      setPageMessage("共有対象ユーザーの適用中に予期しないエラーが発生しました。");
       setPageMessageVariant("error");
+    } finally {
       setIsUserApplying(false);
-      return;
     }
-
-    setSelectedUsers(result.data.sharedUsers.map(toSelectedSharedUser));
-    setPageMessage("共有対象ユーザーを適用しました。Drive権限へ反映するには権限同期を実行してください。");
-    setPageMessageVariant("success");
-    setIsUserApplying(false);
-
-    void loadFolders(0, false);
   };
 
   const handleAddAllUsers = async () => {
@@ -470,25 +517,31 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     setPageMessage("全USERを共有対象に追加しています。");
     setPageMessageVariant("info");
 
-    const result = await updateSharedDocumentDriveFolderUsers({
-      targetSharedDocumentDriveFolderId: selectedFolder.id,
-      targetUserIds: [],
-      shareAllUsers: true,
-    });
+    try {
+      const result = await updateSharedDocumentDriveFolderUsers({
+        targetSharedDocumentDriveFolderId: selectedFolder.id,
+        targetUserIds: [],
+        shareAllUsers: true,
+      });
 
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "全員追加に失敗しました。");
+      if (result.error || !result.data) {
+        setPageMessage(result.message || "全員追加に失敗しました。");
+        setPageMessageVariant("error");
+        return;
+      }
+
+      setSelectedUsers((result.data.sharedUsers ?? []).map(toSelectedSharedUser));
+      setPageMessage("全USERを共有対象に追加しました。Drive権限へ反映するには権限同期を実行してください。");
+      setPageMessageVariant("success");
+
+      void loadFolders(0, false);
+    } catch (error) {
+      console.error(error);
+      setPageMessage("全員追加中に予期しないエラーが発生しました。");
       setPageMessageVariant("error");
+    } finally {
       setIsUserApplying(false);
-      return;
     }
-
-    setSelectedUsers(result.data.sharedUsers.map(toSelectedSharedUser));
-    setPageMessage("全USERを共有対象に追加しました。Drive権限へ反映するには権限同期を実行してください。");
-    setPageMessageVariant("success");
-    setIsUserApplying(false);
-
-    void loadFolders(0, false);
   };
 
   const handleClearAllUsers = async () => {
@@ -508,25 +561,31 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     setPageMessage("共有対象ユーザーを全員削除しています。");
     setPageMessageVariant("info");
 
-    const result = await updateSharedDocumentDriveFolderUsers({
-      targetSharedDocumentDriveFolderId: selectedFolder.id,
-      targetUserIds: [],
-      shareAllUsers: false,
-    });
+    try {
+      const result = await updateSharedDocumentDriveFolderUsers({
+        targetSharedDocumentDriveFolderId: selectedFolder.id,
+        targetUserIds: [],
+        shareAllUsers: false,
+      });
 
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "共有対象ユーザーの全削除に失敗しました。");
+      if (result.error || !result.data) {
+        setPageMessage(result.message || "共有対象ユーザーの全削除に失敗しました。");
+        setPageMessageVariant("error");
+        return;
+      }
+
+      setSelectedUsers([]);
+      setPageMessage("共有対象ユーザーを全員削除しました。Drive権限へ反映するには権限同期を実行してください。");
+      setPageMessageVariant("success");
+
+      void loadFolders(0, false);
+    } catch (error) {
+      console.error(error);
+      setPageMessage("共有対象ユーザーの全削除中に予期しないエラーが発生しました。");
       setPageMessageVariant("error");
+    } finally {
       setIsUserApplying(false);
-      return;
     }
-
-    setSelectedUsers([]);
-    setPageMessage("共有対象ユーザーを全員削除しました。Drive権限へ反映するには権限同期を実行してください。");
-    setPageMessageVariant("success");
-    setIsUserApplying(false);
-
-    void loadFolders(0, false);
   };
 
   const handleSyncPermissions = async () => {
@@ -548,28 +607,34 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     setPageMessage("Google Drive権限を同期しています。");
     setPageMessageVariant("info");
 
-    const result = await syncSharedDocumentDriveFolder({
-      targetSharedDocumentDriveFolderId: selectedFolder.id,
-    });
+    try {
+      const result = await syncSharedDocumentDriveFolder({
+        targetSharedDocumentDriveFolderId: selectedFolder.id,
+      });
 
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "Google Drive権限同期に失敗しました。");
+      if (result.error || !result.data) {
+        setPageMessage(result.message || "Google Drive権限同期に失敗しました。");
+        setPageMessageVariant("error");
+        return;
+      }
+
+      setSelectedFolder(result.data.sharedDocumentDriveFolder);
+      setSelectedUsers((result.data.sharedUsers ?? []).map(toSelectedSharedUser));
+      setFolderName(result.data.sharedDocumentDriveFolder.folderName);
+      setDescription(result.data.sharedDocumentDriveFolder.description ?? "");
+      setDriveFolderUrlOrId(result.data.sharedDocumentDriveFolder.folderUrl);
+
+      setPageMessage("Google Drive権限を同期しました。");
+      setPageMessageVariant("success");
+
+      void loadFolders(0, false);
+    } catch (error) {
+      console.error(error);
+      setPageMessage("Google Drive権限同期中に予期しないエラーが発生しました。");
       setPageMessageVariant("error");
+    } finally {
       setIsSyncing(false);
-      return;
     }
-
-    setSelectedFolder(result.data.sharedDocumentDriveFolder);
-    setSelectedUsers(result.data.sharedUsers.map(toSelectedSharedUser));
-    setFolderName(result.data.sharedDocumentDriveFolder.folderName);
-    setDescription(result.data.sharedDocumentDriveFolder.description ?? "");
-    setDriveFolderUrlOrId(result.data.sharedDocumentDriveFolder.folderUrl);
-
-    setPageMessage("Google Drive権限を同期しました。");
-    setPageMessageVariant("success");
-    setIsSyncing(false);
-
-    void loadFolders(0, false);
   };
 
   if (isLoading || !user) {

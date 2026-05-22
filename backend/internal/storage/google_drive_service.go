@@ -449,7 +449,7 @@ func (service *googleDriveService) SyncPermissions(
 
 			if _, err := service.driveService.Permissions.
 				Create(fileOrFolderID, createPermission).
-				SendNotificationEmail(false).
+				SendNotificationEmail(true).
 				SupportsAllDrives(true).
 				Context(ctx).
 				Do(); err != nil {

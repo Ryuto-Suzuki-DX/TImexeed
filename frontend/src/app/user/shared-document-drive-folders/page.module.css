@@ -14,7 +14,7 @@
 
 .pageCard {
   width: 100%;
-  max-width: 1120px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 28px;
   border-radius: 16px;
@@ -39,7 +39,7 @@
 }
 
 .summaryBox {
-  min-width: 140px;
+  min-width: 150px;
   padding: 12px 14px;
   border-radius: 12px;
   background-color: #fff7ed;
@@ -66,8 +66,8 @@
 }
 
 .searchCard,
-.listSection,
-.detailSection {
+.folderListCard,
+.detailCard {
   padding: 18px;
   border-radius: 14px;
   border: 1px solid #e5e7eb;
@@ -109,6 +109,13 @@
   gap: 14px;
 }
 
+.contentGrid {
+  display: grid;
+  grid-template-columns: minmax(360px, 520px) minmax(420px, 1fr);
+  gap: 18px;
+  align-items: flex-start;
+}
+
 .formLabel {
   display: flex;
   flex-direction: column;
@@ -144,11 +151,13 @@
   justify-content: flex-end;
 }
 
-.contentGrid {
-  display: grid;
-  grid-template-columns: minmax(360px, 1fr) minmax(320px, 420px);
-  gap: 18px;
-  align-items: flex-start;
+.formActionArea {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
 }
 
 .folderList {
@@ -158,7 +167,7 @@
 }
 
 .folderCard {
-  padding: 16px;
+  padding: 14px;
   border-radius: 14px;
   border: 1px solid #e5e7eb;
   background-color: #ffffff;
@@ -170,11 +179,11 @@
   background-color: #fff7ed;
 }
 
-.folderHeader {
+.folderCardHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
@@ -184,7 +193,7 @@
 
 .folderTitle {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: bold;
   color: #111827;
   line-height: 1.4;
@@ -193,18 +202,19 @@
 
 .folderDescription {
   margin: 4px 0 0;
-  font-size: 13px;
-  color: #374151;
-  line-height: 1.6;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
   word-break: break-word;
 }
 
-.sharedBadge {
+.countBadge,
+.selectedBadge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  min-width: 56px;
+  min-width: 52px;
   padding: 5px 8px;
   border-radius: 999px;
   background-color: #ea580c;
@@ -214,15 +224,20 @@
   line-height: 1;
 }
 
-.metaGrid {
+.selectedBadge {
+  min-width: auto;
+  background-color: #111827;
+}
+
+.folderMetaGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .metaLabel {
-  margin: 0 0 3px;
+  margin: 0 0 2px;
   font-size: 11px;
   font-weight: bold;
   color: #6b7280;
@@ -232,71 +247,51 @@
   margin: 0;
   font-size: 12px;
   color: #374151;
-  line-height: 1.5;
   word-break: break-word;
 }
 
-.actionArea {
+.folderActionArea {
   display: flex;
   justify-content: flex-end;
-  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.detailCard {
-  padding: 16px;
-  border-radius: 14px;
-  border: 1px solid #fed7aa;
-  background-color: #fff7ed;
-  box-sizing: border-box;
-}
-
-.detailTitle {
-  margin: 0;
-  font-size: 18px;
-  font-weight: bold;
-  color: #111827;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.detailDescription {
-  margin: 10px 0 0;
-  font-size: 13px;
-  color: #374151;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.detailMetaList {
+.detailBody {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 16px;
+  gap: 12px;
 }
 
-.detailMetaRow {
-  padding: 10px 12px;
+.detailItem {
+  padding: 14px;
   border-radius: 12px;
+  border: 1px solid #e5e7eb;
   background-color: #ffffff;
-  border: 1px solid #fed7aa;
   box-sizing: border-box;
 }
 
-.detailActionArea {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
+.detailLabel {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #6b7280;
+}
+
+.detailValue {
+  margin: 0;
+  font-size: 14px;
+  color: #111827;
+  line-height: 1.6;
+  word-break: break-word;
 }
 
 .noticeBox {
   margin-top: 14px;
   padding: 14px;
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background-color: #ffffff;
+  border: 1px solid #fed7aa;
+  background-color: #fff7ed;
   box-sizing: border-box;
 }
 
@@ -311,11 +306,11 @@
   margin: 0;
   font-size: 12px;
   color: #7c2d12;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .emptyBox {
-  padding: 32px;
+  padding: 28px;
   border-radius: 14px;
   border: 1px dashed #d1d5db;
   background-color: #f9fafb;
@@ -324,14 +319,14 @@
 
 .emptyTitle {
   margin: 0 0 6px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: bold;
   color: #374151;
 }
 
 .emptyText {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: #6b7280;
   line-height: 1.6;
 }
@@ -339,10 +334,10 @@
 .moreArea {
   display: flex;
   justify-content: center;
-  margin-top: 20px;
+  margin-top: 18px;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
   .contentGrid {
     grid-template-columns: 1fr;
   }
@@ -380,17 +375,8 @@
     flex-direction: column;
   }
 
-  .folderHeader {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .metaGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .actionArea,
-  .detailActionArea {
+  .formActionArea,
+  .folderActionArea {
     justify-content: flex-start;
   }
 }
@@ -401,17 +387,12 @@
   }
 
   .searchCard,
-  .listSection,
-  .detailSection {
-    padding: 14px;
-  }
-
-  .folderCard,
+  .folderListCard,
   .detailCard {
     padding: 14px;
   }
 
   .emptyBox {
-    padding: 24px;
+    padding: 22px;
   }
 }

@@ -202,3 +202,33 @@ var attendanceTypes = []SeedAttendanceType{
 		IsActive:             true,
 	},
 }
+
+/*
+ * 〇 外部ストレージリンクSeed
+ *
+ * Google Driveなど、Timexeed外で管理するフォルダURLやファイルURLを登録する。
+ */
+type SeedExternalStorageLink struct {
+	LinkType    string
+	LinkName    string
+	URL         string
+	Description string
+	Memo        string
+}
+
+var externalStorageLinks = []SeedExternalStorageLink{
+	{
+		LinkType:    "PERSONAL_INFORMATION_DRIVE_ROOT",
+		LinkName:    "個人情報Drive親フォルダ",
+		URL:         "https://drive.google.com/drive/folders/1mUEVTa-XoQ6IzlEyQf0uErHC-xOndMff",
+		Description: "ユーザーごとの個人情報Driveフォルダを作成する親フォルダ",
+		Memo:        "親フォルダはアプリ用Googleアカウントのみ共有する。ユーザー本人・管理者への共有は子フォルダ単位で同期する。",
+	},
+	{
+		LinkType:    "EXPENSE_RECEIPT_BOX",
+		LinkName:    "経費レシート格納先",
+		URL:         "https://drive.google.com/drive/folders/10II_cvD7lTlmX6OvcLpz8eZT3Shyp4NU",
+		Description: "経費申請でアップロードされた領収書画像を保存するGoogle Driveフォルダです。",
+		Memo:        "経費申請の領収書保存先。管理者設定画面から変更可能。",
+	},
+}

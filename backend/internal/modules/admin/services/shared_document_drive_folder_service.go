@@ -408,7 +408,10 @@ func (service *sharedDocumentDriveFolderService) UpdateSharedDocumentDriveFolder
  * 管理者全員: writer
  * 共有対象ユーザー: writer
  *
- * removeExtra = true で、共有対象から外れたユーザーのDrive権限も外す。
+ * 注意：
+ * ・共有資料フォルダ同期では、Timexeedで指定したユーザーに権限を追加/更新する
+ * ・Drive上に手動で付いている直接権限は削除しない
+ * ・完全同期で権限削除まで行いたい場合は、SyncPermissions の第4引数を true に戻す
  */
 func (service *sharedDocumentDriveFolderService) SyncSharedDocumentDriveFolder(req types.SyncSharedDocumentDriveFolderRequest) results.Result {
 	if service.googleDriveService == nil {
@@ -434,7 +437,7 @@ func (service *sharedDocumentDriveFolderService) SyncSharedDocumentDriveFolder(r
 		return permissionsResult
 	}
 
-	if err := service.googleDriveService.SyncPermissions(context.Background(), folder.DriveFolderID, permissions, true); err != nil {
+	if err := service.googleDriveService.SyncPermissions(context.Background(), folder.DriveFolderID, permissions, false); err != nil {
 		return results.InternalServerError(
 			"SYNC_SHARED_DOCUMENT_DRIVE_FOLDER_PERMISSIONS_FAILED",
 			"共有資料Driveフォルダの権限同期に失敗しました",
