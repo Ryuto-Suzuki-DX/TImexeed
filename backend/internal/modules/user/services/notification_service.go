@@ -1,8 +1,7 @@
 package services
 
 import (
-	"strings"
-
+	"timexeed/backend/internal/mail"
 	"timexeed/backend/internal/models"
 	"timexeed/backend/internal/modules/user/builders"
 	"timexeed/backend/internal/modules/user/repositories"
@@ -18,13 +17,12 @@ import (
  * 注意：
  * ・従業員APIでは userId / targetUserId をRequestで受け取らない
  * ・ControllerでAuthMiddleware由来のuserIdを取得し、Serviceへ渡す
- * ・通知作成系は公開APIではなく、月次申請などの内部処理から呼び出す
+ * ・通知作成系はControllerから直接呼ばず、月次勤怠申請などの内部処理から呼ぶ
  */
 type NotificationService interface {
 	SearchNotifications(userID uint, req types.SearchNotificationsRequest) results.Result
 	ReadNotification(userID uint, req types.ReadNotificationRequest) results.Result
 	CountUnreadNotifications(userID uint, req types.CountUnreadNotificationsRequest) results.Result
-
 	CreateNotificationForUser(userID uint, title string, message string) results.Result
 	CreateNotificationForAdmins(title string, message string) results.Result
 }
@@ -34,13 +32,13 @@ type NotificationService interface {
  *
  * 役割：
  * ・Controllerから受け取ったRequestをもとに処理を進める
- * ・月次申請などの内部処理から呼ばれた場合は通知を作成する
  * ・Serviceで発生したエラーはServiceでcode/message/detailsを作る
  * ・Builderで検索クエリや保存用Modelを作成する
  * ・Builderで発生したエラーはBuilderから返されたResultをそのまま返す
  * ・RepositoryでDB処理を実行する
  * ・Repositoryで発生したエラーはRepositoryから返されたResultをそのまま返す
  * ・成功時はResponse型に変換してControllerへ返す
+ * ・お知らせ作成後、可能であれば対象者へメール送信する
  *
  * 注意：
  * ・Controllerにはgin.Contextを渡さない
@@ -51,6 +49,7 @@ type NotificationService interface {
 type notificationService struct {
 	notificationBuilder    builders.NotificationBuilder
 	notificationRepository repositories.NotificationRepository
+	mailService            mail.MailService
 }
 
 /*
@@ -59,10 +58,12 @@ type notificationService struct {
 func NewNotificationService(
 	notificationBuilder builders.NotificationBuilder,
 	notificationRepository repositories.NotificationRepository,
+	mailService mail.MailService,
 ) *notificationService {
 	return &notificationService{
 		notificationBuilder:    notificationBuilder,
 		notificationRepository: notificationRepository,
+		mailService:            mailService,
 	}
 }
 
@@ -81,35 +82,26 @@ func toNotificationResponse(notification models.Notification) types.Notification
 }
 
 /*
- * 通知作成用文字列バリデーション
+ * お知らせメール送信
+ *
+ * 注意：
+ * ・メール送信は副処理
+ * ・メール送信に失敗しても、お知らせ作成自体は失敗にしない
  */
-func validateNotificationCreateText(
+func (service *notificationService) sendNotificationMail(
+	to string,
 	title string,
 	message string,
-	actionCode string,
-) results.Result {
-	if strings.TrimSpace(title) == "" {
-		return results.BadRequest(
-			actionCode+"_EMPTY_TITLE",
-			"お知らせタイトルを入力してください",
-			nil,
-		)
+) {
+	if service.mailService == nil {
+		return
 	}
 
-	if strings.TrimSpace(message) == "" {
-		return results.BadRequest(
-			actionCode+"_EMPTY_MESSAGE",
-			"お知らせ本文を入力してください",
-			nil,
-		)
+	if to == "" {
+		return
 	}
 
-	return results.OK(
-		nil,
-		actionCode+"_VALID_TEXT",
-		"",
-		nil,
-	)
+	service.mailService.SendNotificationMail(to, title, message)
 }
 
 /*
@@ -131,10 +123,6 @@ func (service *notificationService) SearchNotifications(
 
 	if req.Limit <= 0 {
 		req.Limit = 10
-	}
-
-	if req.Limit > 100 {
-		req.Limit = 100
 	}
 
 	if req.Offset < 0 {
@@ -296,12 +284,7 @@ func (service *notificationService) CountUnreadNotifications(
 /*
  * 個別ユーザー宛お知らせ作成
  *
- * 月次申請などの内部処理から、
- * 操作した本人へ控え通知を作成するときに使う。
- *
- * 注意：
- * ・公開APIではない
- * ・Controllerから直接呼ばない
+ * 月次勤怠申請/取り下げなど、内部処理から本人へ通知するときに使う。
  */
 func (service *notificationService) CreateNotificationForUser(
 	userID uint,
@@ -311,27 +294,25 @@ func (service *notificationService) CreateNotificationForUser(
 	if userID == 0 {
 		return results.BadRequest(
 			"CREATE_NOTIFICATION_FOR_USER_INVALID_USER_ID",
-			"通知先ユーザーIDが正しくありません",
+			"通知対象ユーザーIDが正しくありません",
 			map[string]any{
 				"userId": userID,
 			},
 		)
 	}
 
-	validateTextResult := validateNotificationCreateText(
-		title,
-		message,
-		"CREATE_NOTIFICATION_FOR_USER",
-	)
-	if validateTextResult.Error {
-		return validateTextResult
+	user, findUserResult := service.notificationRepository.FindUserByID(userID)
+	if findUserResult.Error {
+		return findUserResult
 	}
 
-	notification := models.Notification{
-		UserID:  userID,
-		Title:   strings.TrimSpace(title),
-		Message: strings.TrimSpace(message),
-		IsRead:  false,
+	notification, buildResult := service.notificationBuilder.BuildCreateNotificationForUserModel(
+		userID,
+		title,
+		message,
+	)
+	if buildResult.Error {
+		return buildResult
 	}
 
 	createdNotifications, createResult := service.notificationRepository.CreateNotifications(
@@ -341,10 +322,12 @@ func (service *notificationService) CreateNotificationForUser(
 		return createResult
 	}
 
+	service.sendNotificationMail(user.Email, title, message)
+
 	return results.Created(
-		types.CreateNotificationForUserResponse{
-			UserID:       userID,
-			CreatedCount: len(createdNotifications),
+		map[string]any{
+			"createdCount": len(createdNotifications),
+			"userId":       userID,
 		},
 		"CREATE_NOTIFICATION_FOR_USER_SUCCESS",
 		"ユーザー宛のお知らせを作成しました",
@@ -355,52 +338,24 @@ func (service *notificationService) CreateNotificationForUser(
 /*
  * 管理者全員宛お知らせ作成
  *
- * 月次申請などの内部処理から、
- * 有効なADMINロール全員へ通知を作成するときに使う。
- *
- * 注意：
- * ・公開APIではない
- * ・Controllerから直接呼ばない
- * ・管理者が0人の場合でも主処理を止めないため成功扱いにする
+ * 月次勤怠申請/取り下げなど、内部処理から管理者へ通知するときに使う。
  */
 func (service *notificationService) CreateNotificationForAdmins(
 	title string,
 	message string,
 ) results.Result {
-	validateTextResult := validateNotificationCreateText(
-		title,
-		message,
-		"CREATE_NOTIFICATION_FOR_ADMINS",
-	)
-	if validateTextResult.Error {
-		return validateTextResult
-	}
-
 	admins, findAdminsResult := service.notificationRepository.FindActiveAdmins()
 	if findAdminsResult.Error {
 		return findAdminsResult
 	}
 
-	if len(admins) == 0 {
-		return results.OK(
-			types.CreateNotificationForAdminsResponse{
-				AdminCount:   0,
-				CreatedCount: 0,
-			},
-			"CREATE_NOTIFICATION_FOR_ADMINS_SKIPPED_NO_ADMINS",
-			"通知先管理者が存在しないため、管理者宛のお知らせ作成をスキップしました",
-			nil,
-		)
-	}
-
-	notifications := make([]models.Notification, 0, len(admins))
-	for _, admin := range admins {
-		notifications = append(notifications, models.Notification{
-			UserID:  admin.ID,
-			Title:   strings.TrimSpace(title),
-			Message: strings.TrimSpace(message),
-			IsRead:  false,
-		})
+	notifications, buildResult := service.notificationBuilder.BuildCreateNotificationsForUsersModels(
+		admins,
+		title,
+		message,
+	)
+	if buildResult.Error {
+		return buildResult
 	}
 
 	createdNotifications, createResult := service.notificationRepository.CreateNotifications(notifications)
@@ -408,10 +363,13 @@ func (service *notificationService) CreateNotificationForAdmins(
 		return createResult
 	}
 
+	for _, admin := range admins {
+		service.sendNotificationMail(admin.Email, title, message)
+	}
+
 	return results.Created(
-		types.CreateNotificationForAdminsResponse{
-			AdminCount:   len(admins),
-			CreatedCount: len(createdNotifications),
+		map[string]any{
+			"createdCount": len(createdNotifications),
 		},
 		"CREATE_NOTIFICATION_FOR_ADMINS_SUCCESS",
 		"管理者宛のお知らせを作成しました",

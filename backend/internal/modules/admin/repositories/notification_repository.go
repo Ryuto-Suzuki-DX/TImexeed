@@ -20,6 +20,7 @@ type NotificationRepository interface {
 	SaveNotification(notification models.Notification) (models.Notification, results.Result)
 	CountNotifications(query *gorm.DB) (int64, results.Result)
 
+	FindUserByID(userID uint) (models.User, results.Result)
 	FindActiveUsers() ([]models.User, results.Result)
 	CreateNotifications(notifications []models.Notification) ([]models.Notification, results.Result)
 }
@@ -179,6 +180,52 @@ func (repository *notificationRepository) CountNotifications(query *gorm.DB) (in
 }
 
 /*
+ * ユーザー1件取得
+ *
+ * 個別お知らせ作成後のメール送信先メールアドレス取得で使う。
+ */
+func (repository *notificationRepository) FindUserByID(userID uint) (models.User, results.Result) {
+	if userID == 0 {
+		return models.User{}, results.InternalServerError(
+			"FIND_NOTIFICATION_USER_EMPTY_USER_ID",
+			"通知対象ユーザーの取得に失敗しました",
+			nil,
+		)
+	}
+
+	var user models.User
+
+	if err := repository.db.
+		Model(&models.User{}).
+		Where("id = ?", userID).
+		Where("is_deleted = ?", false).
+		First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.User{}, results.NotFound(
+				"NOTIFICATION_USER_NOT_FOUND",
+				"通知対象ユーザーが見つかりません",
+				map[string]any{
+					"userId": userID,
+				},
+			)
+		}
+
+		return models.User{}, results.InternalServerError(
+			"FIND_NOTIFICATION_USER_FAILED",
+			"通知対象ユーザーの取得に失敗しました",
+			err.Error(),
+		)
+	}
+
+	return user, results.OK(
+		nil,
+		"FIND_NOTIFICATION_USER_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
  * 有効ユーザー一覧取得
  *
  * 全員宛お知らせ作成で使う。
@@ -213,7 +260,7 @@ func (repository *notificationRepository) FindActiveUsers() ([]models.User, resu
 /*
  * お知らせ一括作成
  *
- * 全員宛お知らせ作成で使う。
+ * 全員宛お知らせ作成、個別ユーザー宛お知らせ作成で使う。
  */
 func (repository *notificationRepository) CreateNotifications(
 	notifications []models.Notification,

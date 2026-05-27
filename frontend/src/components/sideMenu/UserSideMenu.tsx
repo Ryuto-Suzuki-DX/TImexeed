@@ -31,7 +31,15 @@ export default function UserSideMenu() {
     { label: "共有資料(FAQ)", href: "/user/shared-document-drive-folders" },
     { label: "設定", href: "/user/settings" },
     {
-      label: unreadNotificationCount > 0 ? "お知らせ NEW!" : "お知らせ",
+      label:
+        unreadNotificationCount > 0 ? (
+          <>
+            お知らせ{" "}
+            <span style={{ color: "#dc2626", fontWeight: "bold" }}>NEW!</span>
+          </>
+        ) : (
+          "お知らせ"
+        ),
       href: "/user/notifications",
     },
   ];

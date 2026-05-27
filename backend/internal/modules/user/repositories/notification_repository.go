@@ -20,6 +20,7 @@ type NotificationRepository interface {
 	SaveNotification(notification models.Notification) (models.Notification, results.Result)
 	CountNotifications(query *gorm.DB) (int64, results.Result)
 
+	FindUserByID(userID uint) (models.User, results.Result)
 	FindActiveAdmins() ([]models.User, results.Result)
 	CreateNotifications(notifications []models.Notification) ([]models.Notification, results.Result)
 }
@@ -35,7 +36,7 @@ type NotificationRepository interface {
  * 注意：
  * ・検索条件や業務ルールは作らない
  * ・クエリ作成はBuilderに任せる
- * ・既読更新可否、通知作成可否などはServiceに任せる
+ * ・既読更新可否などはServiceに任せる
  */
 type notificationRepository struct {
 	db *gorm.DB
@@ -179,26 +180,72 @@ func (repository *notificationRepository) CountNotifications(query *gorm.DB) (in
 }
 
 /*
+ * ユーザー1件取得
+ *
+ * 本人宛お知らせ作成後のメール送信先メールアドレス取得で使う。
+ */
+func (repository *notificationRepository) FindUserByID(userID uint) (models.User, results.Result) {
+	if userID == 0 {
+		return models.User{}, results.InternalServerError(
+			"FIND_NOTIFICATION_USER_EMPTY_USER_ID",
+			"通知対象ユーザーの取得に失敗しました",
+			nil,
+		)
+	}
+
+	var user models.User
+
+	if err := repository.db.
+		Model(&models.User{}).
+		Where("id = ?", userID).
+		Where("is_deleted = ?", false).
+		First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.User{}, results.NotFound(
+				"NOTIFICATION_USER_NOT_FOUND",
+				"通知対象ユーザーが見つかりません",
+				map[string]any{
+					"userId": userID,
+				},
+			)
+		}
+
+		return models.User{}, results.InternalServerError(
+			"FIND_NOTIFICATION_USER_FAILED",
+			"通知対象ユーザーの取得に失敗しました",
+			err.Error(),
+		)
+	}
+
+	return user, results.OK(
+		nil,
+		"FIND_NOTIFICATION_USER_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
  * 有効管理者一覧取得
  *
- * ユーザー側の月次申請・取り下げなどから、
- * 管理者全員へ通知を作成するときに使う。
+ * ユーザー操作から管理者へ通知するときに使う。
  *
  * 注意：
- * ・通知の宛先として使うため、論理削除済み管理者は対象外
- * ・管理者が0件でもRepositoryとしては成功扱いにする
+ * ・ADMINロールだけを対象にする
+ * ・論理削除済みユーザーは対象外
  */
 func (repository *notificationRepository) FindActiveAdmins() ([]models.User, results.Result) {
 	var admins []models.User
 
 	if err := repository.db.
 		Model(&models.User{}).
-		Where("role = ? AND is_deleted = ?", "ADMIN", false).
+		Where("role = ?", "ADMIN").
+		Where("is_deleted = ?", false).
 		Order("id ASC").
 		Find(&admins).Error; err != nil {
 		return nil, results.InternalServerError(
 			"FIND_ACTIVE_ADMINS_FAILED",
-			"通知先管理者の取得に失敗しました",
+			"通知対象管理者の取得に失敗しました",
 			err.Error(),
 		)
 	}
@@ -214,8 +261,7 @@ func (repository *notificationRepository) FindActiveAdmins() ([]models.User, res
 /*
  * お知らせ一括作成
  *
- * 月次申請・取り下げなどの内部処理から、
- * 本人宛や管理者宛の通知を作成するときに使う。
+ * 本人宛お知らせ作成、管理者宛お知らせ作成で使う。
  */
 func (repository *notificationRepository) CreateNotifications(
 	notifications []models.Notification,

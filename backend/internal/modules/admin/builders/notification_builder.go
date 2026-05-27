@@ -19,14 +19,14 @@ import (
 type NotificationBuilder interface {
 	BuildSearchNotificationsQuery(userID uint, req types.SearchNotificationsRequest) (*gorm.DB, results.Result)
 	BuildCountSearchNotificationsQuery(userID uint, req types.SearchNotificationsRequest) (*gorm.DB, results.Result)
-	BuildFindNotificationByUserIDAndIDQuery(userID uint, notificationID uint) (*gorm.DB, results.Result)
-	BuildReadNotificationModel(currentNotification models.Notification) (models.Notification, results.Result)
 	BuildCountUnreadNotificationsQuery(userID uint) (*gorm.DB, results.Result)
-
+	BuildFindNotificationByUserIDAndIDQuery(userID uint, notificationID uint) (*gorm.DB, results.Result)
+	BuildFindNotificationByIDQuery(notificationID uint) (*gorm.DB, results.Result)
+	BuildReadNotificationModel(currentNotification models.Notification) (models.Notification, results.Result)
+	BuildDeleteNotificationModel(currentNotification models.Notification) (models.Notification, results.Result)
 	BuildCreateNotificationsForAllUsersModels(users []models.User, req types.CreateNotificationForAllUsersRequest) ([]models.Notification, results.Result)
 	BuildCreateNotificationForUserModel(userID uint, title string, message string) (models.Notification, results.Result)
-	BuildFindNotificationByIDQuery(notificationID uint) (*gorm.DB, results.Result)
-	BuildDeleteNotificationModel(currentNotification models.Notification) (models.Notification, results.Result)
+	BuildCreateNotificationsForUsersModels(users []models.User, title string, message string) ([]models.Notification, results.Result)
 }
 
 /*
@@ -34,14 +34,13 @@ type NotificationBuilder interface {
  *
  * 役割：
  * ・Serviceから受け取った値をもとにGORMクエリを作成する
- * ・Serviceから受け取ったModelをもとにDB保存用Modelを作成する
+ * ・Serviceから受け取った値をもとにDB保存用Modelを作成する
  * ・Builder内で発生したエラーはBuilderでcode/message/detailsを作って返す
  *
  * 注意：
- * ・DB実行はしない
- * ・Find / Save / Create はRepositoryに任せる
- * ・管理者本人宛のお知らせ取得では、userIDはJWTから取得した管理者IDを使う
- * ・全員宛作成では、Service/Repositoryで取得した有効ユーザー一覧をもとにnotificationsを作成する
+ * ・DBアクセスはしない
+ * ・query.Find / query.First / db.Create / db.Save はRepositoryで行う
+ * ・業務処理の流れはServiceに任せる
  */
 type notificationBuilder struct {
 	db *gorm.DB
@@ -55,21 +54,79 @@ func NewNotificationBuilder(db *gorm.DB) NotificationBuilder {
 }
 
 /*
- * お知らせ検索用の基本クエリ作成
+ * お知らせ検索用Query作成
  *
- * 一覧取得用クエリと件数取得用クエリで同じ検索条件を使う。
+ * ログイン中管理者本人のお知らせだけを取得する。
  */
-func (builder *notificationBuilder) buildSearchNotificationsBaseQuery(
+func (builder *notificationBuilder) BuildSearchNotificationsQuery(
 	userID uint,
 	req types.SearchNotificationsRequest,
 ) (*gorm.DB, results.Result) {
-	if userID == 0 {
-		return nil, results.BadRequest(
-			"BUILD_SEARCH_NOTIFICATIONS_QUERY_INVALID_USER_ID",
+	if builder.db == nil {
+		return nil, results.InternalServerError(
+			"BUILD_SEARCH_NOTIFICATIONS_QUERY_DB_IS_NIL",
 			"お知らせ検索条件の作成に失敗しました",
-			map[string]any{
-				"userId": userID,
-			},
+			nil,
+		)
+	}
+
+	if userID == 0 {
+		return nil, results.Unauthorized(
+			"BUILD_SEARCH_NOTIFICATIONS_QUERY_INVALID_USER_ID",
+			"認証情報のユーザーIDが正しくありません",
+			nil,
+		)
+	}
+
+	query := builder.db.
+		Model(&models.Notification{}).
+		Where("user_id = ?", userID).
+		Where("is_deleted = ?", false)
+
+	keyword := strings.TrimSpace(req.Keyword)
+	if keyword != "" {
+		likeKeyword := "%" + keyword + "%"
+		query = query.Where(
+			"(title ILIKE ? OR message ILIKE ?)",
+			likeKeyword,
+			likeKeyword,
+		)
+	}
+
+	query = query.
+		Order("created_at DESC").
+		Order("id DESC").
+		Offset(req.Offset).
+		Limit(req.Limit)
+
+	return query, results.OK(
+		nil,
+		"BUILD_SEARCH_NOTIFICATIONS_QUERY_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * お知らせ検索件数取得用Query作成
+ */
+func (builder *notificationBuilder) BuildCountSearchNotificationsQuery(
+	userID uint,
+	req types.SearchNotificationsRequest,
+) (*gorm.DB, results.Result) {
+	if builder.db == nil {
+		return nil, results.InternalServerError(
+			"BUILD_COUNT_SEARCH_NOTIFICATIONS_QUERY_DB_IS_NIL",
+			"お知らせ検索件数条件の作成に失敗しました",
+			nil,
+		)
+	}
+
+	if userID == 0 {
+		return nil, results.Unauthorized(
+			"BUILD_COUNT_SEARCH_NOTIFICATIONS_QUERY_INVALID_USER_ID",
+			"認証情報のユーザーIDが正しくありません",
+			nil,
 		)
 	}
 
@@ -90,83 +147,6 @@ func (builder *notificationBuilder) buildSearchNotificationsBaseQuery(
 
 	return query, results.OK(
 		nil,
-		"BUILD_SEARCH_NOTIFICATIONS_BASE_QUERY_SUCCESS",
-		"",
-		nil,
-	)
-}
-
-/*
- * お知らせ検索用クエリ作成
- *
- * ログイン中管理者本人のお知らせ一覧を取得する。
- *
- * 注意：
- * ・userID はJWTから取得したログイン中管理者ID
- * ・フロントから userId / targetUserId は受け取らない
- * ・論理削除済みのお知らせは対象外
- * ・keyword がある場合は title / message を部分一致検索する
- * ・新しいお知らせから順に取得する
- */
-func (builder *notificationBuilder) BuildSearchNotificationsQuery(
-	userID uint,
-	req types.SearchNotificationsRequest,
-) (*gorm.DB, results.Result) {
-	if req.Limit <= 0 {
-		return nil, results.BadRequest(
-			"BUILD_SEARCH_NOTIFICATIONS_QUERY_INVALID_LIMIT",
-			"お知らせ検索条件の作成に失敗しました",
-			map[string]any{
-				"limit": req.Limit,
-			},
-		)
-	}
-
-	if req.Offset < 0 {
-		return nil, results.BadRequest(
-			"BUILD_SEARCH_NOTIFICATIONS_QUERY_INVALID_OFFSET",
-			"お知らせ検索条件の作成に失敗しました",
-			map[string]any{
-				"offset": req.Offset,
-			},
-		)
-	}
-
-	query, buildResult := builder.buildSearchNotificationsBaseQuery(userID, req)
-	if buildResult.Error {
-		return nil, buildResult
-	}
-
-	query = query.
-		Order("created_at DESC").
-		Order("id DESC").
-		Limit(req.Limit).
-		Offset(req.Offset)
-
-	return query, results.OK(
-		nil,
-		"BUILD_SEARCH_NOTIFICATIONS_QUERY_SUCCESS",
-		"",
-		nil,
-	)
-}
-
-/*
- * お知らせ検索件数取得用クエリ作成
- *
- * 検索条件に一致する総件数を取得する。
- */
-func (builder *notificationBuilder) BuildCountSearchNotificationsQuery(
-	userID uint,
-	req types.SearchNotificationsRequest,
-) (*gorm.DB, results.Result) {
-	query, buildResult := builder.buildSearchNotificationsBaseQuery(userID, req)
-	if buildResult.Error {
-		return nil, buildResult
-	}
-
-	return query, results.OK(
-		nil,
 		"BUILD_COUNT_SEARCH_NOTIFICATIONS_QUERY_SUCCESS",
 		"",
 		nil,
@@ -174,111 +154,26 @@ func (builder *notificationBuilder) BuildCountSearchNotificationsQuery(
 }
 
 /*
- * ユーザーID + お知らせIDでお知らせ1件取得用クエリ作成
- *
- * 既読更新時に使う。
- *
- * 注意：
- * ・userID はJWTから取得したログイン中管理者ID
- * ・notificationID はフロントから受け取ったお知らせID
- * ・ログイン中管理者本人のお知らせだけを対象にする
- * ・論理削除済みのお知らせは対象外
- */
-func (builder *notificationBuilder) BuildFindNotificationByUserIDAndIDQuery(
-	userID uint,
-	notificationID uint,
-) (*gorm.DB, results.Result) {
-	if userID == 0 {
-		return nil, results.BadRequest(
-			"BUILD_FIND_NOTIFICATION_QUERY_INVALID_USER_ID",
-			"お知らせ取得条件の作成に失敗しました",
-			map[string]any{
-				"userId": userID,
-			},
-		)
-	}
-
-	if notificationID == 0 {
-		return nil, results.BadRequest(
-			"BUILD_FIND_NOTIFICATION_QUERY_INVALID_NOTIFICATION_ID",
-			"お知らせ取得条件の作成に失敗しました",
-			map[string]any{
-				"notificationId": notificationID,
-			},
-		)
-	}
-
-	query := builder.db.
-		Model(&models.Notification{}).
-		Where("id = ?", notificationID).
-		Where("user_id = ?", userID).
-		Where("is_deleted = ?", false)
-
-	return query, results.OK(
-		nil,
-		"BUILD_FIND_NOTIFICATION_QUERY_SUCCESS",
-		"",
-		nil,
-	)
-}
-
-/*
- * お知らせ既読更新用Model作成
- */
-func (builder *notificationBuilder) BuildReadNotificationModel(
-	currentNotification models.Notification,
-) (models.Notification, results.Result) {
-	if currentNotification.ID == 0 {
-		return models.Notification{}, results.BadRequest(
-			"BUILD_READ_NOTIFICATION_MODEL_EMPTY_CURRENT_NOTIFICATION",
-			"お知らせ既読更新データの作成に失敗しました",
-			nil,
-		)
-	}
-
-	if currentNotification.IsRead {
-		return currentNotification, results.OK(
-			nil,
-			"BUILD_READ_NOTIFICATION_MODEL_ALREADY_READ",
-			"",
-			nil,
-		)
-	}
-
-	now := time.Now()
-
-	currentNotification.IsRead = true
-	currentNotification.ReadAt = &now
-
-	return currentNotification, results.OK(
-		nil,
-		"BUILD_READ_NOTIFICATION_MODEL_SUCCESS",
-		"",
-		nil,
-	)
-}
-
-/*
- * 未読お知らせ件数取得用クエリ作成
+ * 未読お知らせ件数取得用Query作成
  *
  * ログイン中管理者本人の未読お知らせ件数を取得する。
- *
- * 注意：
- * ・userID はJWTから取得したログイン中管理者ID
- * ・フロントから userId / targetUserId は受け取らない
- * ・論理削除済みのお知らせは対象外
- * ・is_read = false のお知らせだけを対象にする
  */
 func (builder *notificationBuilder) BuildCountUnreadNotificationsQuery(
 	userID uint,
 ) (*gorm.DB, results.Result) {
+	if builder.db == nil {
+		return nil, results.InternalServerError(
+			"BUILD_COUNT_UNREAD_NOTIFICATIONS_QUERY_DB_IS_NIL",
+			"未読お知らせ件数条件の作成に失敗しました",
+			nil,
+		)
+	}
+
 	if userID == 0 {
-		return nil, results.BadRequest(
+		return nil, results.Unauthorized(
 			"BUILD_COUNT_UNREAD_NOTIFICATIONS_QUERY_INVALID_USER_ID",
-			"未読お知らせ件数取得条件の作成に失敗しました",
-			map[string]any{
-				"userId": userID,
-			},
+			"認証情報のユーザーIDが正しくありません",
+			nil,
 		)
 	}
 
@@ -297,153 +192,74 @@ func (builder *notificationBuilder) BuildCountUnreadNotificationsQuery(
 }
 
 /*
- * 全員宛お知らせ作成用Model配列作成
+ * userID + notificationID でお知らせ1件取得用Query作成
  *
- * 管理者が作成したお知らせを、全有効アカウント分のnotificationsとして作成する。
- *
- * 注意：
- * ・users はRepositoryで取得した is_deleted = false のユーザー一覧
- * ・USERだけでなくADMINも対象に含める
- * ・1ユーザーにつき1件のNotificationを作成する
- * ・既読状態は未読で作成する
+ * 管理者本人のお知らせ既読更新で使う。
  */
-func (builder *notificationBuilder) BuildCreateNotificationsForAllUsersModels(
-	users []models.User,
-	req types.CreateNotificationForAllUsersRequest,
-) ([]models.Notification, results.Result) {
-	if req.Title == "" {
-		return nil, results.BadRequest(
-			"BUILD_CREATE_NOTIFICATIONS_FOR_ALL_USERS_MODELS_EMPTY_TITLE",
-			"お知らせ作成データの作成に失敗しました",
-			nil,
-		)
-	}
-
-	if req.Message == "" {
-		return nil, results.BadRequest(
-			"BUILD_CREATE_NOTIFICATIONS_FOR_ALL_USERS_MODELS_EMPTY_MESSAGE",
-			"お知らせ作成データの作成に失敗しました",
-			nil,
-		)
-	}
-
-	if len(users) == 0 {
-		return nil, results.BadRequest(
-			"BUILD_CREATE_NOTIFICATIONS_FOR_ALL_USERS_MODELS_EMPTY_USERS",
-			"お知らせ作成対象のユーザーが存在しません",
-			nil,
-		)
-	}
-
-	notifications := make([]models.Notification, 0, len(users))
-
-	for _, user := range users {
-		if user.ID == 0 {
-			continue
-		}
-
-		notifications = append(notifications, models.Notification{
-			UserID:    user.ID,
-			Title:     req.Title,
-			Message:   req.Message,
-			IsRead:    false,
-			IsDeleted: false,
-		})
-	}
-
-	if len(notifications) == 0 {
-		return nil, results.BadRequest(
-			"BUILD_CREATE_NOTIFICATIONS_FOR_ALL_USERS_MODELS_EMPTY_NOTIFICATIONS",
-			"作成可能なお知らせデータがありません",
-			nil,
-		)
-	}
-
-	return notifications, results.OK(
-		nil,
-		"BUILD_CREATE_NOTIFICATIONS_FOR_ALL_USERS_MODELS_SUCCESS",
-		"",
-		nil,
-	)
-}
-
-/*
- * 個別ユーザー宛お知らせ作成用Model作成
- *
- * 月次勤怠承認・否認など、内部処理から特定ユーザーへ通知するときに使う。
- *
- * 注意：
- * ・API Request型には依存しない
- * ・1ユーザーにつき1件のNotificationを作成する
- * ・既読状態は未読で作成する
- */
-func (builder *notificationBuilder) BuildCreateNotificationForUserModel(
+func (builder *notificationBuilder) BuildFindNotificationByUserIDAndIDQuery(
 	userID uint,
-	title string,
-	message string,
-) (models.Notification, results.Result) {
+	notificationID uint,
+) (*gorm.DB, results.Result) {
+	if builder.db == nil {
+		return nil, results.InternalServerError(
+			"BUILD_FIND_NOTIFICATION_BY_USER_ID_AND_ID_QUERY_DB_IS_NIL",
+			"お知らせ取得条件の作成に失敗しました",
+			nil,
+		)
+	}
+
 	if userID == 0 {
-		return models.Notification{}, results.BadRequest(
-			"BUILD_CREATE_NOTIFICATION_FOR_USER_MODEL_INVALID_USER_ID",
-			"お知らせ作成データの作成に失敗しました",
+		return nil, results.Unauthorized(
+			"BUILD_FIND_NOTIFICATION_BY_USER_ID_AND_ID_QUERY_INVALID_USER_ID",
+			"認証情報のユーザーIDが正しくありません",
+			nil,
+		)
+	}
+
+	if notificationID == 0 {
+		return nil, results.BadRequest(
+			"BUILD_FIND_NOTIFICATION_BY_USER_ID_AND_ID_QUERY_INVALID_NOTIFICATION_ID",
+			"お知らせIDが正しくありません",
 			map[string]any{
-				"userId": userID,
+				"notificationId": notificationID,
 			},
 		)
 	}
 
-	trimmedTitle := strings.TrimSpace(title)
-	if trimmedTitle == "" {
-		return models.Notification{}, results.BadRequest(
-			"BUILD_CREATE_NOTIFICATION_FOR_USER_MODEL_EMPTY_TITLE",
-			"お知らせタイトルを入力してください",
-			nil,
-		)
-	}
+	query := builder.db.
+		Model(&models.Notification{}).
+		Where("user_id = ?", userID).
+		Where("id = ?", notificationID).
+		Where("is_deleted = ?", false)
 
-	trimmedMessage := strings.TrimSpace(message)
-	if trimmedMessage == "" {
-		return models.Notification{}, results.BadRequest(
-			"BUILD_CREATE_NOTIFICATION_FOR_USER_MODEL_EMPTY_MESSAGE",
-			"お知らせ本文を入力してください",
-			nil,
-		)
-	}
-
-	notification := models.Notification{
-		UserID:    userID,
-		Title:     trimmedTitle,
-		Message:   trimmedMessage,
-		IsRead:    false,
-		ReadAt:    nil,
-		IsDeleted: false,
-		DeletedAt: nil,
-	}
-
-	return notification, results.OK(
+	return query, results.OK(
 		nil,
-		"BUILD_CREATE_NOTIFICATION_FOR_USER_MODEL_SUCCESS",
+		"BUILD_FIND_NOTIFICATION_BY_USER_ID_AND_ID_QUERY_SUCCESS",
 		"",
 		nil,
 	)
 }
 
 /*
- * お知らせIDでお知らせ1件取得用クエリ作成
+ * notificationID でお知らせ1件取得用Query作成
  *
- * 管理者による削除時に使う。
- *
- * 注意：
- * ・削除は管理者機能なので、user_idでは絞らない
- * ・論理削除済みのお知らせは対象外
+ * 管理者による論理削除で使う。
  */
 func (builder *notificationBuilder) BuildFindNotificationByIDQuery(
 	notificationID uint,
 ) (*gorm.DB, results.Result) {
+	if builder.db == nil {
+		return nil, results.InternalServerError(
+			"BUILD_FIND_NOTIFICATION_BY_ID_QUERY_DB_IS_NIL",
+			"お知らせ取得条件の作成に失敗しました",
+			nil,
+		)
+	}
+
 	if notificationID == 0 {
 		return nil, results.BadRequest(
 			"BUILD_FIND_NOTIFICATION_BY_ID_QUERY_INVALID_NOTIFICATION_ID",
-			"お知らせ取得条件の作成に失敗しました",
+			"お知らせIDが正しくありません",
 			map[string]any{
 				"notificationId": notificationID,
 			},
@@ -464,43 +280,184 @@ func (builder *notificationBuilder) BuildFindNotificationByIDQuery(
 }
 
 /*
- * お知らせ削除用Model作成
- *
- * 管理者がお知らせを論理削除する。
- *
- * 注意：
- * ・物理削除はしない
- * ・is_deleted = true にする
- * ・deleted_at を設定する
+ * 既読更新用Model作成
  */
-func (builder *notificationBuilder) BuildDeleteNotificationModel(
+func (builder *notificationBuilder) BuildReadNotificationModel(
 	currentNotification models.Notification,
 ) (models.Notification, results.Result) {
 	if currentNotification.ID == 0 {
-		return models.Notification{}, results.BadRequest(
-			"BUILD_DELETE_NOTIFICATION_MODEL_EMPTY_CURRENT_NOTIFICATION",
-			"お知らせ削除データの作成に失敗しました",
-			nil,
-		)
-	}
-
-	if currentNotification.IsDeleted {
-		return currentNotification, results.OK(
-			nil,
-			"BUILD_DELETE_NOTIFICATION_MODEL_ALREADY_DELETED",
-			"",
+		return models.Notification{}, results.InternalServerError(
+			"BUILD_READ_NOTIFICATION_MODEL_EMPTY_ID",
+			"お知らせ既読更新情報の作成に失敗しました",
 			nil,
 		)
 	}
 
 	now := time.Now()
+	currentNotification.IsRead = true
+	currentNotification.ReadAt = &now
 
+	return currentNotification, results.OK(
+		nil,
+		"BUILD_READ_NOTIFICATION_MODEL_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 論理削除用Model作成
+ */
+func (builder *notificationBuilder) BuildDeleteNotificationModel(
+	currentNotification models.Notification,
+) (models.Notification, results.Result) {
+	if currentNotification.ID == 0 {
+		return models.Notification{}, results.InternalServerError(
+			"BUILD_DELETE_NOTIFICATION_MODEL_EMPTY_ID",
+			"お知らせ削除情報の作成に失敗しました",
+			nil,
+		)
+	}
+
+	now := time.Now()
 	currentNotification.IsDeleted = true
 	currentNotification.DeletedAt = &now
 
 	return currentNotification, results.OK(
 		nil,
 		"BUILD_DELETE_NOTIFICATION_MODEL_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 全員宛お知らせ作成用Models作成
+ */
+func (builder *notificationBuilder) BuildCreateNotificationsForAllUsersModels(
+	users []models.User,
+	req types.CreateNotificationForAllUsersRequest,
+) ([]models.Notification, results.Result) {
+	return builder.BuildCreateNotificationsForUsersModels(
+		users,
+		req.Title,
+		req.Message,
+	)
+}
+
+/*
+ * 個別ユーザー宛お知らせ作成用Model作成
+ */
+func (builder *notificationBuilder) BuildCreateNotificationForUserModel(
+	userID uint,
+	title string,
+	message string,
+) (models.Notification, results.Result) {
+	title = strings.TrimSpace(title)
+	message = strings.TrimSpace(message)
+
+	if userID == 0 {
+		return models.Notification{}, results.BadRequest(
+			"BUILD_CREATE_NOTIFICATION_FOR_USER_MODEL_INVALID_USER_ID",
+			"通知対象ユーザーIDが正しくありません",
+			map[string]any{
+				"userId": userID,
+			},
+		)
+	}
+
+	if title == "" {
+		return models.Notification{}, results.BadRequest(
+			"BUILD_CREATE_NOTIFICATION_FOR_USER_MODEL_EMPTY_TITLE",
+			"お知らせタイトルを入力してください",
+			nil,
+		)
+	}
+
+	if message == "" {
+		return models.Notification{}, results.BadRequest(
+			"BUILD_CREATE_NOTIFICATION_FOR_USER_MODEL_EMPTY_MESSAGE",
+			"お知らせ本文を入力してください",
+			nil,
+		)
+	}
+
+	return models.Notification{
+			UserID:    userID,
+			Title:     title,
+			Message:   message,
+			IsRead:    false,
+			IsDeleted: false,
+		}, results.OK(
+			nil,
+			"BUILD_CREATE_NOTIFICATION_FOR_USER_MODEL_SUCCESS",
+			"",
+			nil,
+		)
+}
+
+/*
+ * 複数ユーザー宛お知らせ作成用Models作成
+ */
+func (builder *notificationBuilder) BuildCreateNotificationsForUsersModels(
+	users []models.User,
+	title string,
+	message string,
+) ([]models.Notification, results.Result) {
+	title = strings.TrimSpace(title)
+	message = strings.TrimSpace(message)
+
+	if len(users) == 0 {
+		return nil, results.BadRequest(
+			"BUILD_CREATE_NOTIFICATIONS_FOR_USERS_MODELS_EMPTY_USERS",
+			"通知対象ユーザーが存在しません",
+			nil,
+		)
+	}
+
+	if title == "" {
+		return nil, results.BadRequest(
+			"BUILD_CREATE_NOTIFICATIONS_FOR_USERS_MODELS_EMPTY_TITLE",
+			"お知らせタイトルを入力してください",
+			nil,
+		)
+	}
+
+	if message == "" {
+		return nil, results.BadRequest(
+			"BUILD_CREATE_NOTIFICATIONS_FOR_USERS_MODELS_EMPTY_MESSAGE",
+			"お知らせ本文を入力してください",
+			nil,
+		)
+	}
+
+	notifications := make([]models.Notification, 0, len(users))
+
+	for _, user := range users {
+		if user.ID == 0 {
+			continue
+		}
+
+		notifications = append(notifications, models.Notification{
+			UserID:    user.ID,
+			Title:     title,
+			Message:   message,
+			IsRead:    false,
+			IsDeleted: false,
+		})
+	}
+
+	if len(notifications) == 0 {
+		return nil, results.BadRequest(
+			"BUILD_CREATE_NOTIFICATIONS_FOR_USERS_MODELS_EMPTY_NOTIFICATIONS",
+			"作成対象のお知らせが存在しません",
+			nil,
+		)
+	}
+
+	return notifications, results.OK(
+		nil,
+		"BUILD_CREATE_NOTIFICATIONS_FOR_USERS_MODELS_SUCCESS",
 		"",
 		nil,
 	)

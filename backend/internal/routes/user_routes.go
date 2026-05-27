@@ -3,6 +3,7 @@ package routes
 import (
 	"context"
 
+	"timexeed/backend/internal/mail"
 	"timexeed/backend/internal/middlewares"
 	"timexeed/backend/internal/storage"
 
@@ -26,15 +27,24 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	attendanceTypeService := services.NewAttendanceTypeService(attendanceTypeBuilder, attendanceTypeRepository)
 	attendanceTypeController := controllers.NewAttendanceTypeController(attendanceTypeService)
 
+	// メール送信
+	//
+	// 注意：
+	// ・環境変数が未設定でもアプリ起動自体は止めない
+	// ・未設定の場合、メール送信はスキップされる
+	// ・お知らせ作成後のメール送信で使用する
+	mailService, _ := mail.NewGmailMailServiceFromEnv(context.Background())
+
 	// お知らせ機能
 	//
 	// 注意：
 	// ・月次勤怠申請Serviceでも通知作成に使うため、月次勤怠申請Serviceより先に生成する
 	// ・従業員側Controllerでは検索/既読/未読件数のみを公開する
 	// ・通知作成はフロントから直接呼ばず、バックエンド内部処理からService経由で行う
+	// ・通知作成後のメール送信でmailServiceを使用する
 	notificationBuilder := builders.NewNotificationBuilder(db)
 	notificationRepository := repositories.NewNotificationRepository(db)
-	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository)
+	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository, mailService)
 	notificationController := controllers.NewNotificationController(notificationService)
 
 	// 月次勤怠申請
