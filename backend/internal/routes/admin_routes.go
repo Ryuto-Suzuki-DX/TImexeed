@@ -27,18 +27,6 @@ import (
  * ルール：
  * 	URLにIDを載せない。
  * 	targetUserId や attendanceId などは request body で受け取る。
- *
- * 管理者APIで扱うID：
- * 	操作している管理者本人のID
- * 		→ JWTから取得する
- *
- * 	操作対象のユーザーID
- * 		→ request body の targetUserId / targetUserIds で受け取る
- *
- * 管理者勤怠API方針：
- * 	従業員APIと同じ粒度でAPIを分離する。
- * 	ただし、対象ユーザーはJWTからではなく request body の targetUserId で受け取る。
- * 	月次申請状態に関係なく、管理者は編集・保存できる。
  */
 func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 
@@ -61,7 +49,7 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	userService := services.NewUserService(userBuilder, userRepository)
 	userController := controllers.NewUserController(userService)
 
-	// 資料共有Driveフォルダ　＋　共有対象ユーザー
+	// 共有資料Driveフォルダ
 	sharedDocumentDriveFolderBuilder := builders.NewSharedDocumentDriveFolderBuilder(db)
 	sharedDocumentDriveFolderRepository := repositories.NewSharedDocumentDriveFolderRepository(db)
 	sharedDocumentDriveFolderService := services.NewSharedDocumentDriveFolderService(sharedDocumentDriveFolderBuilder, sharedDocumentDriveFolderRepository, googleDriveService)
@@ -157,12 +145,6 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 
 	admin := r.Group("/admin")
 
-	/*
-	 * 管理者APIは、
-	 * 1. JWT認証済みであること
-	 * 2. role が ADMIN であること
-	 * を必須にする。
-	 */
 	admin.Use(
 		middlewares.AuthMiddleware(),
 		middlewares.AdminMiddleware(),
@@ -184,7 +166,7 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		admin.POST("/users/update", userController.UpdateUser)
 		admin.POST("/users/delete", userController.DeleteUser)
 
-		// 資料共有Driveフォルダ　＋　共有対象ユーザー
+		// 共有資料Driveフォルダ
 		sharedDocumentDriveFolders := admin.Group("/shared-document-drive-folders")
 		{
 			sharedDocumentDriveFolders.POST("/search", sharedDocumentDriveFolderController.SearchSharedDocumentDriveFolders)
@@ -192,7 +174,6 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 			sharedDocumentDriveFolders.POST("/create", sharedDocumentDriveFolderController.CreateSharedDocumentDriveFolder)
 			sharedDocumentDriveFolders.POST("/update", sharedDocumentDriveFolderController.UpdateSharedDocumentDriveFolder)
 			sharedDocumentDriveFolders.POST("/delete", sharedDocumentDriveFolderController.DeleteSharedDocumentDriveFolder)
-			sharedDocumentDriveFolders.POST("/users/update", sharedDocumentDriveFolderController.UpdateSharedDocumentDriveFolderUsers)
 			sharedDocumentDriveFolders.POST("/sync", sharedDocumentDriveFolderController.SyncSharedDocumentDriveFolder)
 		}
 

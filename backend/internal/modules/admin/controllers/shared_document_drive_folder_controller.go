@@ -1,6 +1,9 @@
 package controllers
 
 import (
+	"errors"
+	"io"
+
 	"timexeed/backend/internal/modules/admin/services"
 	"timexeed/backend/internal/modules/admin/types"
 	"timexeed/backend/internal/responses"
@@ -19,164 +22,113 @@ type SharedDocumentDriveFolderController struct {
 /*
  * SharedDocumentDriveFolderController生成
  */
-func NewSharedDocumentDriveFolderController(
-	sharedDocumentDriveFolderService services.SharedDocumentDriveFolderService,
-) *SharedDocumentDriveFolderController {
+func NewSharedDocumentDriveFolderController(sharedDocumentDriveFolderService services.SharedDocumentDriveFolderService) *SharedDocumentDriveFolderController {
 	return &SharedDocumentDriveFolderController{
 		sharedDocumentDriveFolderService: sharedDocumentDriveFolderService,
 	}
 }
 
 /*
- * 検索
- *
- * POST /admin/shared-document-drive-folders/search
+ * 共有資料Driveフォルダ検索
  */
 func (controller *SharedDocumentDriveFolderController) SearchSharedDocumentDriveFolders(c *gin.Context) {
 	var req types.SearchSharedDocumentDriveFoldersRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		responses.JSON(c, results.BadRequest(
-			"SEARCH_SHARED_DOCUMENT_DRIVE_FOLDERS_INVALID_REQUEST",
-			"共有資料Driveフォルダ検索のリクエスト形式が正しくありません",
+			"SEARCH_SHARED_DOCUMENT_DRIVE_FOLDERS_BIND_FAILED",
+			"共有資料Driveフォルダ検索条件の読み取りに失敗しました",
 			err.Error(),
 		))
 		return
 	}
 
-	result := controller.sharedDocumentDriveFolderService.SearchSharedDocumentDriveFolders(req)
-
-	responses.JSON(c, result)
+	responses.JSON(c, controller.sharedDocumentDriveFolderService.SearchSharedDocumentDriveFolders(req))
 }
 
 /*
- * 詳細
- *
- * POST /admin/shared-document-drive-folders/detail
+ * 共有資料Driveフォルダ詳細
  */
 func (controller *SharedDocumentDriveFolderController) DetailSharedDocumentDriveFolder(c *gin.Context) {
 	var req types.SharedDocumentDriveFolderDetailRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		responses.JSON(c, results.BadRequest(
-			"DETAIL_SHARED_DOCUMENT_DRIVE_FOLDER_INVALID_REQUEST",
-			"共有資料Driveフォルダ詳細のリクエスト形式が正しくありません",
+			"DETAIL_SHARED_DOCUMENT_DRIVE_FOLDER_BIND_FAILED",
+			"共有資料Driveフォルダ詳細条件の読み取りに失敗しました",
 			err.Error(),
 		))
 		return
 	}
 
-	result := controller.sharedDocumentDriveFolderService.DetailSharedDocumentDriveFolder(req)
-
-	responses.JSON(c, result)
+	responses.JSON(c, controller.sharedDocumentDriveFolderService.DetailSharedDocumentDriveFolder(req))
 }
 
 /*
- * 作成
- *
- * POST /admin/shared-document-drive-folders/create
+ * 共有資料Driveフォルダ作成
  */
 func (controller *SharedDocumentDriveFolderController) CreateSharedDocumentDriveFolder(c *gin.Context) {
 	var req types.CreateSharedDocumentDriveFolderRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		responses.JSON(c, results.BadRequest(
-			"CREATE_SHARED_DOCUMENT_DRIVE_FOLDER_INVALID_REQUEST",
-			"共有資料Driveフォルダ作成のリクエスト形式が正しくありません",
+			"CREATE_SHARED_DOCUMENT_DRIVE_FOLDER_BIND_FAILED",
+			"共有資料Driveフォルダ作成条件の読み取りに失敗しました",
 			err.Error(),
 		))
 		return
 	}
 
-	result := controller.sharedDocumentDriveFolderService.CreateSharedDocumentDriveFolder(req)
-
-	responses.JSON(c, result)
+	responses.JSON(c, controller.sharedDocumentDriveFolderService.CreateSharedDocumentDriveFolder(req))
 }
 
 /*
- * 更新
- *
- * POST /admin/shared-document-drive-folders/update
+ * 共有資料Driveフォルダ更新
  */
 func (controller *SharedDocumentDriveFolderController) UpdateSharedDocumentDriveFolder(c *gin.Context) {
 	var req types.UpdateSharedDocumentDriveFolderRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		responses.JSON(c, results.BadRequest(
-			"UPDATE_SHARED_DOCUMENT_DRIVE_FOLDER_INVALID_REQUEST",
-			"共有資料Driveフォルダ更新のリクエスト形式が正しくありません",
+			"UPDATE_SHARED_DOCUMENT_DRIVE_FOLDER_BIND_FAILED",
+			"共有資料Driveフォルダ更新条件の読み取りに失敗しました",
 			err.Error(),
 		))
 		return
 	}
 
-	result := controller.sharedDocumentDriveFolderService.UpdateSharedDocumentDriveFolder(req)
-
-	responses.JSON(c, result)
+	responses.JSON(c, controller.sharedDocumentDriveFolderService.UpdateSharedDocumentDriveFolder(req))
 }
 
 /*
- * 削除
- *
- * POST /admin/shared-document-drive-folders/delete
+ * 共有資料Driveフォルダ削除
  */
 func (controller *SharedDocumentDriveFolderController) DeleteSharedDocumentDriveFolder(c *gin.Context) {
 	var req types.DeleteSharedDocumentDriveFolderRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		responses.JSON(c, results.BadRequest(
-			"DELETE_SHARED_DOCUMENT_DRIVE_FOLDER_INVALID_REQUEST",
-			"共有資料Driveフォルダ削除のリクエスト形式が正しくありません",
+			"DELETE_SHARED_DOCUMENT_DRIVE_FOLDER_BIND_FAILED",
+			"共有資料Driveフォルダ削除条件の読み取りに失敗しました",
 			err.Error(),
 		))
 		return
 	}
 
-	result := controller.sharedDocumentDriveFolderService.DeleteSharedDocumentDriveFolder(req)
-
-	responses.JSON(c, result)
+	responses.JSON(c, controller.sharedDocumentDriveFolderService.DeleteSharedDocumentDriveFolder(req))
 }
 
 /*
- * 共有ユーザー更新
+ * 共有資料Driveフォルダ権限同期
  *
- * POST /admin/shared-document-drive-folders/users/update
- */
-func (controller *SharedDocumentDriveFolderController) UpdateSharedDocumentDriveFolderUsers(c *gin.Context) {
-	var req types.UpdateSharedDocumentDriveFolderUsersRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		responses.JSON(c, results.BadRequest(
-			"UPDATE_SHARED_DOCUMENT_DRIVE_FOLDER_USERS_INVALID_REQUEST",
-			"共有資料Driveフォルダ共有ユーザー更新のリクエスト形式が正しくありません",
-			err.Error(),
-		))
-		return
-	}
-
-	result := controller.sharedDocumentDriveFolderService.UpdateSharedDocumentDriveFolderUsers(req)
-
-	responses.JSON(c, result)
-}
-
-/*
- * 同期
- *
- * POST /admin/shared-document-drive-folders/sync
+ * bodyなし、または {} の場合は全件同期する。
+ * targetSharedDocumentDriveFolderId が指定された場合は1件だけ同期する。
  */
 func (controller *SharedDocumentDriveFolderController) SyncSharedDocumentDriveFolder(c *gin.Context) {
 	var req types.SyncSharedDocumentDriveFolderRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
 		responses.JSON(c, results.BadRequest(
-			"SYNC_SHARED_DOCUMENT_DRIVE_FOLDER_INVALID_REQUEST",
-			"共有資料Driveフォルダ同期のリクエスト形式が正しくありません",
+			"SYNC_SHARED_DOCUMENT_DRIVE_FOLDER_BIND_FAILED",
+			"共有資料Driveフォルダ同期条件の読み取りに失敗しました",
 			err.Error(),
 		))
 		return
 	}
 
-	result := controller.sharedDocumentDriveFolderService.SyncSharedDocumentDriveFolder(req)
-
-	responses.JSON(c, result)
+	responses.JSON(c, controller.sharedDocumentDriveFolderService.SyncSharedDocumentDriveFolder(req))
 }

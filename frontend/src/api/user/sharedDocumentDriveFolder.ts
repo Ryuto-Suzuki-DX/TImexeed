@@ -11,7 +11,7 @@ import type {
  *
  * POST /user/shared-document-drive-folders/search
  *
- * 本人に共有されている資料だけ返る。
+ * ログイン済みUSERが閲覧できる全ユーザー向け共有資料を取得する。
  */
 export function searchSharedDocumentDriveFolders(
   request: SearchSharedDocumentDriveFoldersRequest
@@ -27,7 +27,7 @@ export function searchSharedDocumentDriveFolders(
  *
  * POST /user/shared-document-drive-folders/detail
  *
- * 本人に共有されていない資料は取得できない。
+ * ログイン済みUSERが閲覧できる全ユーザー向け共有資料の詳細を取得する。
  */
 export function getSharedDocumentDriveFolderDetail(
   request: SharedDocumentDriveFolderDetailRequest

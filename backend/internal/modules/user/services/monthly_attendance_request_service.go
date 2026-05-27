@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"timexeed/backend/internal/models"
@@ -59,6 +61,7 @@ type MonthlyAttendanceRequestService interface {
 type monthlyAttendanceRequestService struct {
 	monthlyAttendanceRequestBuilder    builders.MonthlyAttendanceRequestBuilder
 	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository
+	notificationService                NotificationService
 }
 
 /*
@@ -67,10 +70,12 @@ type monthlyAttendanceRequestService struct {
 func NewMonthlyAttendanceRequestService(
 	monthlyAttendanceRequestBuilder builders.MonthlyAttendanceRequestBuilder,
 	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository,
+	notificationService NotificationService,
 ) *monthlyAttendanceRequestService {
 	return &monthlyAttendanceRequestService{
 		monthlyAttendanceRequestBuilder:    monthlyAttendanceRequestBuilder,
 		monthlyAttendanceRequestRepository: monthlyAttendanceRequestRepository,
+		notificationService:                notificationService,
 	}
 }
 
@@ -223,6 +228,131 @@ func validateMonthlyAttendanceRequestTargetMonth(
 }
 
 /*
+ * 月次勤怠対象月表示文字列を作成する
+ */
+func formatMonthlyAttendanceRequestTargetMonthText(targetYear int, targetMonth int) string {
+	return fmt.Sprintf("%04d年%d月", targetYear, targetMonth)
+}
+
+/*
+ * 月次勤怠申請通知を作成する
+ *
+ * 作成する通知：
+ * ・申請者本人宛の控え通知
+ * ・有効な管理者全員宛の確認通知
+ *
+ * 注意：
+ * ・月次申請保存を主処理とする
+ * ・通知作成に失敗しても、呼び出し元で月次申請保存結果は取り消さない
+ */
+func (service *monthlyAttendanceRequestService) createMonthlyAttendanceSubmittedNotifications(
+	userID uint,
+	monthlyAttendanceRequest models.MonthlyAttendanceRequest,
+) results.Result {
+	if service.notificationService == nil {
+		return results.OK(
+			nil,
+			"CREATE_MONTHLY_ATTENDANCE_SUBMITTED_NOTIFICATIONS_SKIPPED",
+			"",
+			nil,
+		)
+	}
+
+	targetMonthText := formatMonthlyAttendanceRequestTargetMonthText(
+		monthlyAttendanceRequest.TargetYear,
+		monthlyAttendanceRequest.TargetMonth,
+	)
+
+	userNotificationResult := service.notificationService.CreateNotificationForUser(
+		userID,
+		"月次勤怠を申請しました",
+		fmt.Sprintf("%sの月次勤怠を申請しました。", targetMonthText),
+	)
+	if userNotificationResult.Error {
+		return userNotificationResult
+	}
+
+	adminNotificationResult := service.notificationService.CreateNotificationForAdmins(
+		"月次勤怠が申請されました",
+		fmt.Sprintf("ユーザーID %d が%sの月次勤怠を申請しました。", userID, targetMonthText),
+	)
+	if adminNotificationResult.Error {
+		return adminNotificationResult
+	}
+
+	return results.OK(
+		nil,
+		"CREATE_MONTHLY_ATTENDANCE_SUBMITTED_NOTIFICATIONS_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 月次勤怠申請取り下げ通知を作成する
+ *
+ * 作成する通知：
+ * ・申請者本人宛の控え通知
+ * ・有効な管理者全員宛の確認通知
+ *
+ * 注意：
+ * ・月次申請取り下げ保存を主処理とする
+ * ・通知作成に失敗しても、呼び出し元で月次申請保存結果は取り消さない
+ */
+func (service *monthlyAttendanceRequestService) createMonthlyAttendanceCanceledNotifications(
+	userID uint,
+	monthlyAttendanceRequest models.MonthlyAttendanceRequest,
+) results.Result {
+	if service.notificationService == nil {
+		return results.OK(
+			nil,
+			"CREATE_MONTHLY_ATTENDANCE_CANCELED_NOTIFICATIONS_SKIPPED",
+			"",
+			nil,
+		)
+	}
+
+	targetMonthText := formatMonthlyAttendanceRequestTargetMonthText(
+		monthlyAttendanceRequest.TargetYear,
+		monthlyAttendanceRequest.TargetMonth,
+	)
+
+	userMessage := fmt.Sprintf("%sの月次勤怠申請を取り下げました。", targetMonthText)
+	adminMessage := fmt.Sprintf("ユーザーID %d が%sの月次勤怠申請を取り下げました。", userID, targetMonthText)
+
+	if monthlyAttendanceRequest.CanceledReason != nil &&
+		strings.TrimSpace(*monthlyAttendanceRequest.CanceledReason) != "" {
+		trimmedCanceledReason := strings.TrimSpace(*monthlyAttendanceRequest.CanceledReason)
+		userMessage = fmt.Sprintf("%s 理由: %s", userMessage, trimmedCanceledReason)
+		adminMessage = fmt.Sprintf("%s 理由: %s", adminMessage, trimmedCanceledReason)
+	}
+
+	userNotificationResult := service.notificationService.CreateNotificationForUser(
+		userID,
+		"月次勤怠申請を取り下げました",
+		userMessage,
+	)
+	if userNotificationResult.Error {
+		return userNotificationResult
+	}
+
+	adminNotificationResult := service.notificationService.CreateNotificationForAdmins(
+		"月次勤怠申請が取り下げられました",
+		adminMessage,
+	)
+	if adminNotificationResult.Error {
+		return adminNotificationResult
+	}
+
+	return results.OK(
+		nil,
+		"CREATE_MONTHLY_ATTENDANCE_CANCELED_NOTIFICATIONS_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
  * 月次勤怠申請状態取得
  *
  * 対象年月のログイン中ユーザー本人の月次勤怠申請状態を取得する。
@@ -355,6 +485,21 @@ func (service *monthlyAttendanceRequestService) SubmitMonthlyAttendanceRequest(
 			return createResult
 		}
 
+		notificationResult := service.createMonthlyAttendanceSubmittedNotifications(
+			userID,
+			createdMonthlyAttendanceRequest,
+		)
+		if notificationResult.Error {
+			return results.Created(
+				types.SubmitMonthlyAttendanceRequestResponse{
+					MonthlyAttendanceRequest: toMonthlyAttendanceRequestResponse(createdMonthlyAttendanceRequest),
+				},
+				"SUBMIT_MONTHLY_ATTENDANCE_REQUEST_SUCCESS_NOTIFICATION_FAILED",
+				"月次勤怠を申請しました。通知作成には失敗しました",
+				notificationResult.Details,
+			)
+		}
+
 		return results.Created(
 			types.SubmitMonthlyAttendanceRequestResponse{
 				MonthlyAttendanceRequest: toMonthlyAttendanceRequestResponse(createdMonthlyAttendanceRequest),
@@ -408,6 +553,21 @@ func (service *monthlyAttendanceRequestService) SubmitMonthlyAttendanceRequest(
 		savedMonthlyAttendanceRequest, saveResult := service.monthlyAttendanceRequestRepository.SaveMonthlyAttendanceRequest(monthlyAttendanceRequest)
 		if saveResult.Error {
 			return saveResult
+		}
+
+		notificationResult := service.createMonthlyAttendanceSubmittedNotifications(
+			userID,
+			savedMonthlyAttendanceRequest,
+		)
+		if notificationResult.Error {
+			return results.OK(
+				types.SubmitMonthlyAttendanceRequestResponse{
+					MonthlyAttendanceRequest: toMonthlyAttendanceRequestResponse(savedMonthlyAttendanceRequest),
+				},
+				"RESUBMIT_MONTHLY_ATTENDANCE_REQUEST_SUCCESS_NOTIFICATION_FAILED",
+				"月次勤怠を再申請しました。通知作成には失敗しました",
+				notificationResult.Details,
+			)
 		}
 
 		return results.OK(
@@ -513,6 +673,21 @@ func (service *monthlyAttendanceRequestService) CancelMonthlyAttendanceRequest(
 	savedMonthlyAttendanceRequest, saveResult := service.monthlyAttendanceRequestRepository.SaveMonthlyAttendanceRequest(monthlyAttendanceRequest)
 	if saveResult.Error {
 		return saveResult
+	}
+
+	notificationResult := service.createMonthlyAttendanceCanceledNotifications(
+		userID,
+		savedMonthlyAttendanceRequest,
+	)
+	if notificationResult.Error {
+		return results.OK(
+			types.CancelMonthlyAttendanceRequestResponse{
+				MonthlyAttendanceRequest: toMonthlyAttendanceRequestResponse(savedMonthlyAttendanceRequest),
+			},
+			"CANCEL_MONTHLY_ATTENDANCE_REQUEST_SUCCESS_NOTIFICATION_FAILED",
+			"月次勤怠申請を取り下げました。通知作成には失敗しました",
+			notificationResult.Details,
+		)
 	}
 
 	return results.OK(

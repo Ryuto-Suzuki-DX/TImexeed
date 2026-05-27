@@ -5,8 +5,13 @@ import "time"
 /*
  * 共有資料Driveフォルダ
  *
- * 管理者がGoogle Drive上で作成した共有資料フォルダをTimexeedに登録する。
- * このフォルダに対して、管理者全員と共有対象ユーザーの権限を同期する。
+ * 管理者がTimexeed上から作成した全ユーザー向け共有資料フォルダを管理する。
+ *
+ * Google Drive上では、external_storage_links に登録された親フォルダ配下へ
+ * このフォルダを作成し、作成されたDriveフォルダID・URLを保存する。
+ *
+ * 共有対象は個別ユーザー選択ではなく、全有効一般ユーザーを対象とする。
+ * Drive権限同期は、管理者が同期ボタンを押したタイミングで実行する。
  */
 type SharedDocumentDriveFolder struct {
 	ID uint `gorm:"primaryKey"`

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"timexeed/backend/internal/models"
 	"timexeed/backend/internal/modules/user/builders"
 	"timexeed/backend/internal/modules/user/repositories"
 	"timexeed/backend/internal/modules/user/types"
@@ -10,18 +11,17 @@ import (
 
 /*
  * 従業員用 共有資料DriveフォルダService interface
+ *
+ * 従業員側では閲覧のみ。
+ * Driveフォルダの作成・更新・削除・権限同期は管理者側で行う。
  */
 type SharedDocumentDriveFolderService interface {
-	SearchSharedDocumentDriveFolders(userID uint, req types.SearchSharedDocumentDriveFoldersRequest) results.Result
-	DetailSharedDocumentDriveFolder(userID uint, req types.SharedDocumentDriveFolderDetailRequest) results.Result
+	SearchSharedDocumentDriveFolders(req types.SearchSharedDocumentDriveFoldersRequest) results.Result
+	DetailSharedDocumentDriveFolder(req types.SharedDocumentDriveFolderDetailRequest) results.Result
 }
 
 /*
  * 従業員用 共有資料DriveフォルダService
- *
- * 役割：
- * ・Controllerから受け取ったログインユーザーIDをもとに処理を進める
- * ・本人に共有されている資料だけ返す
  */
 type sharedDocumentDriveFolderService struct {
 	sharedDocumentDriveFolderBuilder    builders.SharedDocumentDriveFolderBuilder
@@ -34,7 +34,7 @@ type sharedDocumentDriveFolderService struct {
 func NewSharedDocumentDriveFolderService(
 	sharedDocumentDriveFolderBuilder builders.SharedDocumentDriveFolderBuilder,
 	sharedDocumentDriveFolderRepository repositories.SharedDocumentDriveFolderRepository,
-) *sharedDocumentDriveFolderService {
+) SharedDocumentDriveFolderService {
 	return &sharedDocumentDriveFolderService{
 		sharedDocumentDriveFolderBuilder:    sharedDocumentDriveFolderBuilder,
 		sharedDocumentDriveFolderRepository: sharedDocumentDriveFolderRepository,
@@ -42,42 +42,36 @@ func NewSharedDocumentDriveFolderService(
 }
 
 /*
- * RowをResponseへ変換する
+ * models.SharedDocumentDriveFolderをResponseへ変換する
+ *
+ * 従業員側ではDrive内部IDは返さない。
+ * ユーザー画面で必要なのは表示名・説明・開くためのURLのみ。
  */
-func toSharedDocumentDriveFolderResponse(
-	row types.SharedDocumentDriveFolderRow,
-) types.SharedDocumentDriveFolderResponse {
+func toUserSharedDocumentDriveFolderResponse(folder models.SharedDocumentDriveFolder) types.SharedDocumentDriveFolderResponse {
 	return types.SharedDocumentDriveFolderResponse{
-		ID: row.ID,
+		ID: folder.ID,
 
-		FolderName:    row.FolderName,
-		Description:   row.Description,
-		DriveFolderID: row.DriveFolderID,
-		FolderURL:     row.FolderURL,
-		SyncedAt:      row.SyncedAt,
+		FolderName:  folder.FolderName,
+		Description: folder.Description,
+		FolderURL:   folder.FolderURL,
+		SyncedAt:    folder.SyncedAt,
 
-		SharedAt:  row.SharedAt,
-		UpdatedAt: row.UpdatedAt,
+		CreatedAt: folder.CreatedAt,
+		UpdatedAt: folder.UpdatedAt,
 	}
 }
 
 /*
- * 共有資料Driveフォルダ検索
- *
- * ユーザー側。
- * JWTから取得した本人userIdに共有されている資料だけ返す。
+ * 検索
  */
-func (service *sharedDocumentDriveFolderService) SearchSharedDocumentDriveFolders(
-	userID uint,
-	req types.SearchSharedDocumentDriveFoldersRequest,
-) results.Result {
+func (service *sharedDocumentDriveFolderService) SearchSharedDocumentDriveFolders(req types.SearchSharedDocumentDriveFoldersRequest) results.Result {
 	normalizedCondition, normalizeResult := utils.NormalizePageSearchCondition(
 		utils.PageSearchCondition{
 			Keyword: req.Keyword,
 			Offset:  req.Offset,
 			Limit:   req.Limit,
 		},
-		"SEARCH_MY_SHARED_DOCUMENT_DRIVE_FOLDERS_INVALID_OFFSET",
+		"SEARCH_USER_SHARED_DOCUMENT_DRIVE_FOLDERS_INVALID_OFFSET",
 		"検索開始位置が正しくありません",
 	)
 	if normalizeResult.Error {
@@ -88,7 +82,7 @@ func (service *sharedDocumentDriveFolderService) SearchSharedDocumentDriveFolder
 	req.Offset = normalizedCondition.Offset
 	req.Limit = normalizedCondition.Limit
 
-	searchQuery, countQuery, buildResult := service.sharedDocumentDriveFolderBuilder.BuildSearchSharedDocumentDriveFoldersQuery(userID, req)
+	searchQuery, countQuery, buildResult := service.sharedDocumentDriveFolderBuilder.BuildSearchSharedDocumentDriveFoldersQuery(req)
 	if buildResult.Error {
 		return buildResult
 	}
@@ -113,40 +107,49 @@ func (service *sharedDocumentDriveFolderService) SearchSharedDocumentDriveFolder
 			Limit:                      req.Limit,
 			HasMore:                    hasMore,
 		},
-		"SEARCH_MY_SHARED_DOCUMENT_DRIVE_FOLDERS_SUCCESS",
+		"SEARCH_USER_SHARED_DOCUMENT_DRIVE_FOLDERS_SUCCESS",
 		"共有資料Driveフォルダ一覧を取得しました",
 		nil,
 	)
 }
 
 /*
- * 共有資料Driveフォルダ詳細
- *
- * 本人に共有されている資料だけ取得可能。
+ * 詳細
  */
-func (service *sharedDocumentDriveFolderService) DetailSharedDocumentDriveFolder(
-	userID uint,
-	req types.SharedDocumentDriveFolderDetailRequest,
-) results.Result {
-	query, buildResult := service.sharedDocumentDriveFolderBuilder.BuildFindSharedDocumentDriveFolderDetailQuery(
-		userID,
-		req.TargetSharedDocumentDriveFolderID,
-	)
-	if buildResult.Error {
-		return buildResult
-	}
-
-	row, findResult := service.sharedDocumentDriveFolderRepository.FindSharedDocumentDriveFolderRow(query)
-	if findResult.Error {
-		return findResult
+func (service *sharedDocumentDriveFolderService) DetailSharedDocumentDriveFolder(req types.SharedDocumentDriveFolderDetailRequest) results.Result {
+	folder, folderResult := service.findCurrentSharedDocumentDriveFolder(req.TargetSharedDocumentDriveFolderID)
+	if folderResult.Error {
+		return folderResult
 	}
 
 	return results.OK(
 		types.SharedDocumentDriveFolderDetailResponse{
-			SharedDocumentDriveFolder: toSharedDocumentDriveFolderResponse(row),
+			SharedDocumentDriveFolder: toUserSharedDocumentDriveFolderResponse(folder),
 		},
-		"DETAIL_MY_SHARED_DOCUMENT_DRIVE_FOLDER_SUCCESS",
+		"DETAIL_USER_SHARED_DOCUMENT_DRIVE_FOLDER_SUCCESS",
 		"共有資料Driveフォルダを取得しました",
+		nil,
+	)
+}
+
+/*
+ * 共有資料Driveフォルダ取得
+ */
+func (service *sharedDocumentDriveFolderService) findCurrentSharedDocumentDriveFolder(folderID uint) (models.SharedDocumentDriveFolder, results.Result) {
+	query, buildResult := service.sharedDocumentDriveFolderBuilder.BuildFindActiveSharedDocumentDriveFolderByIDQuery(folderID)
+	if buildResult.Error {
+		return models.SharedDocumentDriveFolder{}, buildResult
+	}
+
+	folder, findResult := service.sharedDocumentDriveFolderRepository.FindSharedDocumentDriveFolder(query)
+	if findResult.Error {
+		return models.SharedDocumentDriveFolder{}, findResult
+	}
+
+	return folder, results.OK(
+		nil,
+		"FIND_CURRENT_USER_SHARED_DOCUMENT_DRIVE_FOLDER_SUCCESS",
+		"",
 		nil,
 	)
 }

@@ -1,24 +1,26 @@
 package repositories
 
 import (
+	"errors"
+
+	"timexeed/backend/internal/models"
 	"timexeed/backend/internal/modules/user/types"
 	"timexeed/backend/internal/results"
 
 	"gorm.io/gorm"
 )
 
+/*
+ * 従業員用 共有資料DriveフォルダRepository interface
+ */
 type SharedDocumentDriveFolderRepository interface {
-	FindSharedDocumentDriveFolderRows(query *gorm.DB) ([]types.SharedDocumentDriveFolderRow, results.Result)
+	FindSharedDocumentDriveFolderRows(query *gorm.DB) ([]types.SharedDocumentDriveFolderSearchRow, results.Result)
 	CountSharedDocumentDriveFolderRows(query *gorm.DB) (int64, results.Result)
-	FindSharedDocumentDriveFolderRow(query *gorm.DB) (types.SharedDocumentDriveFolderRow, results.Result)
+	FindSharedDocumentDriveFolder(query *gorm.DB) (models.SharedDocumentDriveFolder, results.Result)
 }
 
 /*
  * 従業員用 共有資料DriveフォルダRepository
- *
- * 役割：
- * ・DB処理を実行する
- * ・本人に共有されている資料だけ、Builderで作成されたクエリを実行する
  */
 type sharedDocumentDriveFolderRepository struct {
 	db *gorm.DB
@@ -32,16 +34,14 @@ func NewSharedDocumentDriveFolderRepository(db *gorm.DB) SharedDocumentDriveFold
 }
 
 /*
- * 共有資料Driveフォルダ一覧取得
+ * 共有資料Driveフォルダ検索
  */
-func (repository *sharedDocumentDriveFolderRepository) FindSharedDocumentDriveFolderRows(
-	query *gorm.DB,
-) ([]types.SharedDocumentDriveFolderRow, results.Result) {
-	var rows []types.SharedDocumentDriveFolderRow
+func (repository *sharedDocumentDriveFolderRepository) FindSharedDocumentDriveFolderRows(query *gorm.DB) ([]types.SharedDocumentDriveFolderSearchRow, results.Result) {
+	var rows []types.SharedDocumentDriveFolderSearchRow
 
 	if query == nil {
 		return rows, results.InternalServerError(
-			"FIND_MY_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_EMPTY_QUERY",
+			"FIND_USER_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_EMPTY_QUERY",
 			"共有資料Driveフォルダ一覧の取得に失敗しました",
 			nil,
 		)
@@ -49,26 +49,29 @@ func (repository *sharedDocumentDriveFolderRepository) FindSharedDocumentDriveFo
 
 	if err := query.Scan(&rows).Error; err != nil {
 		return rows, results.InternalServerError(
-			"FIND_MY_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_FAILED",
+			"FIND_USER_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_FAILED",
 			"共有資料Driveフォルダ一覧の取得に失敗しました",
 			err.Error(),
 		)
 	}
 
-	return rows, results.OK(nil, "FIND_MY_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_SUCCESS", "", nil)
+	return rows, results.OK(
+		nil,
+		"FIND_USER_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_SUCCESS",
+		"",
+		nil,
+	)
 }
 
 /*
- * 共有資料Driveフォルダ件数取得
+ * 共有資料Driveフォルダ検索件数取得
  */
-func (repository *sharedDocumentDriveFolderRepository) CountSharedDocumentDriveFolderRows(
-	query *gorm.DB,
-) (int64, results.Result) {
+func (repository *sharedDocumentDriveFolderRepository) CountSharedDocumentDriveFolderRows(query *gorm.DB) (int64, results.Result) {
 	var total int64
 
 	if query == nil {
 		return 0, results.InternalServerError(
-			"COUNT_MY_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_EMPTY_QUERY",
+			"COUNT_USER_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_EMPTY_QUERY",
 			"共有資料Driveフォルダ件数の取得に失敗しました",
 			nil,
 		)
@@ -76,46 +79,54 @@ func (repository *sharedDocumentDriveFolderRepository) CountSharedDocumentDriveF
 
 	if err := query.Count(&total).Error; err != nil {
 		return 0, results.InternalServerError(
-			"COUNT_MY_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_FAILED",
+			"COUNT_USER_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_FAILED",
 			"共有資料Driveフォルダ件数の取得に失敗しました",
 			err.Error(),
 		)
 	}
 
-	return total, results.OK(nil, "COUNT_MY_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_SUCCESS", "", nil)
+	return total, results.OK(
+		nil,
+		"COUNT_USER_SHARED_DOCUMENT_DRIVE_FOLDER_ROWS_SUCCESS",
+		"",
+		nil,
+	)
 }
 
 /*
  * 共有資料Driveフォルダ1件取得
  */
-func (repository *sharedDocumentDriveFolderRepository) FindSharedDocumentDriveFolderRow(
-	query *gorm.DB,
-) (types.SharedDocumentDriveFolderRow, results.Result) {
-	var row types.SharedDocumentDriveFolderRow
+func (repository *sharedDocumentDriveFolderRepository) FindSharedDocumentDriveFolder(query *gorm.DB) (models.SharedDocumentDriveFolder, results.Result) {
+	var folder models.SharedDocumentDriveFolder
 
 	if query == nil {
-		return row, results.InternalServerError(
-			"FIND_MY_SHARED_DOCUMENT_DRIVE_FOLDER_ROW_EMPTY_QUERY",
+		return folder, results.InternalServerError(
+			"FIND_USER_SHARED_DOCUMENT_DRIVE_FOLDER_EMPTY_QUERY",
 			"共有資料Driveフォルダの取得に失敗しました",
 			nil,
 		)
 	}
 
-	if err := query.Scan(&row).Error; err != nil {
-		return row, results.InternalServerError(
-			"FIND_MY_SHARED_DOCUMENT_DRIVE_FOLDER_ROW_FAILED",
+	if err := query.First(&folder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return folder, results.NotFound(
+				"FIND_USER_SHARED_DOCUMENT_DRIVE_FOLDER_NOT_FOUND",
+				"共有資料Driveフォルダが見つかりません",
+				nil,
+			)
+		}
+
+		return folder, results.InternalServerError(
+			"FIND_USER_SHARED_DOCUMENT_DRIVE_FOLDER_FAILED",
 			"共有資料Driveフォルダの取得に失敗しました",
 			err.Error(),
 		)
 	}
 
-	if row.ID == 0 {
-		return row, results.NotFound(
-			"FIND_MY_SHARED_DOCUMENT_DRIVE_FOLDER_ROW_NOT_FOUND",
-			"共有資料Driveフォルダが見つかりません",
-			nil,
-		)
-	}
-
-	return row, results.OK(nil, "FIND_MY_SHARED_DOCUMENT_DRIVE_FOLDER_ROW_SUCCESS", "", nil)
+	return folder, results.OK(
+		nil,
+		"FIND_USER_SHARED_DOCUMENT_DRIVE_FOLDER_SUCCESS",
+		"",
+		nil,
+	)
 }

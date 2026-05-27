@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/atoms/Button";
 import MessageBox from "@/components/atoms/MessageBox";
 import PageContainer from "@/components/atoms/PageContainer";
@@ -14,34 +14,16 @@ import {
   searchSharedDocumentDriveFolders,
   syncSharedDocumentDriveFolder,
   updateSharedDocumentDriveFolder,
-  updateSharedDocumentDriveFolderUsers,
 } from "@/api/admin/sharedDocumentDriveFolder";
-import { searchUsers } from "@/api/admin/user";
 import type {
   SharedDocumentDriveFolder,
   SharedDocumentDriveFolderSearchRow,
-  SharedDocumentDriveFolderUser,
 } from "@/types/admin/sharedDocumentDriveFolder";
 import styles from "./page.module.css";
 
 type PageMessageVariant = "info" | "success" | "warning" | "error";
 
-type UserSearchResult = {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-};
-
-type SelectedSharedUser = {
-  userId: number;
-  userName: string;
-  userEmail: string;
-  userRole: string;
-};
-
 const PAGE_LIMIT = 10;
-const USER_SEARCH_LIMIT = 20;
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) {
@@ -63,24 +45,6 @@ function formatDateTime(value: string | null | undefined) {
   return `${year}/${month}/${day} ${hour}:${minute}`;
 }
 
-function toSelectedSharedUser(sharedUser: SharedDocumentDriveFolderUser): SelectedSharedUser {
-  return {
-    userId: sharedUser.userId,
-    userName: sharedUser.userName,
-    userEmail: sharedUser.userEmail,
-    userRole: sharedUser.userRole,
-  };
-}
-
-function toSelectedSharedUserFromSearchUser(user: UserSearchResult): SelectedSharedUser {
-  return {
-    userId: user.id,
-    userName: user.name,
-    userEmail: user.email,
-    userRole: user.role,
-  };
-}
-
 export default function AdminSharedDocumentDriveFoldersPage() {
   const { user, isLoading, message } = useRequireRole("ADMIN");
 
@@ -91,30 +55,22 @@ export default function AdminSharedDocumentDriveFoldersPage() {
   const [keyword, setKeyword] = useState("");
 
   const [selectedFolder, setSelectedFolder] = useState<SharedDocumentDriveFolder | null>(null);
-  const [selectedUsers, setSelectedUsers] = useState<SelectedSharedUser[]>([]);
 
   const [folderName, setFolderName] = useState("");
   const [description, setDescription] = useState("");
-  const [driveFolderUrlOrId, setDriveFolderUrlOrId] = useState("");
 
-  const [userKeyword, setUserKeyword] = useState("");
-  const [userSearchResults, setUserSearchResults] = useState<UserSearchResult[]>([]);
-
-  const [pageMessage, setPageMessage] = useState("共有資料Driveフォルダを確認・作成できます。");
-  const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
+  const [pageMessage, setPageMessage] = useState(
+    "共有資料Driveフォルダを確認・作成できます。",
+  );
+  const [pageMessageVariant, setPageMessageVariant] =
+    useState<PageMessageVariant>("info");
 
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [isMoreLoading, setIsMoreLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
-  const [isUserSearching, setIsUserSearching] = useState(false);
-  const [isUserApplying, setIsUserApplying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [processingFolderId, setProcessingFolderId] = useState<number | null>(null);
-
-  const selectedUserIdSet = useMemo(() => {
-    return new Set(selectedUsers.map((selectedUser) => selectedUser.userId));
-  }, [selectedUsers]);
 
   const selectedFolderId = selectedFolder?.id ?? null;
 
@@ -147,7 +103,9 @@ export default function AdminSharedDocumentDriveFoldersPage() {
             setHasMore(false);
           }
 
-          setPageMessage(result.message || "共有資料Driveフォルダ一覧の取得に失敗しました。");
+          setPageMessage(
+            result.message || "共有資料Driveフォルダ一覧の取得に失敗しました。",
+          );
           setPageMessageVariant("error");
           return;
         }
@@ -179,7 +137,9 @@ export default function AdminSharedDocumentDriveFoldersPage() {
           setHasMore(false);
         }
 
-        setPageMessage("共有資料Driveフォルダ一覧の取得中に予期しないエラーが発生しました。");
+        setPageMessage(
+          "共有資料Driveフォルダ一覧の取得中に予期しないエラーが発生しました。",
+        );
         setPageMessageVariant("error");
       } finally {
         setIsPageLoading(false);
@@ -189,44 +149,47 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     [keyword, user],
   );
 
-  const loadFolderDetail = useCallback(async (targetSharedDocumentDriveFolderId: number) => {
-    setIsDetailLoading(true);
-    setProcessingFolderId(targetSharedDocumentDriveFolderId);
-    setPageMessage("共有資料Driveフォルダの詳細を取得しています。");
-    setPageMessageVariant("info");
+  const loadFolderDetail = useCallback(
+    async (targetSharedDocumentDriveFolderId: number) => {
+      setIsDetailLoading(true);
+      setProcessingFolderId(targetSharedDocumentDriveFolderId);
+      setPageMessage("共有資料Driveフォルダの詳細を取得しています。");
+      setPageMessageVariant("info");
 
-    try {
-      const result = await getSharedDocumentDriveFolderDetail({
-        targetSharedDocumentDriveFolderId,
-      });
+      try {
+        const result = await getSharedDocumentDriveFolderDetail({
+          targetSharedDocumentDriveFolderId,
+        });
 
-      if (result.error || !result.data) {
-        setPageMessage(result.message || "共有資料Driveフォルダ詳細の取得に失敗しました。");
+        if (result.error || !result.data) {
+          setPageMessage(
+            result.message || "共有資料Driveフォルダ詳細の取得に失敗しました。",
+          );
+          setPageMessageVariant("error");
+          return;
+        }
+
+        const folder = result.data.sharedDocumentDriveFolder;
+
+        setSelectedFolder(folder);
+        setFolderName(folder.folderName);
+        setDescription(folder.description ?? "");
+
+        setPageMessage("共有資料Driveフォルダを選択しました。");
+        setPageMessageVariant("success");
+      } catch (error) {
+        console.error(error);
+        setPageMessage(
+          "共有資料Driveフォルダ詳細の取得中に予期しないエラーが発生しました。",
+        );
         setPageMessageVariant("error");
-        return;
+      } finally {
+        setIsDetailLoading(false);
+        setProcessingFolderId(null);
       }
-
-      const data = result.data;
-      const nextSharedUsers = data.sharedUsers ?? [];
-
-      setSelectedFolder(data.sharedDocumentDriveFolder);
-      setSelectedUsers(nextSharedUsers.map(toSelectedSharedUser));
-
-      setFolderName(data.sharedDocumentDriveFolder.folderName);
-      setDescription(data.sharedDocumentDriveFolder.description ?? "");
-      setDriveFolderUrlOrId(data.sharedDocumentDriveFolder.folderUrl);
-
-      setPageMessage("共有資料Driveフォルダを選択しました。");
-      setPageMessageVariant("success");
-    } catch (error) {
-      console.error(error);
-      setPageMessage("共有資料Driveフォルダ詳細の取得中に予期しないエラーが発生しました。");
-      setPageMessageVariant("error");
-    } finally {
-      setIsDetailLoading(false);
-      setProcessingFolderId(null);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (isLoading || !user) {
@@ -252,12 +215,8 @@ export default function AdminSharedDocumentDriveFoldersPage() {
 
   const handleResetForm = () => {
     setSelectedFolder(null);
-    setSelectedUsers([]);
     setFolderName("");
     setDescription("");
-    setDriveFolderUrlOrId("");
-    setUserKeyword("");
-    setUserSearchResults([]);
     setPageMessage("新規作成モードに切り替えました。");
     setPageMessageVariant("info");
   };
@@ -265,16 +224,19 @@ export default function AdminSharedDocumentDriveFoldersPage() {
   const handleSaveFolder = async () => {
     const trimmedFolderName = folderName.trim();
     const trimmedDescription = description.trim();
-    const trimmedDriveFolderUrlOrId = driveFolderUrlOrId.trim();
 
-    if (!trimmedDriveFolderUrlOrId) {
-      setPageMessage("Google DriveフォルダURLまたはIDを入力してください。");
+    if (!trimmedFolderName) {
+      setPageMessage("フォルダ名を入力してください。");
       setPageMessageVariant("warning");
       return;
     }
 
     setIsSaving(true);
-    setPageMessage(selectedFolder ? "共有資料Driveフォルダを更新しています。" : "共有資料Driveフォルダを作成しています。");
+    setPageMessage(
+      selectedFolder
+        ? "共有資料Driveフォルダを更新しています。"
+        : "共有資料Driveフォルダを作成しています。",
+    );
     setPageMessageVariant("info");
 
     try {
@@ -283,11 +245,12 @@ export default function AdminSharedDocumentDriveFoldersPage() {
           targetSharedDocumentDriveFolderId: selectedFolder.id,
           folderName: trimmedFolderName,
           description: trimmedDescription || null,
-          driveFolderUrlOrId: trimmedDriveFolderUrlOrId,
         });
 
         if (result.error || !result.data) {
-          setPageMessage(result.message || "共有資料Driveフォルダの更新に失敗しました。");
+          setPageMessage(
+            result.message || "共有資料Driveフォルダの更新に失敗しました。",
+          );
           setPageMessageVariant("error");
           return;
         }
@@ -297,7 +260,6 @@ export default function AdminSharedDocumentDriveFoldersPage() {
         setSelectedFolder(updatedFolder);
         setFolderName(updatedFolder.folderName);
         setDescription(updatedFolder.description ?? "");
-        setDriveFolderUrlOrId(updatedFolder.folderUrl);
 
         setPageMessage("共有資料Driveフォルダを更新しました。");
         setPageMessageVariant("success");
@@ -309,11 +271,12 @@ export default function AdminSharedDocumentDriveFoldersPage() {
       const result = await createSharedDocumentDriveFolder({
         folderName: trimmedFolderName,
         description: trimmedDescription || null,
-        driveFolderUrlOrId: trimmedDriveFolderUrlOrId,
       });
 
       if (result.error || !result.data) {
-        setPageMessage(result.message || "共有資料Driveフォルダの作成に失敗しました。");
+        setPageMessage(
+          result.message || "共有資料Driveフォルダの作成に失敗しました。",
+        );
         setPageMessageVariant("error");
         return;
       }
@@ -323,16 +286,18 @@ export default function AdminSharedDocumentDriveFoldersPage() {
       setSelectedFolder(createdFolder);
       setFolderName(createdFolder.folderName);
       setDescription(createdFolder.description ?? "");
-      setDriveFolderUrlOrId(createdFolder.folderUrl);
-      setSelectedUsers([]);
 
-      setPageMessage("共有資料Driveフォルダを作成しました。続けて共有対象ユーザーを設定できます。");
+      setPageMessage(
+        "共有資料Driveフォルダを作成しました。必要に応じてDrive権限同期を実行してください。",
+      );
       setPageMessageVariant("success");
 
       void loadFolders(0, false);
     } catch (error) {
       console.error(error);
-      setPageMessage("共有資料Driveフォルダの保存中に予期しないエラーが発生しました。");
+      setPageMessage(
+        "共有資料Driveフォルダの保存中に予期しないエラーが発生しました。",
+      );
       setPageMessageVariant("error");
     } finally {
       setIsSaving(false);
@@ -364,7 +329,9 @@ export default function AdminSharedDocumentDriveFoldersPage() {
       });
 
       if (result.error || !result.data) {
-        setPageMessage(result.message || "共有資料Driveフォルダの削除に失敗しました。");
+        setPageMessage(
+          result.message || "共有資料Driveフォルダの削除に失敗しました。",
+        );
         setPageMessageVariant("error");
         return;
       }
@@ -377,7 +344,9 @@ export default function AdminSharedDocumentDriveFoldersPage() {
       void loadFolders(0, false);
     } catch (error) {
       console.error(error);
-      setPageMessage("共有資料Driveフォルダの削除中に予期しないエラーが発生しました。");
+      setPageMessage(
+        "共有資料Driveフォルダの削除中に予期しないエラーが発生しました。",
+      );
       setPageMessageVariant("error");
     } finally {
       setProcessingFolderId(null);
@@ -394,209 +363,13 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     window.open(selectedFolder.folderUrl, "_blank", "noopener,noreferrer");
   };
 
-  const handleSearchUsers = async () => {
-    setIsUserSearching(true);
-    setPageMessage("ユーザーを検索しています。");
-    setPageMessageVariant("info");
-
-    try {
-      const result = await searchUsers({
-        keyword: userKeyword.trim(),
-        includeDeleted: false,
-        offset: 0,
-        limit: USER_SEARCH_LIMIT,
-      });
-
-      if (result.error || !result.data) {
-        setUserSearchResults([]);
-        setPageMessage(result.message || "ユーザー検索に失敗しました。");
-        setPageMessageVariant("error");
-        return;
-      }
-
-      const users = (result.data.users ?? []) as UserSearchResult[];
-      const targetUsers = users.filter((searchedUser) => searchedUser.role === "USER");
-
-      setUserSearchResults(targetUsers);
-
-      if (targetUsers.length === 0) {
-        setPageMessage("条件に一致する従業員ユーザーはありません。");
-        setPageMessageVariant("info");
-      } else {
-        setPageMessage("ユーザーを検索しました。");
-        setPageMessageVariant("success");
-      }
-    } catch (error) {
-      console.error(error);
-      setUserSearchResults([]);
-      setPageMessage("ユーザー検索中に予期しないエラーが発生しました。");
-      setPageMessageVariant("error");
-    } finally {
-      setIsUserSearching(false);
-    }
-  };
-
-  const handleAddSharedUser = (searchedUser: UserSearchResult) => {
-    if (searchedUser.role !== "USER") {
-      setPageMessage("共有対象に追加できるのはUSERのみです。");
-      setPageMessageVariant("warning");
-      return;
-    }
-
-    if (selectedUserIdSet.has(searchedUser.id)) {
-      setPageMessage("すでに共有対象に追加されています。");
-      setPageMessageVariant("warning");
-      return;
-    }
-
-    setSelectedUsers((currentUsers) => [...currentUsers, toSelectedSharedUserFromSearchUser(searchedUser)]);
-    setPageMessage("共有対象ユーザーを追加しました。まだDrive権限には反映されていません。");
-    setPageMessageVariant("success");
-  };
-
-  const handleRemoveSharedUser = (targetUserId: number) => {
-    setSelectedUsers((currentUsers) =>
-      currentUsers.filter((currentUser) => currentUser.userId !== targetUserId),
-    );
-    setPageMessage("共有対象ユーザーを一覧から削除しました。まだDrive権限には反映されていません。");
-    setPageMessageVariant("info");
-  };
-
-  const handleApplySharedUsers = async () => {
-    if (!selectedFolder) {
-      setPageMessage("先に共有資料Driveフォルダを選択してください。");
-      setPageMessageVariant("warning");
-      return;
-    }
-
-    setIsUserApplying(true);
-    setPageMessage("共有対象ユーザーを適用しています。");
-    setPageMessageVariant("info");
-
-    try {
-      const result = await updateSharedDocumentDriveFolderUsers({
-        targetSharedDocumentDriveFolderId: selectedFolder.id,
-        targetUserIds: selectedUsers.map((selectedUser) => selectedUser.userId),
-        shareAllUsers: false,
-      });
-
-      if (result.error || !result.data) {
-        setPageMessage(result.message || "共有対象ユーザーの適用に失敗しました。");
-        setPageMessageVariant("error");
-        return;
-      }
-
-      setSelectedUsers((result.data.sharedUsers ?? []).map(toSelectedSharedUser));
-      setPageMessage("共有対象ユーザーを適用しました。Drive権限へ反映するには権限同期を実行してください。");
-      setPageMessageVariant("success");
-
-      void loadFolders(0, false);
-    } catch (error) {
-      console.error(error);
-      setPageMessage("共有対象ユーザーの適用中に予期しないエラーが発生しました。");
-      setPageMessageVariant("error");
-    } finally {
-      setIsUserApplying(false);
-    }
-  };
-
-  const handleAddAllUsers = async () => {
-    if (!selectedFolder) {
-      setPageMessage("先に共有資料Driveフォルダを選択してください。");
-      setPageMessageVariant("warning");
-      return;
-    }
-
-    const confirmed = window.confirm("有効なUSER全員を共有対象に追加します。よろしいですか？");
-
-    if (!confirmed) {
-      return;
-    }
-
-    setIsUserApplying(true);
-    setPageMessage("全USERを共有対象に追加しています。");
-    setPageMessageVariant("info");
-
-    try {
-      const result = await updateSharedDocumentDriveFolderUsers({
-        targetSharedDocumentDriveFolderId: selectedFolder.id,
-        targetUserIds: [],
-        shareAllUsers: true,
-      });
-
-      if (result.error || !result.data) {
-        setPageMessage(result.message || "全員追加に失敗しました。");
-        setPageMessageVariant("error");
-        return;
-      }
-
-      setSelectedUsers((result.data.sharedUsers ?? []).map(toSelectedSharedUser));
-      setPageMessage("全USERを共有対象に追加しました。Drive権限へ反映するには権限同期を実行してください。");
-      setPageMessageVariant("success");
-
-      void loadFolders(0, false);
-    } catch (error) {
-      console.error(error);
-      setPageMessage("全員追加中に予期しないエラーが発生しました。");
-      setPageMessageVariant("error");
-    } finally {
-      setIsUserApplying(false);
-    }
-  };
-
-  const handleClearAllUsers = async () => {
-    if (!selectedFolder) {
-      setPageMessage("先に共有資料Driveフォルダを選択してください。");
-      setPageMessageVariant("warning");
-      return;
-    }
-
-    const confirmed = window.confirm("共有対象ユーザーを全員削除します。よろしいですか？");
-
-    if (!confirmed) {
-      return;
-    }
-
-    setIsUserApplying(true);
-    setPageMessage("共有対象ユーザーを全員削除しています。");
-    setPageMessageVariant("info");
-
-    try {
-      const result = await updateSharedDocumentDriveFolderUsers({
-        targetSharedDocumentDriveFolderId: selectedFolder.id,
-        targetUserIds: [],
-        shareAllUsers: false,
-      });
-
-      if (result.error || !result.data) {
-        setPageMessage(result.message || "共有対象ユーザーの全削除に失敗しました。");
-        setPageMessageVariant("error");
-        return;
-      }
-
-      setSelectedUsers([]);
-      setPageMessage("共有対象ユーザーを全員削除しました。Drive権限へ反映するには権限同期を実行してください。");
-      setPageMessageVariant("success");
-
-      void loadFolders(0, false);
-    } catch (error) {
-      console.error(error);
-      setPageMessage("共有対象ユーザーの全削除中に予期しないエラーが発生しました。");
-      setPageMessageVariant("error");
-    } finally {
-      setIsUserApplying(false);
-    }
-  };
-
-  const handleSyncPermissions = async () => {
-    if (!selectedFolder) {
-      setPageMessage("先に共有資料Driveフォルダを選択してください。");
-      setPageMessageVariant("warning");
-      return;
-    }
+  const handleSyncPermissions = async (targetSharedDocumentDriveFolderId: number) => {
+    const isAllFolders = targetSharedDocumentDriveFolderId === 0;
 
     const confirmed = window.confirm(
-      "Google Driveの権限を現在の共有対象ユーザーに同期します。共有対象から外れたユーザーのDrive権限も削除されます。よろしいですか？",
+      isAllFolders
+        ? "有効な共有資料Driveフォルダ全件について、有効な管理者・一般ユーザーへGoogle Drive権限を同期します。よろしいですか？"
+        : "選択中の共有資料Driveフォルダについて、有効な管理者・一般ユーザーへGoogle Drive権限を同期します。よろしいですか？",
     );
 
     if (!confirmed) {
@@ -604,12 +377,13 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     }
 
     setIsSyncing(true);
+    setProcessingFolderId(isAllFolders ? null : targetSharedDocumentDriveFolderId);
     setPageMessage("Google Drive権限を同期しています。");
     setPageMessageVariant("info");
 
     try {
       const result = await syncSharedDocumentDriveFolder({
-        targetSharedDocumentDriveFolderId: selectedFolder.id,
+        targetSharedDocumentDriveFolderId,
       });
 
       if (result.error || !result.data) {
@@ -618,13 +392,28 @@ export default function AdminSharedDocumentDriveFoldersPage() {
         return;
       }
 
-      setSelectedFolder(result.data.sharedDocumentDriveFolder);
-      setSelectedUsers((result.data.sharedUsers ?? []).map(toSelectedSharedUser));
-      setFolderName(result.data.sharedDocumentDriveFolder.folderName);
-      setDescription(result.data.sharedDocumentDriveFolder.description ?? "");
-      setDriveFolderUrlOrId(result.data.sharedDocumentDriveFolder.folderUrl);
+      const syncedFolders = result.data.sharedDocumentDriveFolders ?? [];
 
-      setPageMessage("Google Drive権限を同期しました。");
+      if (selectedFolder) {
+        const syncedSelectedFolder = syncedFolders.find(
+          (folder) => folder.id === selectedFolder.id,
+        );
+
+        if (syncedSelectedFolder) {
+          setSelectedFolder(syncedSelectedFolder);
+          setFolderName(syncedSelectedFolder.folderName);
+          setDescription(syncedSelectedFolder.description ?? "");
+        } else if (!isAllFolders && syncedFolders.length > 0) {
+          const firstSyncedFolder = syncedFolders[0];
+          setSelectedFolder(firstSyncedFolder);
+          setFolderName(firstSyncedFolder.folderName);
+          setDescription(firstSyncedFolder.description ?? "");
+        }
+      }
+
+      setPageMessage(
+        `Google Drive権限を同期しました。同期フォルダ数：${result.data.syncedFolderCount}件 / 管理者：${result.data.targetAdminCount}人 / 一般ユーザー：${result.data.targetUserCount}人`,
+      );
       setPageMessageVariant("success");
 
       void loadFolders(0, false);
@@ -634,6 +423,7 @@ export default function AdminSharedDocumentDriveFoldersPage() {
       setPageMessageVariant("error");
     } finally {
       setIsSyncing(false);
+      setProcessingFolderId(null);
     }
   };
 
@@ -659,19 +449,30 @@ export default function AdminSharedDocumentDriveFoldersPage() {
           <div className={styles.header}>
             <PageTitle
               title="共有資料管理"
-              description="Google Driveフォルダを登録し、共有対象ユーザーへの権限を同期できます。"
+              description="external_storage_links の共有資料Drive親フォルダ配下に、全ユーザー向け資料フォルダを作成・管理します。"
             />
 
-            <div className={styles.summaryArea}>
-              <div className={styles.summaryBox}>
-                <p className={styles.summaryLabel}>検索結果</p>
-                <p className={styles.summaryValue}>{total}件</p>
-              </div>
+            <div className={styles.headerActionArea}>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => void handleSyncPermissions(0)}
+                disabled={isSyncing || total === 0}
+              >
+                {isSyncing ? "同期中..." : "全フォルダ権限同期"}
+              </Button>
+            </div>
+          </div>
 
-              <div className={styles.summaryBox}>
-                <p className={styles.summaryLabel}>選択中の共有対象</p>
-                <p className={styles.summaryValue}>{selectedUsers.length}人</p>
-              </div>
+          <div className={styles.summaryArea}>
+            <div className={styles.summaryBox}>
+              <p className={styles.summaryLabel}>検索結果</p>
+              <p className={styles.summaryValue}>{total}件</p>
+            </div>
+
+            <div className={styles.summaryBox}>
+              <p className={styles.summaryLabel}>共有対象</p>
+              <p className={styles.summaryValue}>全USER</p>
             </div>
           </div>
 
@@ -686,7 +487,7 @@ export default function AdminSharedDocumentDriveFoldersPage() {
               <div>
                 <h2 className={styles.sectionTitle}>検索条件</h2>
                 <p className={styles.sectionDescription}>
-                  フォルダ名・説明・DriveフォルダIDで検索できます。
+                  フォルダ名・説明で検索できます。
                 </p>
               </div>
 
@@ -703,12 +504,17 @@ export default function AdminSharedDocumentDriveFoldersPage() {
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                   className={styles.textInput}
-                  placeholder="フォルダ名・説明・DriveフォルダID"
+                  placeholder="フォルダ名・説明"
                 />
               </label>
 
               <div className={styles.searchActionArea}>
-                <Button type="button" variant="primary" onClick={handleSearch} disabled={isPageLoading}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleSearch}
+                  disabled={isPageLoading}
+                >
                   検索
                 </Button>
               </div>
@@ -721,7 +527,7 @@ export default function AdminSharedDocumentDriveFoldersPage() {
                 <div>
                   <h2 className={styles.sectionTitle}>共有資料フォルダ一覧</h2>
                   <p className={styles.sectionDescription}>
-                    選択すると右側で編集・共有対象ユーザー管理ができます。
+                    選択すると右側で表示名・説明を編集できます。
                   </p>
                 </div>
               </div>
@@ -730,7 +536,9 @@ export default function AdminSharedDocumentDriveFoldersPage() {
                 {folders.length === 0 && !isPageLoading ? (
                   <div className={styles.emptyBox}>
                     <p className={styles.emptyTitle}>共有資料フォルダはありません</p>
-                    <p className={styles.emptyText}>条件に一致するフォルダがあると、ここに表示されます。</p>
+                    <p className={styles.emptyText}>
+                      条件に一致するフォルダがあると、ここに表示されます。
+                    </p>
                   </div>
                 ) : (
                   folders.map((folder) => (
@@ -743,21 +551,27 @@ export default function AdminSharedDocumentDriveFoldersPage() {
                       <div className={styles.folderCardHeader}>
                         <div className={styles.folderTitleArea}>
                           <h2 className={styles.folderTitle}>{folder.folderName}</h2>
-                          <p className={styles.folderDescription}>{folder.description || "説明なし"}</p>
+                          <p className={styles.folderDescription}>
+                            {folder.description || "説明なし"}
+                          </p>
                         </div>
 
-                        <span className={styles.countBadge}>{folder.sharedUserCount}人</span>
+                        <span className={styles.scopeBadge}>全USER</span>
                       </div>
 
                       <div className={styles.folderMetaGrid}>
                         <div>
                           <p className={styles.metaLabel}>同期日時</p>
-                          <p className={styles.metaValue}>{formatDateTime(folder.syncedAt)}</p>
+                          <p className={styles.metaValue}>
+                            {formatDateTime(folder.syncedAt)}
+                          </p>
                         </div>
 
                         <div>
                           <p className={styles.metaLabel}>更新日時</p>
-                          <p className={styles.metaValue}>{formatDateTime(folder.updatedAt)}</p>
+                          <p className={styles.metaValue}>
+                            {formatDateTime(folder.updatedAt)}
+                          </p>
                         </div>
                       </div>
 
@@ -778,7 +592,12 @@ export default function AdminSharedDocumentDriveFoldersPage() {
 
               {hasMore && (
                 <div className={styles.moreArea}>
-                  <Button type="button" variant="secondary" onClick={handleLoadMore} disabled={isMoreLoading}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleLoadMore}
+                    disabled={isMoreLoading}
+                  >
                     {isMoreLoading ? "読み込み中..." : "もっと見る"}
                   </Button>
                 </div>
@@ -792,13 +611,11 @@ export default function AdminSharedDocumentDriveFoldersPage() {
                     {selectedFolder ? "共有資料フォルダ編集" : "共有資料フォルダ作成"}
                   </h2>
                   <p className={styles.sectionDescription}>
-                    Google Driveで作成済みのフォルダURLまたはIDを登録してください。
+                    作成時は、共有資料Drive親フォルダ配下に指定名のDriveフォルダを自動作成します。
                   </p>
                 </div>
 
-                {selectedFolder && (
-                  <span className={styles.selectedBadge}>ID: {selectedFolder.id}</span>
-                )}
+                {selectedFolder && <span className={styles.selectedBadge}>ID: {selectedFolder.id}</span>}
               </div>
 
               <div className={styles.formGrid}>
@@ -809,7 +626,7 @@ export default function AdminSharedDocumentDriveFoldersPage() {
                     value={folderName}
                     onChange={(event) => setFolderName(event.target.value)}
                     className={styles.textInput}
-                    placeholder="例：全体教育資料"
+                    placeholder="例：入社後書類 / FAQ / 勤怠マニュアル"
                     disabled={isSaving}
                   />
                 </label>
@@ -825,23 +642,37 @@ export default function AdminSharedDocumentDriveFoldersPage() {
                   />
                 </label>
 
-                <label className={styles.formLabel}>
-                  <span className={styles.labelText}>Google DriveフォルダURL または ID</span>
-                  <input
-                    type="text"
-                    value={driveFolderUrlOrId}
-                    onChange={(event) => setDriveFolderUrlOrId(event.target.value)}
-                    className={styles.textInput}
-                    placeholder="https://drive.google.com/drive/folders/..."
-                    disabled={isSaving}
-                  />
-                </label>
+                {selectedFolder && (
+                  <div className={styles.readOnlyInfoBox}>
+                    <p className={styles.readOnlyInfoTitle}>Driveフォルダ</p>
+                    <p className={styles.readOnlyInfoText}>
+                      DriveフォルダID：{selectedFolder.driveFolderId}
+                    </p>
+                    <p className={styles.readOnlyInfoText}>
+                      DriveフォルダURL：{selectedFolder.folderUrl}
+                    </p>
+                    <p className={styles.readOnlyInfoText}>
+                      最終同期日時：{formatDateTime(selectedFolder.syncedAt)}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className={styles.formActionArea}>
                 {selectedFolder && (
                   <Button type="button" variant="secondary" onClick={handleOpenDriveFolder}>
                     Driveを開く
+                  </Button>
+                )}
+
+                {selectedFolder && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void handleSyncPermissions(selectedFolder.id)}
+                    disabled={isSyncing}
+                  >
+                    {isSyncing ? "同期中..." : "選択フォルダ権限同期"}
                   </Button>
                 )}
 
@@ -856,148 +687,27 @@ export default function AdminSharedDocumentDriveFoldersPage() {
                   </Button>
                 )}
 
-                <Button type="button" variant="primary" onClick={() => void handleSaveFolder()} disabled={isSaving}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => void handleSaveFolder()}
+                  disabled={isSaving}
+                >
                   {isSaving ? "保存中..." : selectedFolder ? "更新" : "作成"}
                 </Button>
               </div>
 
-              {selectedFolder && (
-                <section className={styles.shareSection}>
-                  <div className={styles.sectionHeader}>
-                    <div>
-                      <h2 className={styles.sectionTitle}>共有対象ユーザー</h2>
-                      <p className={styles.sectionDescription}>
-                        追加・削除後、「共有対象を適用」してから「Drive権限同期」を実行してください。
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className={styles.userSearchBox}>
-                    <div className={styles.userSearchGrid}>
-                      <label className={styles.formLabel}>
-                        <span className={styles.labelText}>ユーザー検索</span>
-                        <input
-                          type="text"
-                          value={userKeyword}
-                          onChange={(event) => setUserKeyword(event.target.value)}
-                          className={styles.textInput}
-                          placeholder="名前・メールアドレス"
-                        />
-                      </label>
-
-                      <div className={styles.searchActionArea}>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => void handleSearchUsers()}
-                          disabled={isUserSearching}
-                        >
-                          {isUserSearching ? "検索中..." : "ユーザー検索"}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {userSearchResults.length > 0 && (
-                      <div className={styles.userResultList}>
-                        {userSearchResults.map((searchedUser) => (
-                          <div key={searchedUser.id} className={styles.userResultRow}>
-                            <div>
-                              <p className={styles.userName}>{searchedUser.name}</p>
-                              <p className={styles.userEmail}>{searchedUser.email}</p>
-                            </div>
-
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              onClick={() => handleAddSharedUser(searchedUser)}
-                              disabled={selectedUserIdSet.has(searchedUser.id)}
-                            >
-                              {selectedUserIdSet.has(searchedUser.id) ? "追加済み" : "追加"}
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={styles.bulkActionArea}>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => void handleAddAllUsers()}
-                      disabled={isUserApplying}
-                    >
-                      {isUserApplying ? "処理中..." : "全員追加"}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => void handleClearAllUsers()}
-                      disabled={isUserApplying}
-                    >
-                      {isUserApplying ? "処理中..." : "全員削除"}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={() => void handleApplySharedUsers()}
-                      disabled={isUserApplying}
-                    >
-                      {isUserApplying ? "適用中..." : "共有対象を適用"}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={() => void handleSyncPermissions()}
-                      disabled={isSyncing || isUserApplying}
-                    >
-                      {isSyncing ? "同期中..." : "Drive権限同期"}
-                    </Button>
-                  </div>
-
-                  <div className={styles.sharedUserList}>
-                    {selectedUsers.length === 0 ? (
-                      <div className={styles.emptyBox}>
-                        <p className={styles.emptyTitle}>共有対象ユーザーはいません</p>
-                        <p className={styles.emptyText}>
-                          ユーザー検索から追加するか、全員追加を実行してください。
-                        </p>
-                      </div>
-                    ) : (
-                      selectedUsers.map((selectedUser) => (
-                        <div key={selectedUser.userId} className={styles.sharedUserRow}>
-                          <div>
-                            <p className={styles.userName}>{selectedUser.userName}</p>
-                            <p className={styles.userEmail}>{selectedUser.userEmail}</p>
-                          </div>
-
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => handleRemoveSharedUser(selectedUser.userId)}
-                            disabled={isUserApplying || isSyncing}
-                          >
-                            削除
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className={styles.syncInfoBox}>
-                    <p className={styles.syncInfoTitle}>同期状態</p>
-                    <p className={styles.syncInfoText}>
-                      最終同期日時：{formatDateTime(selectedFolder.syncedAt)}
-                    </p>
-                    <p className={styles.syncInfoText}>
-                      Drive権限同期では、管理者全員と共有対象ユーザーに writer 権限を付与します。
-                    </p>
-                  </div>
-                </section>
-              )}
+              <section className={styles.policySection}>
+                <h2 className={styles.sectionTitle}>現在の共有仕様</h2>
+                <p className={styles.policyText}>
+                  この画面で作成した共有資料Driveフォルダは、全ユーザー向け資料として扱います。
+                  個別ユーザーの選択・共有対象リスト管理は行いません。
+                </p>
+                <p className={styles.policyText}>
+                  Drive権限同期では、有効な管理者と有効な一般ユーザーをバックエンド側で取得し、
+                  対象フォルダへ権限を付与します。
+                </p>
+              </section>
             </div>
           </section>
         </section>

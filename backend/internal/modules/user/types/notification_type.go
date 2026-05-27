@@ -15,6 +15,14 @@ import "time"
  * ・ControllerでJWTからログイン中ユーザーIDを取得する
  * ・検索では keyword を title / message に対して部分一致検索する
  * ・検索結果は既存の検索系と同じく total / offset / limit / hasMore を返す
+ * ・通知作成は公開APIとしては提供しない
+ * ・月次申請などの内部処理からServiceを呼び出してnotificationsを作成する
+ */
+
+/*
+ * =========================================================
+ * Request
+ * =========================================================
  */
 
 /*
@@ -27,15 +35,28 @@ type SearchNotificationsRequest struct {
 }
 
 /*
- * お知らせ一覧取得レスポンス
+ * お知らせ既読更新リクエスト
+ *
+ * ユーザーIDはリクエストで受け取らない。
+ * ControllerでJWTから取得する。
  */
-type SearchNotificationsResponse struct {
-	Notifications []NotificationResponse `json:"notifications"`
-	Total         int64                  `json:"total"`
-	Offset        int                    `json:"offset"`
-	Limit         int                    `json:"limit"`
-	HasMore       bool                   `json:"hasMore"`
+type ReadNotificationRequest struct {
+	NotificationID uint `json:"notificationId" binding:"required"`
 }
+
+/*
+ * 未読お知らせ件数取得リクエスト
+ *
+ * ユーザーIDはリクエストで受け取らない。
+ * ControllerでJWTから取得する。
+ */
+type CountUnreadNotificationsRequest struct{}
+
+/*
+ * =========================================================
+ * Response
+ * =========================================================
+ */
 
 /*
  * お知らせレスポンス
@@ -50,13 +71,14 @@ type NotificationResponse struct {
 }
 
 /*
- * お知らせ既読更新リクエスト
- *
- * ユーザーIDはリクエストで受け取らない。
- * ControllerでJWTから取得する。
+ * お知らせ一覧取得レスポンス
  */
-type ReadNotificationRequest struct {
-	NotificationID uint `json:"notificationId" binding:"required"`
+type SearchNotificationsResponse struct {
+	Notifications []NotificationResponse `json:"notifications"`
+	Total         int64                  `json:"total"`
+	Offset        int                    `json:"offset"`
+	Limit         int                    `json:"limit"`
+	HasMore       bool                   `json:"hasMore"`
 }
 
 /*
@@ -67,17 +89,31 @@ type ReadNotificationResponse struct {
 }
 
 /*
- * 未読お知らせ件数取得リクエスト
- *
- * ユーザーIDはリクエストで受け取らない。
- * ControllerでJWTから取得する。
- */
-type CountUnreadNotificationsRequest struct {
-}
-
-/*
  * 未読お知らせ件数取得レスポンス
  */
 type CountUnreadNotificationsResponse struct {
 	UnreadCount int64 `json:"unreadCount"`
+}
+
+/*
+ * 内部処理用 個別お知らせ作成レスポンス
+ *
+ * 注意：
+ * ・Controllerから直接返すためのAPIレスポンスではなく、
+ *   月次申請などの内部処理でresults.Resultに詰めるために使う。
+ */
+type CreateNotificationForUserResponse struct {
+	UserID       uint `json:"userId"`
+	CreatedCount int  `json:"createdCount"`
+}
+
+/*
+ * 内部処理用 管理者宛お知らせ作成レスポンス
+ *
+ * 注意：
+ * ・管理者が0件の場合も主処理を止めない。
+ */
+type CreateNotificationForAdminsResponse struct {
+	AdminCount   int `json:"adminCount"`
+	CreatedCount int `json:"createdCount"`
 }

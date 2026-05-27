@@ -19,6 +19,9 @@ type NotificationRepository interface {
 	FindNotification(query *gorm.DB) (models.Notification, results.Result)
 	SaveNotification(notification models.Notification) (models.Notification, results.Result)
 	CountNotifications(query *gorm.DB) (int64, results.Result)
+
+	FindActiveAdmins() ([]models.User, results.Result)
+	CreateNotifications(notifications []models.Notification) ([]models.Notification, results.Result)
 }
 
 /*
@@ -26,13 +29,13 @@ type NotificationRepository interface {
  *
  * 役割：
  * ・Builderで作成されたGORMクエリを実行する
- * ・DBへのSaveを実行する
+ * ・DBへのSave / Createを実行する
  * ・Repository内で発生したエラーはRepositoryでcode/message/detailsを作って返す
  *
  * 注意：
  * ・検索条件や業務ルールは作らない
  * ・クエリ作成はBuilderに任せる
- * ・既読更新可否などはServiceに任せる
+ * ・既読更新可否、通知作成可否などはServiceに任せる
  */
 type notificationRepository struct {
 	db *gorm.DB
@@ -170,6 +173,72 @@ func (repository *notificationRepository) CountNotifications(query *gorm.DB) (in
 	return count, results.OK(
 		nil,
 		"COUNT_NOTIFICATIONS_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 有効管理者一覧取得
+ *
+ * ユーザー側の月次申請・取り下げなどから、
+ * 管理者全員へ通知を作成するときに使う。
+ *
+ * 注意：
+ * ・通知の宛先として使うため、論理削除済み管理者は対象外
+ * ・管理者が0件でもRepositoryとしては成功扱いにする
+ */
+func (repository *notificationRepository) FindActiveAdmins() ([]models.User, results.Result) {
+	var admins []models.User
+
+	if err := repository.db.
+		Model(&models.User{}).
+		Where("role = ? AND is_deleted = ?", "ADMIN", false).
+		Order("id ASC").
+		Find(&admins).Error; err != nil {
+		return nil, results.InternalServerError(
+			"FIND_ACTIVE_ADMINS_FAILED",
+			"通知先管理者の取得に失敗しました",
+			err.Error(),
+		)
+	}
+
+	return admins, results.OK(
+		nil,
+		"FIND_ACTIVE_ADMINS_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * お知らせ一括作成
+ *
+ * 月次申請・取り下げなどの内部処理から、
+ * 本人宛や管理者宛の通知を作成するときに使う。
+ */
+func (repository *notificationRepository) CreateNotifications(
+	notifications []models.Notification,
+) ([]models.Notification, results.Result) {
+	if len(notifications) == 0 {
+		return nil, results.InternalServerError(
+			"CREATE_NOTIFICATIONS_EMPTY_NOTIFICATIONS",
+			"お知らせの作成に失敗しました",
+			nil,
+		)
+	}
+
+	if err := repository.db.Create(&notifications).Error; err != nil {
+		return nil, results.InternalServerError(
+			"CREATE_NOTIFICATIONS_FAILED",
+			"お知らせの作成に失敗しました",
+			err.Error(),
+		)
+	}
+
+	return notifications, results.OK(
+		nil,
+		"CREATE_NOTIFICATIONS_SUCCESS",
 		"",
 		nil,
 	)

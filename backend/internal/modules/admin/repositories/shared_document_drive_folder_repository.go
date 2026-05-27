@@ -10,19 +10,19 @@ import (
 	"gorm.io/gorm"
 )
 
+/*
+ * 管理者用 共有資料DriveフォルダRepository interface
+ */
 type SharedDocumentDriveFolderRepository interface {
 	FindSharedDocumentDriveFolderRows(query *gorm.DB) ([]types.SharedDocumentDriveFolderSearchRow, results.Result)
 	CountSharedDocumentDriveFolderRows(query *gorm.DB) (int64, results.Result)
 
 	FindSharedDocumentDriveFolder(query *gorm.DB) (models.SharedDocumentDriveFolder, results.Result)
+	FindSharedDocumentDriveFolders(query *gorm.DB) ([]models.SharedDocumentDriveFolder, results.Result)
 	CreateSharedDocumentDriveFolder(folder models.SharedDocumentDriveFolder) (models.SharedDocumentDriveFolder, results.Result)
 	SaveSharedDocumentDriveFolder(folder models.SharedDocumentDriveFolder) (models.SharedDocumentDriveFolder, results.Result)
 
-	FindSharedDocumentDriveFolderUserRows(query *gorm.DB) ([]types.SharedDocumentDriveFolderUserResponse, results.Result)
-	FindSharedDocumentDriveFolderUsers(query *gorm.DB) ([]models.SharedDocumentDriveFolderUser, results.Result)
-	CreateSharedDocumentDriveFolderUser(folderUser models.SharedDocumentDriveFolderUser) (models.SharedDocumentDriveFolderUser, results.Result)
-	SaveSharedDocumentDriveFolderUser(folderUser models.SharedDocumentDriveFolderUser) (models.SharedDocumentDriveFolderUser, results.Result)
-
+	FindExternalStorageLink(query *gorm.DB) (models.ExternalStorageLink, results.Result)
 	FindUsers(query *gorm.DB) ([]models.User, results.Result)
 }
 
@@ -124,6 +124,31 @@ func (repository *sharedDocumentDriveFolderRepository) FindSharedDocumentDriveFo
 }
 
 /*
+ * 共有資料Driveフォルダ複数取得
+ */
+func (repository *sharedDocumentDriveFolderRepository) FindSharedDocumentDriveFolders(query *gorm.DB) ([]models.SharedDocumentDriveFolder, results.Result) {
+	var folders []models.SharedDocumentDriveFolder
+
+	if query == nil {
+		return folders, results.InternalServerError(
+			"FIND_SHARED_DOCUMENT_DRIVE_FOLDERS_EMPTY_QUERY",
+			"共有資料Driveフォルダ一覧の取得に失敗しました",
+			nil,
+		)
+	}
+
+	if err := query.Find(&folders).Error; err != nil {
+		return folders, results.InternalServerError(
+			"FIND_SHARED_DOCUMENT_DRIVE_FOLDERS_FAILED",
+			"共有資料Driveフォルダ一覧の取得に失敗しました",
+			err.Error(),
+		)
+	}
+
+	return folders, results.OK(nil, "FIND_SHARED_DOCUMENT_DRIVE_FOLDERS_SUCCESS", "", nil)
+}
+
+/*
  * 共有資料Driveフォルダ作成
  */
 func (repository *sharedDocumentDriveFolderRepository) CreateSharedDocumentDriveFolder(folder models.SharedDocumentDriveFolder) (models.SharedDocumentDriveFolder, results.Result) {
@@ -154,83 +179,36 @@ func (repository *sharedDocumentDriveFolderRepository) SaveSharedDocumentDriveFo
 }
 
 /*
- * 共有ユーザー表示用取得
+ * 外部ストレージリンク1件取得
  */
-func (repository *sharedDocumentDriveFolderRepository) FindSharedDocumentDriveFolderUserRows(query *gorm.DB) ([]types.SharedDocumentDriveFolderUserResponse, results.Result) {
-	var rows []types.SharedDocumentDriveFolderUserResponse
+func (repository *sharedDocumentDriveFolderRepository) FindExternalStorageLink(query *gorm.DB) (models.ExternalStorageLink, results.Result) {
+	var externalStorageLink models.ExternalStorageLink
 
 	if query == nil {
-		return rows, results.InternalServerError(
-			"FIND_SHARED_DOCUMENT_DRIVE_FOLDER_USER_ROWS_EMPTY_QUERY",
-			"共有資料Driveフォルダ共有ユーザー一覧の取得に失敗しました",
+		return externalStorageLink, results.InternalServerError(
+			"FIND_EXTERNAL_STORAGE_LINK_FOR_SHARED_DOCUMENT_DRIVE_FOLDER_EMPTY_QUERY",
+			"共有資料Drive親フォルダ設定の取得に失敗しました",
 			nil,
 		)
 	}
 
-	if err := query.Scan(&rows).Error; err != nil {
-		return rows, results.InternalServerError(
-			"FIND_SHARED_DOCUMENT_DRIVE_FOLDER_USER_ROWS_FAILED",
-			"共有資料Driveフォルダ共有ユーザー一覧の取得に失敗しました",
+	if err := query.First(&externalStorageLink).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return externalStorageLink, results.NotFound(
+				"SHARED_DOCUMENT_DRIVE_ROOT_EXTERNAL_STORAGE_LINK_NOT_FOUND",
+				"共有資料Drive親フォルダ設定が見つかりません",
+				nil,
+			)
+		}
+
+		return externalStorageLink, results.InternalServerError(
+			"FIND_EXTERNAL_STORAGE_LINK_FOR_SHARED_DOCUMENT_DRIVE_FOLDER_FAILED",
+			"共有資料Drive親フォルダ設定の取得に失敗しました",
 			err.Error(),
 		)
 	}
 
-	return rows, results.OK(nil, "FIND_SHARED_DOCUMENT_DRIVE_FOLDER_USER_ROWS_SUCCESS", "", nil)
-}
-
-/*
- * 共有ユーザーModel取得
- */
-func (repository *sharedDocumentDriveFolderRepository) FindSharedDocumentDriveFolderUsers(query *gorm.DB) ([]models.SharedDocumentDriveFolderUser, results.Result) {
-	var folderUsers []models.SharedDocumentDriveFolderUser
-
-	if query == nil {
-		return folderUsers, results.InternalServerError(
-			"FIND_SHARED_DOCUMENT_DRIVE_FOLDER_USERS_EMPTY_QUERY",
-			"共有資料Driveフォルダ共有ユーザー一覧の取得に失敗しました",
-			nil,
-		)
-	}
-
-	if err := query.Find(&folderUsers).Error; err != nil {
-		return folderUsers, results.InternalServerError(
-			"FIND_SHARED_DOCUMENT_DRIVE_FOLDER_USERS_FAILED",
-			"共有資料Driveフォルダ共有ユーザー一覧の取得に失敗しました",
-			err.Error(),
-		)
-	}
-
-	return folderUsers, results.OK(nil, "FIND_SHARED_DOCUMENT_DRIVE_FOLDER_USERS_SUCCESS", "", nil)
-}
-
-/*
- * 共有ユーザー作成
- */
-func (repository *sharedDocumentDriveFolderRepository) CreateSharedDocumentDriveFolderUser(folderUser models.SharedDocumentDriveFolderUser) (models.SharedDocumentDriveFolderUser, results.Result) {
-	if err := repository.db.Create(&folderUser).Error; err != nil {
-		return folderUser, results.InternalServerError(
-			"CREATE_SHARED_DOCUMENT_DRIVE_FOLDER_USER_FAILED",
-			"共有資料Driveフォルダ共有ユーザー情報の登録に失敗しました",
-			err.Error(),
-		)
-	}
-
-	return folderUser, results.Created(nil, "CREATE_SHARED_DOCUMENT_DRIVE_FOLDER_USER_SUCCESS", "", nil)
-}
-
-/*
- * 共有ユーザー保存
- */
-func (repository *sharedDocumentDriveFolderRepository) SaveSharedDocumentDriveFolderUser(folderUser models.SharedDocumentDriveFolderUser) (models.SharedDocumentDriveFolderUser, results.Result) {
-	if err := repository.db.Save(&folderUser).Error; err != nil {
-		return folderUser, results.InternalServerError(
-			"SAVE_SHARED_DOCUMENT_DRIVE_FOLDER_USER_FAILED",
-			"共有資料Driveフォルダ共有ユーザー情報の保存に失敗しました",
-			err.Error(),
-		)
-	}
-
-	return folderUser, results.OK(nil, "SAVE_SHARED_DOCUMENT_DRIVE_FOLDER_USER_SUCCESS", "", nil)
+	return externalStorageLink, results.OK(nil, "FIND_EXTERNAL_STORAGE_LINK_FOR_SHARED_DOCUMENT_DRIVE_FOLDER_SUCCESS", "", nil)
 }
 
 /*

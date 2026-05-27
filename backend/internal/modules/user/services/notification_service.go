@@ -1,6 +1,8 @@
 package services
 
 import (
+	"strings"
+
 	"timexeed/backend/internal/models"
 	"timexeed/backend/internal/modules/user/builders"
 	"timexeed/backend/internal/modules/user/repositories"
@@ -16,11 +18,15 @@ import (
  * 注意：
  * ・従業員APIでは userId / targetUserId をRequestで受け取らない
  * ・ControllerでAuthMiddleware由来のuserIdを取得し、Serviceへ渡す
+ * ・通知作成系は公開APIではなく、月次申請などの内部処理から呼び出す
  */
 type NotificationService interface {
 	SearchNotifications(userID uint, req types.SearchNotificationsRequest) results.Result
 	ReadNotification(userID uint, req types.ReadNotificationRequest) results.Result
 	CountUnreadNotifications(userID uint, req types.CountUnreadNotificationsRequest) results.Result
+
+	CreateNotificationForUser(userID uint, title string, message string) results.Result
+	CreateNotificationForAdmins(title string, message string) results.Result
 }
 
 /*
@@ -28,6 +34,7 @@ type NotificationService interface {
  *
  * 役割：
  * ・Controllerから受け取ったRequestをもとに処理を進める
+ * ・月次申請などの内部処理から呼ばれた場合は通知を作成する
  * ・Serviceで発生したエラーはServiceでcode/message/detailsを作る
  * ・Builderで検索クエリや保存用Modelを作成する
  * ・Builderで発生したエラーはBuilderから返されたResultをそのまま返す
@@ -74,6 +81,38 @@ func toNotificationResponse(notification models.Notification) types.Notification
 }
 
 /*
+ * 通知作成用文字列バリデーション
+ */
+func validateNotificationCreateText(
+	title string,
+	message string,
+	actionCode string,
+) results.Result {
+	if strings.TrimSpace(title) == "" {
+		return results.BadRequest(
+			actionCode+"_EMPTY_TITLE",
+			"お知らせタイトルを入力してください",
+			nil,
+		)
+	}
+
+	if strings.TrimSpace(message) == "" {
+		return results.BadRequest(
+			actionCode+"_EMPTY_MESSAGE",
+			"お知らせ本文を入力してください",
+			nil,
+		)
+	}
+
+	return results.OK(
+		nil,
+		actionCode+"_VALID_TEXT",
+		"",
+		nil,
+	)
+}
+
+/*
  * お知らせ検索
  *
  * ログイン中ユーザー本人のお知らせ一覧を取得する。
@@ -92,6 +131,10 @@ func (service *notificationService) SearchNotifications(
 
 	if req.Limit <= 0 {
 		req.Limit = 10
+	}
+
+	if req.Limit > 100 {
+		req.Limit = 100
 	}
 
 	if req.Offset < 0 {
@@ -246,6 +289,132 @@ func (service *notificationService) CountUnreadNotifications(
 		},
 		"COUNT_UNREAD_NOTIFICATIONS_SUCCESS",
 		"未読お知らせ件数を取得しました",
+		nil,
+	)
+}
+
+/*
+ * 個別ユーザー宛お知らせ作成
+ *
+ * 月次申請などの内部処理から、
+ * 操作した本人へ控え通知を作成するときに使う。
+ *
+ * 注意：
+ * ・公開APIではない
+ * ・Controllerから直接呼ばない
+ */
+func (service *notificationService) CreateNotificationForUser(
+	userID uint,
+	title string,
+	message string,
+) results.Result {
+	if userID == 0 {
+		return results.BadRequest(
+			"CREATE_NOTIFICATION_FOR_USER_INVALID_USER_ID",
+			"通知先ユーザーIDが正しくありません",
+			map[string]any{
+				"userId": userID,
+			},
+		)
+	}
+
+	validateTextResult := validateNotificationCreateText(
+		title,
+		message,
+		"CREATE_NOTIFICATION_FOR_USER",
+	)
+	if validateTextResult.Error {
+		return validateTextResult
+	}
+
+	notification := models.Notification{
+		UserID:  userID,
+		Title:   strings.TrimSpace(title),
+		Message: strings.TrimSpace(message),
+		IsRead:  false,
+	}
+
+	createdNotifications, createResult := service.notificationRepository.CreateNotifications(
+		[]models.Notification{notification},
+	)
+	if createResult.Error {
+		return createResult
+	}
+
+	return results.Created(
+		types.CreateNotificationForUserResponse{
+			UserID:       userID,
+			CreatedCount: len(createdNotifications),
+		},
+		"CREATE_NOTIFICATION_FOR_USER_SUCCESS",
+		"ユーザー宛のお知らせを作成しました",
+		nil,
+	)
+}
+
+/*
+ * 管理者全員宛お知らせ作成
+ *
+ * 月次申請などの内部処理から、
+ * 有効なADMINロール全員へ通知を作成するときに使う。
+ *
+ * 注意：
+ * ・公開APIではない
+ * ・Controllerから直接呼ばない
+ * ・管理者が0人の場合でも主処理を止めないため成功扱いにする
+ */
+func (service *notificationService) CreateNotificationForAdmins(
+	title string,
+	message string,
+) results.Result {
+	validateTextResult := validateNotificationCreateText(
+		title,
+		message,
+		"CREATE_NOTIFICATION_FOR_ADMINS",
+	)
+	if validateTextResult.Error {
+		return validateTextResult
+	}
+
+	admins, findAdminsResult := service.notificationRepository.FindActiveAdmins()
+	if findAdminsResult.Error {
+		return findAdminsResult
+	}
+
+	if len(admins) == 0 {
+		return results.OK(
+			types.CreateNotificationForAdminsResponse{
+				AdminCount:   0,
+				CreatedCount: 0,
+			},
+			"CREATE_NOTIFICATION_FOR_ADMINS_SKIPPED_NO_ADMINS",
+			"通知先管理者が存在しないため、管理者宛のお知らせ作成をスキップしました",
+			nil,
+		)
+	}
+
+	notifications := make([]models.Notification, 0, len(admins))
+	for _, admin := range admins {
+		notifications = append(notifications, models.Notification{
+			UserID:  admin.ID,
+			Title:   strings.TrimSpace(title),
+			Message: strings.TrimSpace(message),
+			IsRead:  false,
+		})
+	}
+
+	createdNotifications, createResult := service.notificationRepository.CreateNotifications(notifications)
+	if createResult.Error {
+		return createResult
+	}
+
+	return results.Created(
+		types.CreateNotificationForAdminsResponse{
+			AdminCount:   len(admins),
+			CreatedCount: len(createdNotifications),
+		},
+		"CREATE_NOTIFICATION_FOR_ADMINS_SUCCESS",
+		"管理者宛のお知らせを作成しました",
 		nil,
 	)
 }

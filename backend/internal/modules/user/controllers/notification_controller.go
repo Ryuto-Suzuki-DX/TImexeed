@@ -25,6 +25,8 @@ import (
  * ・Requestを別の型へ詰め直さない
  * ・c.JSONは直接使わず responses.JSON を使う
  * ・従業員APIでは userId / targetUserId を request body で受け取らない
+ * ・通知作成APIは作らない
+ * ・月次申請などの内部処理からServiceを直接呼び出して通知を作成する
  *
  * エラー方針：
  * ・Controllerで発生したエラーはControllerでcode/messageを決める
@@ -47,6 +49,40 @@ func NewNotificationController(notificationService services.NotificationService)
 }
 
 /*
+ * お知らせController用ログインユーザーID取得
+ *
+ * 注意：
+ * ・controllers package内で getLoginUserID という名前は他Controllerと衝突しやすい
+ * ・そのため、お知らせController専用名にしている
+ */
+func getNotificationLoginUserID(c *gin.Context, actionCode string) (uint, results.Result) {
+	userIDValue, exists := c.Get("userId")
+	if !exists {
+		return 0, results.Unauthorized(
+			actionCode+"_USER_ID_NOT_FOUND",
+			"認証情報からユーザーIDを取得できません",
+			nil,
+		)
+	}
+
+	loginUserID, ok := userIDValue.(uint)
+	if !ok || loginUserID == 0 {
+		return 0, results.Unauthorized(
+			actionCode+"_INVALID_USER_ID",
+			"認証情報のユーザーIDが正しくありません",
+			nil,
+		)
+	}
+
+	return loginUserID, results.OK(
+		nil,
+		actionCode+"_VALID_USER_ID",
+		"",
+		nil,
+	)
+}
+
+/*
  * お知らせ検索
  *
  * POST /user/notifications/search
@@ -61,28 +97,13 @@ func NewNotificationController(notificationService services.NotificationService)
  * ・ログイン中ユーザー本人のお知らせだけを取得する
  */
 func (controller *NotificationController) SearchNotifications(c *gin.Context) {
+	loginUserID, userIDResult := getNotificationLoginUserID(c, "SEARCH_NOTIFICATIONS")
+	if userIDResult.Error {
+		responses.JSON(c, userIDResult)
+		return
+	}
+
 	var req types.SearchNotificationsRequest
-
-	// AuthMiddlewareでJWTから取得したログイン中ユーザーIDを取得する
-	userIDValue, exists := c.Get("userId")
-	if !exists {
-		responses.JSON(c, results.Unauthorized(
-			"SEARCH_NOTIFICATIONS_USER_ID_NOT_FOUND",
-			"認証情報からユーザーIDを取得できません",
-			nil,
-		))
-		return
-	}
-
-	loginUserID, ok := userIDValue.(uint)
-	if !ok {
-		responses.JSON(c, results.Unauthorized(
-			"SEARCH_NOTIFICATIONS_INVALID_USER_ID",
-			"認証情報のユーザーIDが正しくありません",
-			nil,
-		))
-		return
-	}
 
 	// リクエストJSONをSearchNotificationsRequest型にbindする
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -117,28 +138,13 @@ func (controller *NotificationController) SearchNotifications(c *gin.Context) {
  * ・対象お知らせが存在すれば既読にする
  */
 func (controller *NotificationController) ReadNotification(c *gin.Context) {
+	loginUserID, userIDResult := getNotificationLoginUserID(c, "READ_NOTIFICATION")
+	if userIDResult.Error {
+		responses.JSON(c, userIDResult)
+		return
+	}
+
 	var req types.ReadNotificationRequest
-
-	// AuthMiddlewareでJWTから取得したログイン中ユーザーIDを取得する
-	userIDValue, exists := c.Get("userId")
-	if !exists {
-		responses.JSON(c, results.Unauthorized(
-			"READ_NOTIFICATION_USER_ID_NOT_FOUND",
-			"認証情報からユーザーIDを取得できません",
-			nil,
-		))
-		return
-	}
-
-	loginUserID, ok := userIDValue.(uint)
-	if !ok {
-		responses.JSON(c, results.Unauthorized(
-			"READ_NOTIFICATION_INVALID_USER_ID",
-			"認証情報のユーザーIDが正しくありません",
-			nil,
-		))
-		return
-	}
 
 	// リクエストJSONをReadNotificationRequest型にbindする
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -173,28 +179,13 @@ func (controller *NotificationController) ReadNotification(c *gin.Context) {
  * ・ログイン中ユーザー本人の未読お知らせ件数だけを取得する
  */
 func (controller *NotificationController) CountUnreadNotifications(c *gin.Context) {
+	loginUserID, userIDResult := getNotificationLoginUserID(c, "COUNT_UNREAD_NOTIFICATIONS")
+	if userIDResult.Error {
+		responses.JSON(c, userIDResult)
+		return
+	}
+
 	var req types.CountUnreadNotificationsRequest
-
-	// AuthMiddlewareでJWTから取得したログイン中ユーザーIDを取得する
-	userIDValue, exists := c.Get("userId")
-	if !exists {
-		responses.JSON(c, results.Unauthorized(
-			"COUNT_UNREAD_NOTIFICATIONS_USER_ID_NOT_FOUND",
-			"認証情報からユーザーIDを取得できません",
-			nil,
-		))
-		return
-	}
-
-	loginUserID, ok := userIDValue.(uint)
-	if !ok {
-		responses.JSON(c, results.Unauthorized(
-			"COUNT_UNREAD_NOTIFICATIONS_INVALID_USER_ID",
-			"認証情報のユーザーIDが正しくありません",
-			nil,
-		))
-		return
-	}
 
 	// リクエストJSONをCountUnreadNotificationsRequest型にbindする
 	if err := c.ShouldBindJSON(&req); err != nil {

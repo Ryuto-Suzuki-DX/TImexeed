@@ -31,11 +31,19 @@
   margin-bottom: 20px;
 }
 
+.headerActionArea {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .summaryArea {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  margin-bottom: 20px;
 }
 
 .summaryBox {
@@ -232,7 +240,7 @@
   word-break: break-word;
 }
 
-.countBadge,
+.scopeBadge,
 .selectedBadge {
   display: inline-flex;
   align-items: center;
@@ -279,81 +287,8 @@
   justify-content: flex-end;
 }
 
-.shareSection {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.userSearchBox {
-  padding: 14px;
-  border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background-color: #ffffff;
-  box-sizing: border-box;
-}
-
-.userSearchGrid {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
-  align-items: end;
-  gap: 12px;
-}
-
-.userResultList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.userResultRow,
-.sharedUserRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background-color: #ffffff;
-  box-sizing: border-box;
-}
-
-.sharedUserList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.userName {
-  margin: 0;
-  font-size: 13px;
-  font-weight: bold;
-  color: #111827;
-  line-height: 1.4;
-}
-
-.userEmail {
-  margin: 3px 0 0;
-  font-size: 12px;
-  color: #6b7280;
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.bulkActionArea {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-}
-
-.syncInfoBox {
-  margin-top: 14px;
+.readOnlyInfoBox,
+.policySection {
   padding: 14px;
   border-radius: 14px;
   border: 1px solid #fed7aa;
@@ -361,18 +296,24 @@
   box-sizing: border-box;
 }
 
-.syncInfoTitle {
+.policySection {
+  margin-top: 24px;
+}
+
+.readOnlyInfoTitle {
   margin: 0 0 6px;
   font-size: 13px;
   font-weight: bold;
   color: #9a3412;
 }
 
-.syncInfoText {
+.readOnlyInfoText,
+.policyText {
   margin: 4px 0 0;
   font-size: 12px;
   color: #7c2d12;
   line-height: 1.6;
+  word-break: break-word;
 }
 
 .emptyBox {
@@ -410,8 +351,7 @@
 }
 
 @media (max-width: 900px) {
-  .searchGrid,
-  .userSearchGrid {
+  .searchGrid {
     grid-template-columns: 1fr;
   }
 
@@ -429,6 +369,11 @@
     flex-direction: column;
   }
 
+  .headerActionArea {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .summaryArea {
     width: 100%;
     justify-content: flex-start;
@@ -442,15 +387,8 @@
     flex-direction: column;
   }
 
-  .formActionArea,
-  .bulkActionArea {
+  .formActionArea {
     justify-content: flex-start;
-  }
-
-  .userResultRow,
-  .sharedUserRow {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 

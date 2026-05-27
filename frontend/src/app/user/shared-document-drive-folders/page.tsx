@@ -13,7 +13,7 @@ import {
 } from "@/api/user/sharedDocumentDriveFolder";
 import type {
   SharedDocumentDriveFolder,
-  SharedDocumentDriveFolderRow,
+  SharedDocumentDriveFolderSearchRow,
 } from "@/types/user/sharedDocumentDriveFolder";
 import styles from "./page.module.css";
 
@@ -44,16 +44,20 @@ function formatDateTime(value: string | null | undefined) {
 export default function UserSharedDocumentDriveFoldersPage() {
   const { user, isLoading, message } = useRequireRole("USER");
 
-  const [folders, setFolders] = useState<SharedDocumentDriveFolderRow[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState<SharedDocumentDriveFolder | null>(null);
+  const [folders, setFolders] = useState<SharedDocumentDriveFolderSearchRow[]>([]);
+  const [selectedFolder, setSelectedFolder] =
+    useState<SharedDocumentDriveFolder | null>(null);
 
   const [keyword, setKeyword] = useState("");
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
 
-  const [pageMessage, setPageMessage] = useState("共有された資料フォルダを確認できます。");
-  const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
+  const [pageMessage, setPageMessage] = useState(
+    "共有資料Driveフォルダを確認できます。",
+  );
+  const [pageMessageVariant, setPageMessageVariant] =
+    useState<PageMessageVariant>("info");
 
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [isMoreLoading, setIsMoreLoading] = useState(false);
@@ -72,7 +76,7 @@ export default function UserSharedDocumentDriveFoldersPage() {
         setIsMoreLoading(true);
       } else {
         setIsPageLoading(true);
-        setPageMessage("共有資料フォルダを取得しています。");
+        setPageMessage("共有資料Driveフォルダを取得しています。");
         setPageMessageVariant("info");
       }
 
@@ -92,7 +96,9 @@ export default function UserSharedDocumentDriveFoldersPage() {
             setHasMore(false);
           }
 
-          setPageMessage(result.message || "共有資料フォルダ一覧の取得に失敗しました。");
+          setPageMessage(
+            result.message || "共有資料Driveフォルダ一覧の取得に失敗しました。",
+          );
           setPageMessageVariant("error");
           return;
         }
@@ -109,10 +115,10 @@ export default function UserSharedDocumentDriveFoldersPage() {
 
         if (nextFolders.length === 0 && !append) {
           setSelectedFolder(null);
-          setPageMessage("現在共有されている資料フォルダはありません。");
+          setPageMessage("現在表示できる共有資料Driveフォルダはありません。");
           setPageMessageVariant("info");
         } else {
-          setPageMessage("共有資料フォルダを取得しました。");
+          setPageMessage("共有資料Driveフォルダを取得しました。");
           setPageMessageVariant("success");
         }
       } catch (error) {
@@ -126,7 +132,9 @@ export default function UserSharedDocumentDriveFoldersPage() {
           setHasMore(false);
         }
 
-        setPageMessage("共有資料フォルダ一覧の取得中に予期しないエラーが発生しました。");
+        setPageMessage(
+          "共有資料Driveフォルダ一覧の取得中に予期しないエラーが発生しました。",
+        );
         setPageMessageVariant("error");
       } finally {
         setIsPageLoading(false);
@@ -136,35 +144,42 @@ export default function UserSharedDocumentDriveFoldersPage() {
     [keyword, user],
   );
 
-  const loadFolderDetail = useCallback(async (targetSharedDocumentDriveFolderId: number) => {
-    setIsDetailLoading(true);
-    setProcessingFolderId(targetSharedDocumentDriveFolderId);
-    setPageMessage("共有資料フォルダの詳細を取得しています。");
-    setPageMessageVariant("info");
+  const loadFolderDetail = useCallback(
+    async (targetSharedDocumentDriveFolderId: number) => {
+      setIsDetailLoading(true);
+      setProcessingFolderId(targetSharedDocumentDriveFolderId);
+      setPageMessage("共有資料Driveフォルダの詳細を取得しています。");
+      setPageMessageVariant("info");
 
-    try {
-      const result = await getSharedDocumentDriveFolderDetail({
-        targetSharedDocumentDriveFolderId,
-      });
+      try {
+        const result = await getSharedDocumentDriveFolderDetail({
+          targetSharedDocumentDriveFolderId,
+        });
 
-      if (result.error || !result.data) {
-        setPageMessage(result.message || "共有資料フォルダ詳細の取得に失敗しました。");
+        if (result.error || !result.data) {
+          setPageMessage(
+            result.message || "共有資料Driveフォルダ詳細の取得に失敗しました。",
+          );
+          setPageMessageVariant("error");
+          return;
+        }
+
+        setSelectedFolder(result.data.sharedDocumentDriveFolder);
+        setPageMessage("共有資料Driveフォルダを選択しました。");
+        setPageMessageVariant("success");
+      } catch (error) {
+        console.error(error);
+        setPageMessage(
+          "共有資料Driveフォルダ詳細の取得中に予期しないエラーが発生しました。",
+        );
         setPageMessageVariant("error");
-        return;
+      } finally {
+        setIsDetailLoading(false);
+        setProcessingFolderId(null);
       }
-
-      setSelectedFolder(result.data.sharedDocumentDriveFolder);
-      setPageMessage("共有資料フォルダを選択しました。");
-      setPageMessageVariant("success");
-    } catch (error) {
-      console.error(error);
-      setPageMessage("共有資料フォルダ詳細の取得中に予期しないエラーが発生しました。");
-      setPageMessageVariant("error");
-    } finally {
-      setIsDetailLoading(false);
-      setProcessingFolderId(null);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (isLoading || !user) {
@@ -220,12 +235,12 @@ export default function UserSharedDocumentDriveFoldersPage() {
           <div className={styles.header}>
             <PageTitle
               title="共有資料"
-              description="管理者から共有されたGoogle Driveフォルダを確認できます。"
+              description="会社から共有されている資料・FAQ・マニュアルを確認できます。"
             />
 
             <div className={styles.summaryArea}>
               <div className={styles.summaryBox}>
-                <p className={styles.summaryLabel}>共有フォルダ</p>
+                <p className={styles.summaryLabel}>共有資料</p>
                 <p className={styles.summaryValue}>{total}件</p>
               </div>
 
@@ -247,7 +262,7 @@ export default function UserSharedDocumentDriveFoldersPage() {
               <div>
                 <h2 className={styles.sectionTitle}>検索条件</h2>
                 <p className={styles.sectionDescription}>
-                  フォルダ名・説明・DriveフォルダIDで検索できます。
+                  フォルダ名・説明で共有資料を検索できます。
                 </p>
               </div>
             </div>
@@ -260,12 +275,17 @@ export default function UserSharedDocumentDriveFoldersPage() {
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                   className={styles.textInput}
-                  placeholder="フォルダ名・説明・DriveフォルダID"
+                  placeholder="例：FAQ / 入社後書類 / 勤怠マニュアル"
                 />
               </label>
 
               <div className={styles.searchActionArea}>
-                <Button type="button" variant="primary" onClick={handleSearch} disabled={isPageLoading}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleSearch}
+                  disabled={isPageLoading}
+                >
                   検索
                 </Button>
               </div>
@@ -276,9 +296,9 @@ export default function UserSharedDocumentDriveFoldersPage() {
             <div className={styles.folderListCard}>
               <div className={styles.sectionHeader}>
                 <div>
-                  <h2 className={styles.sectionTitle}>共有資料フォルダ一覧</h2>
+                  <h2 className={styles.sectionTitle}>共有資料一覧</h2>
                   <p className={styles.sectionDescription}>
-                    自分に共有されている資料フォルダだけ表示されます。
+                    全ユーザー向けに公開されている共有資料フォルダが表示されます。
                   </p>
                 </div>
               </div>
@@ -286,9 +306,9 @@ export default function UserSharedDocumentDriveFoldersPage() {
               <div className={styles.folderList}>
                 {folders.length === 0 && !isPageLoading ? (
                   <div className={styles.emptyBox}>
-                    <p className={styles.emptyTitle}>共有資料フォルダはありません</p>
+                    <p className={styles.emptyTitle}>共有資料はありません</p>
                     <p className={styles.emptyText}>
-                      管理者から共有されたフォルダがあると、ここに表示されます。
+                      表示できる共有資料があると、ここに表示されます。
                     </p>
                   </div>
                 ) : (
@@ -302,26 +322,27 @@ export default function UserSharedDocumentDriveFoldersPage() {
                       <div className={styles.folderCardHeader}>
                         <div className={styles.folderTitleArea}>
                           <h2 className={styles.folderTitle}>{folder.folderName}</h2>
-                          <p className={styles.folderDescription}>{folder.description || "説明なし"}</p>
+                          <p className={styles.folderDescription}>
+                            {folder.description || "説明なし"}
+                          </p>
                         </div>
 
-                        <span className={styles.countBadge}>共有</span>
+                        <span className={styles.scopeBadge}>共有</span>
                       </div>
 
                       <div className={styles.folderMetaGrid}>
                         <div>
-                          <p className={styles.metaLabel}>共有日時</p>
-                          <p className={styles.metaValue}>{formatDateTime(folder.sharedAt)}</p>
-                        </div>
-
-                        <div>
                           <p className={styles.metaLabel}>最終同期日時</p>
-                          <p className={styles.metaValue}>{formatDateTime(folder.syncedAt)}</p>
+                          <p className={styles.metaValue}>
+                            {formatDateTime(folder.syncedAt)}
+                          </p>
                         </div>
 
                         <div>
                           <p className={styles.metaLabel}>更新日時</p>
-                          <p className={styles.metaValue}>{formatDateTime(folder.updatedAt)}</p>
+                          <p className={styles.metaValue}>
+                            {formatDateTime(folder.updatedAt)}
+                          </p>
                         </div>
                       </div>
 
@@ -350,7 +371,12 @@ export default function UserSharedDocumentDriveFoldersPage() {
 
               {hasMore && (
                 <div className={styles.moreArea}>
-                  <Button type="button" variant="secondary" onClick={handleLoadMore} disabled={isMoreLoading}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleLoadMore}
+                    disabled={isMoreLoading}
+                  >
                     {isMoreLoading ? "読み込み中..." : "もっと見る"}
                   </Button>
                 </div>
@@ -387,27 +413,30 @@ export default function UserSharedDocumentDriveFoldersPage() {
 
                   <div className={styles.detailItem}>
                     <p className={styles.detailLabel}>説明</p>
-                    <p className={styles.detailValue}>{selectedFolder.description || "説明なし"}</p>
+                    <p className={styles.detailValue}>
+                      {selectedFolder.description || "説明なし"}
+                    </p>
                   </div>
 
                   <div className={styles.detailItem}>
-                    <p className={styles.detailLabel}>DriveフォルダID</p>
-                    <p className={styles.detailValue}>{selectedFolder.driveFolderId}</p>
-                  </div>
-
-                  <div className={styles.detailItem}>
-                    <p className={styles.detailLabel}>共有日時</p>
-                    <p className={styles.detailValue}>{formatDateTime(selectedFolder.sharedAt)}</p>
+                    <p className={styles.detailLabel}>作成日時</p>
+                    <p className={styles.detailValue}>
+                      {formatDateTime(selectedFolder.createdAt)}
+                    </p>
                   </div>
 
                   <div className={styles.detailItem}>
                     <p className={styles.detailLabel}>最終同期日時</p>
-                    <p className={styles.detailValue}>{formatDateTime(selectedFolder.syncedAt)}</p>
+                    <p className={styles.detailValue}>
+                      {formatDateTime(selectedFolder.syncedAt)}
+                    </p>
                   </div>
 
                   <div className={styles.detailItem}>
                     <p className={styles.detailLabel}>更新日時</p>
-                    <p className={styles.detailValue}>{formatDateTime(selectedFolder.updatedAt)}</p>
+                    <p className={styles.detailValue}>
+                      {formatDateTime(selectedFolder.updatedAt)}
+                    </p>
                   </div>
 
                   <div className={styles.formActionArea}>

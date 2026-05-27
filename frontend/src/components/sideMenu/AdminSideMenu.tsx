@@ -15,7 +15,7 @@ const adminMenuItems: SideMenuItem[] = [
   { label: "個人情報", href: "/admin/personal-information-drive-folders" },
   { label: "お知らせ", href: "/admin/notifications" },
   { label: "自動リマインド", href: "/admin/notification-reminders" },
-  { label: "共有資料Drive", href: "/admin/shared-document-drive-folders" },
+  { label: "共有資料(FAQ)", href: "/admin/shared-document-drive-folders" },
   { label: "設定", href: "/admin/settings" },
 ];
 

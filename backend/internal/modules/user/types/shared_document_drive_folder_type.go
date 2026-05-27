@@ -5,8 +5,8 @@ import "time"
 /*
  * 従業員用 共有資料Driveフォルダ検索Request
  *
- * ユーザー側は本人に共有されている資料だけ検索する。
- * userId はJWTから取得するため、Requestでは受け取らない。
+ * 従業員側では、全ユーザー向けに公開されている共有資料Driveフォルダを閲覧するだけ。
+ * 個別ユーザーの共有設定やDrive権限同期は扱わない。
  */
 type SearchSharedDocumentDriveFoldersRequest struct {
 	Keyword string `json:"keyword"`
@@ -16,31 +16,23 @@ type SearchSharedDocumentDriveFoldersRequest struct {
 
 /*
  * 従業員用 共有資料Driveフォルダ詳細Request
- *
- * targetSharedDocumentDriveFolderId:
- * ・URLには載せない
- * ・request bodyで受け取る
- *
- * 注意：
- * ・本人に共有されていない資料は取得不可
  */
 type SharedDocumentDriveFolderDetailRequest struct {
 	TargetSharedDocumentDriveFolderID uint `json:"targetSharedDocumentDriveFolderId"`
 }
 
 /*
- * 従業員用 共有資料DriveフォルダRow
+ * 従業員用 共有資料Driveフォルダ検索Row
  */
-type SharedDocumentDriveFolderRow struct {
+type SharedDocumentDriveFolderSearchRow struct {
 	ID uint `json:"id"`
 
-	FolderName    string     `json:"folderName"`
-	Description   *string    `json:"description"`
-	DriveFolderID string     `json:"driveFolderId"`
-	FolderURL     string     `json:"folderUrl"`
-	SyncedAt      *time.Time `json:"syncedAt"`
+	FolderName  string     `json:"folderName"`
+	Description *string    `json:"description"`
+	FolderURL   string     `json:"folderUrl"`
+	SyncedAt    *time.Time `json:"syncedAt"`
 
-	SharedAt  time.Time `json:"sharedAt"`
+	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
@@ -50,13 +42,12 @@ type SharedDocumentDriveFolderRow struct {
 type SharedDocumentDriveFolderResponse struct {
 	ID uint `json:"id"`
 
-	FolderName    string     `json:"folderName"`
-	Description   *string    `json:"description"`
-	DriveFolderID string     `json:"driveFolderId"`
-	FolderURL     string     `json:"folderUrl"`
-	SyncedAt      *time.Time `json:"syncedAt"`
+	FolderName  string     `json:"folderName"`
+	Description *string    `json:"description"`
+	FolderURL   string     `json:"folderUrl"`
+	SyncedAt    *time.Time `json:"syncedAt"`
 
-	SharedAt  time.Time `json:"sharedAt"`
+	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
@@ -64,11 +55,11 @@ type SharedDocumentDriveFolderResponse struct {
  * 従業員用 共有資料Driveフォルダ検索Response
  */
 type SearchSharedDocumentDriveFoldersResponse struct {
-	SharedDocumentDriveFolders []SharedDocumentDriveFolderRow `json:"sharedDocumentDriveFolders"`
-	Total                      int64                          `json:"total"`
-	Offset                     int                            `json:"offset"`
-	Limit                      int                            `json:"limit"`
-	HasMore                    bool                           `json:"hasMore"`
+	SharedDocumentDriveFolders []SharedDocumentDriveFolderSearchRow `json:"sharedDocumentDriveFolders"`
+	Total                      int64                                `json:"total"`
+	Offset                     int                                  `json:"offset"`
+	Limit                      int                                  `json:"limit"`
+	HasMore                    bool                                 `json:"hasMore"`
 }
 
 /*

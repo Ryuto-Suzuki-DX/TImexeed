@@ -208,7 +208,7 @@
   word-break: break-word;
 }
 
-.countBadge,
+.scopeBadge,
 .selectedBadge {
   display: inline-flex;
   align-items: center;

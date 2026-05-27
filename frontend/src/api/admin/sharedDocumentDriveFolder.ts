@@ -12,8 +12,6 @@ import type {
   SyncSharedDocumentDriveFolderResponse,
   UpdateSharedDocumentDriveFolderRequest,
   UpdateSharedDocumentDriveFolderResponse,
-  UpdateSharedDocumentDriveFolderUsersRequest,
-  UpdateSharedDocumentDriveFolderUsersResponse,
 } from "@/types/admin/sharedDocumentDriveFolder";
 
 /*
@@ -48,6 +46,11 @@ export function getSharedDocumentDriveFolderDetail(
  * 管理者 共有資料Driveフォルダ作成
  *
  * POST /admin/shared-document-drive-folders/create
+ *
+ * 注意：
+ * ・DriveフォルダURL/IDは画面から送らない
+ * ・バックエンド側で external_storage_links の SHARED_DOCUMENT_DRIVE_ROOT を参照する
+ * ・その親フォルダ配下に folderName のDriveフォルダを作成する
  */
 export function createSharedDocumentDriveFolder(
   request: CreateSharedDocumentDriveFolderRequest
@@ -62,6 +65,10 @@ export function createSharedDocumentDriveFolder(
  * 管理者 共有資料Driveフォルダ更新
  *
  * POST /admin/shared-document-drive-folders/update
+ *
+ * 注意：
+ * ・Driveフォルダ自体の場所は更新しない
+ * ・Timexeed上の表示名・説明のみ更新する
  */
 export function updateSharedDocumentDriveFolder(
   request: UpdateSharedDocumentDriveFolderRequest
@@ -76,6 +83,10 @@ export function updateSharedDocumentDriveFolder(
  * 管理者 共有資料Driveフォルダ削除
  *
  * POST /admin/shared-document-drive-folders/delete
+ *
+ * 注意：
+ * ・DB上は論理削除
+ * ・Drive上のフォルダ自体は削除しない
  */
 export function deleteSharedDocumentDriveFolder(
   request: DeleteSharedDocumentDriveFolderRequest
@@ -87,34 +98,15 @@ export function deleteSharedDocumentDriveFolder(
 }
 
 /*
- * 管理者 共有資料Driveフォルダ共有ユーザー更新
- *
- * POST /admin/shared-document-drive-folders/users/update
- *
- * 通常時：
- * ・targetUserIds に共有対象ユーザーIDの最終状態を渡す
- *
- * 全員追加：
- * ・shareAllUsers: true
- * ・targetUserIds: []
- *
- * 全員削除：
- * ・shareAllUsers: false
- * ・targetUserIds: []
- */
-export function updateSharedDocumentDriveFolderUsers(
-  request: UpdateSharedDocumentDriveFolderUsersRequest
-) {
-  return apiPost<
-    UpdateSharedDocumentDriveFolderUsersResponse,
-    UpdateSharedDocumentDriveFolderUsersRequest
-  >("/admin/shared-document-drive-folders/users/update", request);
-}
-
-/*
  * 管理者 共有資料Driveフォルダ権限同期
  *
  * POST /admin/shared-document-drive-folders/sync
+ *
+ * targetSharedDocumentDriveFolderId = 0:
+ * ・有効な共有資料Driveフォルダ全件を同期する
+ *
+ * targetSharedDocumentDriveFolderId > 0:
+ * ・指定した共有資料Driveフォルダ1件だけ同期する
  */
 export function syncSharedDocumentDriveFolder(
   request: SyncSharedDocumentDriveFolderRequest

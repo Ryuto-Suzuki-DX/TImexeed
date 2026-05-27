@@ -1,12 +1,21 @@
 /*
  * 管理者 共有資料Driveフォルダ Type
  *
- * バックエンドの shared_document_drive_folder_type.go に対応する。
+ * バックエンドの admin/shared_document_drive_folder_type.go に対応する。
  *
  * 共有資料Driveフォルダ：
- * ・管理者がGoogle Drive上で作成済みのフォルダをTimexeedに登録する
- * ・共有対象ユーザーを追加/削除できる
- * ・Drive権限同期で、管理者全員 + 共有対象ユーザーへ writer 権限を付与する
+ * ・管理者がTimexeed上で表示名・説明を入力する
+ * ・バックエンドが external_storage_links の SHARED_DOCUMENT_DRIVE_ROOT を取得する
+ * ・その親フォルダ配下にGoogle Driveフォルダを作成する
+ * ・作成されたDriveフォルダID/URLをDBへ保存する
+ * ・権限同期ボタンで、有効な管理者・一般ユーザーへDrive権限を同期する
+ *
+ * 廃止したもの：
+ * ・画面からの driveFolderUrlOrId 入力
+ * ・共有対象ユーザー選択
+ * ・/users/update API
+ * ・sharedUserCount
+ * ・sharedUsers
  */
 
 /*
@@ -28,24 +37,24 @@ export type SharedDocumentDriveFolderDetailRequest = {
 /*
  * 管理者用 共有資料Driveフォルダ作成Request
  *
- * driveFolderUrlOrId:
- * ・Google DriveフォルダURL
- * ・またはフォルダID
+ * Drive親フォルダはバックエンド側で
+ * external_storage_links の SHARED_DOCUMENT_DRIVE_ROOT から取得する。
  */
 export type CreateSharedDocumentDriveFolderRequest = {
   folderName: string;
   description: string | null;
-  driveFolderUrlOrId: string;
 };
 
 /*
  * 管理者用 共有資料Driveフォルダ更新Request
+ *
+ * DriveフォルダID/URLは更新しない。
+ * Timexeed上の表示名・説明のみ更新する。
  */
 export type UpdateSharedDocumentDriveFolderRequest = {
   targetSharedDocumentDriveFolderId: number;
   folderName: string;
   description: string | null;
-  driveFolderUrlOrId: string;
 };
 
 /*
@@ -57,28 +66,15 @@ export type DeleteSharedDocumentDriveFolderRequest = {
 
 /*
  * 管理者用 共有資料Driveフォルダ同期Request
+ *
+ * targetSharedDocumentDriveFolderId = 0:
+ * ・有効な共有資料Driveフォルダ全件を同期する
+ *
+ * targetSharedDocumentDriveFolderId > 0:
+ * ・指定した共有資料Driveフォルダ1件だけ同期する
  */
 export type SyncSharedDocumentDriveFolderRequest = {
   targetSharedDocumentDriveFolderId: number;
-};
-
-/*
- * 管理者用 共有資料Driveフォルダ共有ユーザー更新Request
- *
- * 通常時：
- * ・targetUserIds を共有対象の最終状態として扱う
- *
- * shareAllUsers = true の場合：
- * ・targetUserIds は空配列でよい
- * ・バックエンド側で有効なUSER全員を共有対象にする
- *
- * targetUserIds = [] かつ shareAllUsers = false の場合：
- * ・共有対象ユーザーを全削除する
- */
-export type UpdateSharedDocumentDriveFolderUsersRequest = {
-  targetSharedDocumentDriveFolderId: number;
-  targetUserIds: number[];
-  shareAllUsers: boolean;
 };
 
 /*
@@ -92,8 +88,6 @@ export type SharedDocumentDriveFolderSearchRow = {
   driveFolderId: string;
   folderUrl: string;
   syncedAt: string | null;
-
-  sharedUserCount: number;
 
   createdAt: string;
   updatedAt: string;
@@ -116,25 +110,6 @@ export type SharedDocumentDriveFolder = {
 };
 
 /*
- * 管理者用 共有資料Driveフォルダ共有ユーザーResponse
- */
-export type SharedDocumentDriveFolderUser = {
-  id: number;
-
-  sharedDocumentDriveFolderId: number;
-
-  userId: number;
-  userName: string;
-  userEmail: string;
-  userRole: string;
-
-  syncedAt: string | null;
-
-  createdAt: string;
-  updatedAt: string;
-};
-
-/*
  * 管理者用 共有資料Driveフォルダ検索Response
  */
 export type SearchSharedDocumentDriveFoldersResponse = {
@@ -150,7 +125,6 @@ export type SearchSharedDocumentDriveFoldersResponse = {
  */
 export type SharedDocumentDriveFolderDetailResponse = {
   sharedDocumentDriveFolder: SharedDocumentDriveFolder;
-  sharedUsers: SharedDocumentDriveFolderUser[];
 };
 
 /*
@@ -178,14 +152,9 @@ export type DeleteSharedDocumentDriveFolderResponse = {
  * 管理者用 共有資料Driveフォルダ同期Response
  */
 export type SyncSharedDocumentDriveFolderResponse = {
-  sharedDocumentDriveFolder: SharedDocumentDriveFolder;
-  sharedUsers: SharedDocumentDriveFolderUser[];
-};
-
-/*
- * 管理者用 共有資料Driveフォルダ共有ユーザー更新Response
- */
-export type UpdateSharedDocumentDriveFolderUsersResponse = {
-  sharedDocumentDriveFolderId: number;
-  sharedUsers: SharedDocumentDriveFolderUser[];
+  sharedDocumentDriveFolders: SharedDocumentDriveFolder[];
+  syncedFolderCount: number;
+  targetAdminCount: number;
+  targetUserCount: number;
+  syncedAt: string;
 };

@@ -231,4 +231,11 @@ var externalStorageLinks = []SeedExternalStorageLink{
 		Description: "経費申請でアップロードされた領収書画像を保存するGoogle Driveフォルダです。",
 		Memo:        "経費申請の領収書保存先。管理者設定画面から変更可能。",
 	},
+	{
+		LinkType:    "SHARED_DOCUMENT_DRIVE_ROOT",
+		LinkName:    "共有資料Drive親フォルダ",
+		URL:         "https://drive.google.com/drive/folders/ここに親フォルダID",
+		Description: "共有資料・FAQなど、全ユーザー向けDriveフォルダを作成する親フォルダ",
+		Memo:        "この親フォルダ配下にTimexeedが共有資料Driveフォルダを自動作成する。Drive権限は管理者の同期操作で有効な一般ユーザーへ付与する。",
+	},
 }

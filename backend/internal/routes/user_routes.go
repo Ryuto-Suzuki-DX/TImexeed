@@ -26,10 +26,29 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	attendanceTypeService := services.NewAttendanceTypeService(attendanceTypeBuilder, attendanceTypeRepository)
 	attendanceTypeController := controllers.NewAttendanceTypeController(attendanceTypeService)
 
+	// お知らせ機能
+	//
+	// 注意：
+	// ・月次勤怠申請Serviceでも通知作成に使うため、月次勤怠申請Serviceより先に生成する
+	// ・従業員側Controllerでは検索/既読/未読件数のみを公開する
+	// ・通知作成はフロントから直接呼ばず、バックエンド内部処理からService経由で行う
+	notificationBuilder := builders.NewNotificationBuilder(db)
+	notificationRepository := repositories.NewNotificationRepository(db)
+	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository)
+	notificationController := controllers.NewNotificationController(notificationService)
+
 	// 月次勤怠申請
+	//
+	// 注意：
+	// ・申請/再申請/取り下げ成功後に、本人宛と管理者宛のお知らせを作成する
+	// ・通知作成は副処理のため、月次勤怠申請ServiceへnotificationServiceを注入する
 	monthlyAttendanceRequestBuilder := builders.NewMonthlyAttendanceRequestBuilder(db)
 	monthlyAttendanceRequestRepository := repositories.NewMonthlyAttendanceRequestRepository(db)
-	monthlyAttendanceRequestService := services.NewMonthlyAttendanceRequestService(monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
+	monthlyAttendanceRequestService := services.NewMonthlyAttendanceRequestService(
+		monthlyAttendanceRequestBuilder,
+		monthlyAttendanceRequestRepository,
+		notificationService,
+	)
 	monthlyAttendanceRequestController := controllers.NewMonthlyAttendanceRequestController(monthlyAttendanceRequestService)
 
 	// 勤怠
@@ -66,12 +85,6 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	monthlyAttendanceSaveService := services.NewMonthlyAttendanceSaveService(attendanceDayService, attendanceBreakService, monthlyCommuterPassService, attendanceTypeService, paidLeaveService)
 	monthlyAttendanceSaveController := controllers.NewMonthlyAttendanceSaveController(monthlyAttendanceSaveService)
 
-	// お知らせ機能
-	notificationBuilder := builders.NewNotificationBuilder(db)
-	notificationRepository := repositories.NewNotificationRepository(db)
-	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository)
-	notificationController := controllers.NewNotificationController(notificationService)
-
 	// Google Drive
 	//
 	// 注意：
@@ -86,6 +99,9 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	personalInformationDriveFolderController := controllers.NewPersonalInformationDriveFolderController(personalInformationDriveFolderService)
 
 	// 共有資料Driveフォルダ
+	//
+	// 従業員側では閲覧のみ。
+	// Driveフォルダ作成・Drive権限同期・external_storage_links参照は管理者側APIで行う。
 	sharedDocumentDriveFolderBuilder := builders.NewSharedDocumentDriveFolderBuilder(db)
 	sharedDocumentDriveFolderRepository := repositories.NewSharedDocumentDriveFolderRepository(db)
 	sharedDocumentDriveFolderService := services.NewSharedDocumentDriveFolderService(sharedDocumentDriveFolderBuilder, sharedDocumentDriveFolderRepository)

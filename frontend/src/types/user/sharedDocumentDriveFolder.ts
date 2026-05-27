@@ -4,10 +4,11 @@
  * バックエンドの user/shared_document_drive_folder_type.go に対応する。
  *
  * 注意：
- * ・ユーザー側は共有されている資料を見るだけ
+ * ・ユーザー側は全ユーザー向け共有資料を見るだけ
  * ・作成/更新/削除/同期はできない
  * ・targetUserId は持たない
- * ・本人IDはバックエンドがJWTから取得する
+ * ・本人IDは送らない
+ * ・Drive内部IDはユーザー側へ返さない
  */
 
 /*
@@ -21,26 +22,23 @@ export type SearchSharedDocumentDriveFoldersRequest = {
 
 /*
  * 従業員用 共有資料Driveフォルダ詳細Request
- *
- * 本人に共有されていない資料はバックエンドで取得不可。
  */
 export type SharedDocumentDriveFolderDetailRequest = {
   targetSharedDocumentDriveFolderId: number;
 };
 
 /*
- * 従業員用 共有資料DriveフォルダRow
+ * 従業員用 共有資料Driveフォルダ検索Row
  */
-export type SharedDocumentDriveFolderRow = {
+export type SharedDocumentDriveFolderSearchRow = {
   id: number;
 
   folderName: string;
   description: string | null;
-  driveFolderId: string;
   folderUrl: string;
   syncedAt: string | null;
 
-  sharedAt: string;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -52,11 +50,10 @@ export type SharedDocumentDriveFolder = {
 
   folderName: string;
   description: string | null;
-  driveFolderId: string;
   folderUrl: string;
   syncedAt: string | null;
 
-  sharedAt: string;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -64,7 +61,7 @@ export type SharedDocumentDriveFolder = {
  * 従業員用 共有資料Driveフォルダ検索Response
  */
 export type SearchSharedDocumentDriveFoldersResponse = {
-  sharedDocumentDriveFolders: SharedDocumentDriveFolderRow[];
+  sharedDocumentDriveFolders: SharedDocumentDriveFolderSearchRow[];
   total: number;
   offset: number;
   limit: number;

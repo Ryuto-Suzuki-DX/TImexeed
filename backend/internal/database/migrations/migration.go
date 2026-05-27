@@ -22,8 +22,6 @@ func RunMigrations(db *gorm.DB) error {
 		&models.UserSalaryDetail{},
 		// 資料共有Driveフォルダ
 		&models.SharedDocumentDriveFolder{},
-		// 資料共有Driveフォルダ 共有対象ユーザー
-		&models.SharedDocumentDriveFolderUser{},
 		// 勤怠区分マスタ
 		&models.AttendanceType{},
 		// 勤怠/日
