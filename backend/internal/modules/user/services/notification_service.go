@@ -25,6 +25,14 @@ type NotificationService interface {
 	CountUnreadNotifications(userID uint, req types.CountUnreadNotificationsRequest) results.Result
 	CreateNotificationForUser(userID uint, title string, message string) results.Result
 	CreateNotificationForAdmins(title string, message string) results.Result
+
+	/*
+	 * 内部処理用 ユーザー取得
+	 *
+	 * 月次勤怠申請などで、通知本文にユーザー名を表示するために使う。
+	 * Controllerから直接呼ぶためのAPIではない。
+	 */
+	FindNotificationUserByID(userID uint) (models.User, results.Result)
 }
 
 /*
@@ -102,6 +110,25 @@ func (service *notificationService) sendNotificationMail(
 	}
 
 	service.mailService.SendNotificationMail(to, title, message)
+}
+
+/*
+ * 内部処理用 ユーザー取得
+ *
+ * 月次勤怠申請などで、通知本文にユーザー名を表示するために使う。
+ */
+func (service *notificationService) FindNotificationUserByID(userID uint) (models.User, results.Result) {
+	if userID == 0 {
+		return models.User{}, results.BadRequest(
+			"FIND_NOTIFICATION_USER_BY_ID_INVALID_USER_ID",
+			"通知対象ユーザーIDが正しくありません",
+			map[string]any{
+				"userId": userID,
+			},
+		)
+	}
+
+	return service.notificationRepository.FindUserByID(userID)
 }
 
 /*

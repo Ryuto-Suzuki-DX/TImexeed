@@ -235,6 +235,24 @@ func formatMonthlyAttendanceRequestTargetMonthText(targetYear int, targetMonth i
 }
 
 /*
+ * 月次勤怠通知用ユーザー表示名を作成する
+ *
+ * 基本は users.name を使う。
+ * 念のため名前が空の場合だけ userID 表示へフォールバックする。
+ */
+func buildMonthlyAttendanceRequestNotificationUserDisplayName(
+	user models.User,
+	fallbackUserID uint,
+) string {
+	userName := strings.TrimSpace(user.Name)
+	if userName != "" {
+		return userName
+	}
+
+	return fmt.Sprintf("ユーザーID %d", fallbackUserID)
+}
+
+/*
  * 月次勤怠申請通知を作成する
  *
  * 作成する通知：
@@ -263,6 +281,13 @@ func (service *monthlyAttendanceRequestService) createMonthlyAttendanceSubmitted
 		monthlyAttendanceRequest.TargetMonth,
 	)
 
+	user, findUserResult := service.notificationService.FindNotificationUserByID(userID)
+	if findUserResult.Error {
+		return findUserResult
+	}
+
+	userDisplayName := buildMonthlyAttendanceRequestNotificationUserDisplayName(user, userID)
+
 	userNotificationResult := service.notificationService.CreateNotificationForUser(
 		userID,
 		"月次勤怠を申請しました",
@@ -274,7 +299,7 @@ func (service *monthlyAttendanceRequestService) createMonthlyAttendanceSubmitted
 
 	adminNotificationResult := service.notificationService.CreateNotificationForAdmins(
 		"月次勤怠が申請されました",
-		fmt.Sprintf("ユーザーID %d が%sの月次勤怠を申請しました。", userID, targetMonthText),
+		fmt.Sprintf("%sさんが%sの月次勤怠を申請しました。", userDisplayName, targetMonthText),
 	)
 	if adminNotificationResult.Error {
 		return adminNotificationResult
@@ -317,8 +342,15 @@ func (service *monthlyAttendanceRequestService) createMonthlyAttendanceCanceledN
 		monthlyAttendanceRequest.TargetMonth,
 	)
 
+	user, findUserResult := service.notificationService.FindNotificationUserByID(userID)
+	if findUserResult.Error {
+		return findUserResult
+	}
+
+	userDisplayName := buildMonthlyAttendanceRequestNotificationUserDisplayName(user, userID)
+
 	userMessage := fmt.Sprintf("%sの月次勤怠申請を取り下げました。", targetMonthText)
-	adminMessage := fmt.Sprintf("ユーザーID %d が%sの月次勤怠申請を取り下げました。", userID, targetMonthText)
+	adminMessage := fmt.Sprintf("%sさんが%sの月次勤怠申請を取り下げました。", userDisplayName, targetMonthText)
 
 	if monthlyAttendanceRequest.CanceledReason != nil &&
 		strings.TrimSpace(*monthlyAttendanceRequest.CanceledReason) != "" {
