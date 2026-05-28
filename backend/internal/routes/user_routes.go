@@ -33,7 +33,7 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	// ・環境変数が未設定でもアプリ起動自体は止めない
 	// ・未設定の場合、メール送信はスキップされる
 	// ・お知らせ作成後のメール送信で使用する
-	mailService, _ := mail.NewGmailMailServiceFromEnv(context.Background())
+	mailService, _ := mail.NewSMTPMailServiceFromEnv()
 
 	// お知らせ機能
 	//
