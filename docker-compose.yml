@@ -21,13 +21,6 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: 5432
-      TIMEXEED_MAIL_HOST: ${TIMEXEED_MAIL_HOST:-}
-      TIMEXEED_MAIL_PORT: ${TIMEXEED_MAIL_PORT:-}
-      TIMEXEED_MAIL_USERNAME: ${TIMEXEED_MAIL_USERNAME:-}
-      TIMEXEED_MAIL_PASSWORD: ${TIMEXEED_MAIL_PASSWORD:-}
-      TIMEXEED_MAIL_FROM: ${TIMEXEED_MAIL_FROM:-}
-      TIMEXEED_MAIL_SENDER_NAME: ${TIMEXEED_MAIL_SENDER_NAME:-Timexeed}
-      TIMEXEED_MAIL_SUBJECT_PREFIX: ${TIMEXEED_MAIL_SUBJECT_PREFIX:-[Timexeed]}
     volumes:
       - ./backend:/app
       - ./secrets/google-service-account.json:/run/secrets/google-service-account.json:ro
