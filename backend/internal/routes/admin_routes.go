@@ -216,6 +216,7 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		// 有給使用日
 		admin.POST("/paid-leave-usages/search", paidLeaveUsageController.SearchPaidLeaveUsages)
 		admin.POST("/paid-leave-usages/balance", paidLeaveUsageController.GetPaidLeaveBalance)
+		admin.POST("/paid-leave-usages/required-use-warnings", paidLeaveUsageController.SearchPaidLeaveRequiredUseWarnings)
 		admin.POST("/paid-leave-usages/create", paidLeaveUsageController.CreatePaidLeaveUsage)
 		admin.POST("/paid-leave-usages/update", paidLeaveUsageController.UpdatePaidLeaveUsage)
 		admin.POST("/paid-leave-usages/delete", paidLeaveUsageController.DeletePaidLeaveUsage)

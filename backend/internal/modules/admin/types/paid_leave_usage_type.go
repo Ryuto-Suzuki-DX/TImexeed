@@ -194,6 +194,29 @@ type DeletePaidLeaveUsageRequest struct {
 }
 
 /*
+ * 年5日取得義務警告一覧Request
+ *
+ * POST /admin/paid-leave-usages/required-use-warnings
+ *
+ * body例：
+ * {
+ *   "deadlineWithinDays": 90
+ * }
+ *
+ * 用途：
+ * ・管理者ホーム画面で、期限が近いのに年5日取得義務を満たしていないユーザーを表示する
+ *
+ * 注意：
+ * ・deadlineWithinDays が未指定、0以下の場合はService側で90日にする
+ * ・対象は有効なUSERのみ
+ */
+type SearchPaidLeaveRequiredUseWarningsRequest struct {
+	// 期限まで何日以内のユーザーを警告対象にするか
+	// 未指定、0以下の場合はService側で90日にする
+	DeadlineWithinDays int `json:"deadlineWithinDays"`
+}
+
+/*
  * =========================================================
  * Response
  * =========================================================
@@ -310,4 +333,39 @@ type UpdatePaidLeaveUsageResponse struct {
 type DeletePaidLeaveUsageResponse struct {
 	TargetUserID           uint `json:"targetUserId"`
 	TargetPaidLeaveUsageID uint `json:"targetPaidLeaveUsageId"`
+}
+
+/*
+ * 年5日取得義務警告1件分のResponse
+ *
+ * 管理者ホーム画面で、期限が近く、年5日取得義務を満たしていないユーザーを表示するために使う。
+ *
+ * UsedDaysInRequiredPeriod：
+ * ・直近の10日以上付与日から、その1年後の期限までに取得した有給使用日数
+ *
+ * RequiredUseRemainingDays：
+ * ・RequiredUseDays - UsedDaysInRequiredPeriod
+ */
+type PaidLeaveRequiredUseWarningResponse struct {
+	UserID uint `json:"userId"`
+
+	UserName  string `json:"userName"`
+	UserEmail string `json:"userEmail"`
+
+	HireDate time.Time `json:"hireDate"`
+
+	RequiredUseStartDate     time.Time  `json:"requiredUseStartDate"`
+	RequiredUseDeadline      *time.Time `json:"requiredUseDeadline"`
+	DeadlineRemainingDays    int        `json:"deadlineRemainingDays"`
+	RequiredUseDays          float64    `json:"requiredUseDays"`
+	UsedDaysInRequiredPeriod float64    `json:"usedDaysInRequiredPeriod"`
+	RequiredUseRemainingDays float64    `json:"requiredUseRemainingDays"`
+}
+
+/*
+ * 年5日取得義務警告一覧Response
+ */
+type SearchPaidLeaveRequiredUseWarningsResponse struct {
+	Warnings []PaidLeaveRequiredUseWarningResponse `json:"warnings"`
+	Total    int                                   `json:"total"`
 }

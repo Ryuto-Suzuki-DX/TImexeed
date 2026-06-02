@@ -20,6 +20,7 @@ import (
 type PaidLeaveUsageService interface {
 	SearchPaidLeaveUsages(req types.SearchPaidLeaveUsagesRequest) results.Result
 	GetPaidLeaveBalance(req types.GetPaidLeaveBalanceRequest) results.Result
+	SearchPaidLeaveRequiredUseWarnings(req types.SearchPaidLeaveRequiredUseWarningsRequest) results.Result
 	CreatePaidLeaveUsage(req types.CreatePaidLeaveUsageRequest) results.Result
 	UpdatePaidLeaveUsage(req types.UpdatePaidLeaveUsageRequest) results.Result
 	DeletePaidLeaveUsage(req types.DeletePaidLeaveUsageRequest) results.Result
@@ -207,7 +208,28 @@ func (service *paidLeaveUsageService) GetPaidLeaveBalance(req types.GetPaidLeave
 
 	totalGrantedDays := calculateTotalGrantedDays(user.HireDate, now)
 	nextGrantDate, nextGrantDays := calculateNextGrant(user.HireDate, now)
-	requiredUseDeadline, requiredUseRemainingDays := calculateRequiredUseInfo(user.HireDate, now, usedDays)
+	requiredUseStartDate, requiredUseDeadline, hasRequiredUsePeriod := calculateRequiredUsePeriod(user.HireDate, now)
+
+	usedDaysInRequiredPeriod := 0.0
+	if hasRequiredUsePeriod && requiredUseDeadline != nil {
+		usedDaysInRequiredPeriodQuery, buildUsedDaysInRequiredPeriodResult := service.paidLeaveUsageBuilder.BuildSumActivePaidLeaveUsageDaysByUserIDAndPeriodQuery(
+			req.TargetUserID,
+			requiredUseStartDate,
+			*requiredUseDeadline,
+		)
+		if buildUsedDaysInRequiredPeriodResult.Error {
+			return buildUsedDaysInRequiredPeriodResult
+		}
+
+		usedDaysInRequiredPeriodResult, sumUsedDaysInRequiredPeriodResult := service.paidLeaveUsageRepository.SumPaidLeaveUsageDays(usedDaysInRequiredPeriodQuery)
+		if sumUsedDaysInRequiredPeriodResult.Error {
+			return sumUsedDaysInRequiredPeriodResult
+		}
+
+		usedDaysInRequiredPeriod = usedDaysInRequiredPeriodResult
+	}
+
+	_, requiredUseRemainingDays := calculateRequiredUseInfo(user.HireDate, now, usedDaysInRequiredPeriod)
 
 	remainingDays := totalGrantedDays - usedDays
 
@@ -228,6 +250,95 @@ func (service *paidLeaveUsageService) GetPaidLeaveBalance(req types.GetPaidLeave
 		},
 		"GET_PAID_LEAVE_BALANCE_SUCCESS",
 		"有給残数を取得しました",
+		nil,
+	)
+}
+
+/*
+ * 年5日取得義務警告一覧取得
+ *
+ * 管理者ホーム画面で、期限が近く、年5日取得義務を満たしていないユーザーを表示するために使う。
+ *
+ * 判定方針：
+ * ・対象は有効なUSERのみ
+ * ・直近の10日以上付与日を年5日取得義務の開始日とする
+ * ・期限は開始日から1年後
+ * ・使用日数は開始日以上、期限未満の有給使用日だけを集計する
+ * ・期限まで deadlineWithinDays 日以内、かつ残り必要日数があるユーザーだけ返す
+ */
+func (service *paidLeaveUsageService) SearchPaidLeaveRequiredUseWarnings(
+	req types.SearchPaidLeaveRequiredUseWarningsRequest,
+) results.Result {
+	now := time.Now()
+	today := truncateDate(now)
+	deadlineWithinDays := normalizePaidLeaveRequiredUseWarningDeadlineWithinDays(req.DeadlineWithinDays)
+
+	usersQuery, buildUsersResult := service.paidLeaveUsageBuilder.BuildFindActiveUsersForPaidLeaveRequiredUseWarningsQuery(today)
+	if buildUsersResult.Error {
+		return buildUsersResult
+	}
+
+	users, findUsersResult := service.paidLeaveUsageRepository.FindUsers(usersQuery)
+	if findUsersResult.Error {
+		return findUsersResult
+	}
+
+	warnings := make([]types.PaidLeaveRequiredUseWarningResponse, 0)
+
+	for _, user := range users {
+		requiredUseStartDate, requiredUseDeadline, hasRequiredUsePeriod := calculateRequiredUsePeriod(user.HireDate, now)
+		if !hasRequiredUsePeriod || requiredUseDeadline == nil {
+			continue
+		}
+
+		deadlineRemainingDays := calculateDateDiffDays(today, *requiredUseDeadline)
+		if deadlineRemainingDays > deadlineWithinDays {
+			continue
+		}
+
+		usedDaysQuery, buildUsedDaysResult := service.paidLeaveUsageBuilder.BuildSumActivePaidLeaveUsageDaysByUserIDAndPeriodQuery(
+			user.ID,
+			requiredUseStartDate,
+			*requiredUseDeadline,
+		)
+		if buildUsedDaysResult.Error {
+			return buildUsedDaysResult
+		}
+
+		usedDaysInRequiredPeriod, sumResult := service.paidLeaveUsageRepository.SumPaidLeaveUsageDays(usedDaysQuery)
+		if sumResult.Error {
+			return sumResult
+		}
+
+		requiredUseRemainingDays := constants.PaidLeaveRequiredUseDays - usedDaysInRequiredPeriod
+		if requiredUseRemainingDays <= 0 {
+			continue
+		}
+
+		warnings = append(warnings, types.PaidLeaveRequiredUseWarningResponse{
+			UserID: user.ID,
+
+			UserName:  user.Name,
+			UserEmail: user.Email,
+
+			HireDate: user.HireDate,
+
+			RequiredUseStartDate:     requiredUseStartDate,
+			RequiredUseDeadline:      requiredUseDeadline,
+			DeadlineRemainingDays:    deadlineRemainingDays,
+			RequiredUseDays:          constants.PaidLeaveRequiredUseDays,
+			UsedDaysInRequiredPeriod: usedDaysInRequiredPeriod,
+			RequiredUseRemainingDays: requiredUseRemainingDays,
+		})
+	}
+
+	return results.OK(
+		types.SearchPaidLeaveRequiredUseWarningsResponse{
+			Warnings: warnings,
+			Total:    len(warnings),
+		},
+		"SEARCH_PAID_LEAVE_REQUIRED_USE_WARNINGS_SUCCESS",
+		"年5日取得義務の警告対象ユーザー一覧を取得しました",
 		nil,
 	)
 }
@@ -477,20 +588,19 @@ func calculateNextGrant(hireDate time.Time, targetDate time.Time) (*time.Time, f
 }
 
 /*
- * 年5日取得義務の期限と残り必要取得日数を計算する
+ * 年5日取得義務の対象期間を計算する
  *
- * 現時点では簡易版：
- * ・直近の付与日数が10日以上の場合のみ対象
- * ・期限は直近付与日から1年後
- * ・使用日数は全期間合計を使う
+ * 対象：
+ * ・直近の付与日数が10日以上の付与
  *
- * 注意：
- * ・本来は「付与日から1年以内に何日取得したか」で判定する
- * ・後で厳密化する場合は、付与日以降の使用日だけを集計する必要がある
+ * 戻り値：
+ * ・開始日：直近の10日以上付与日
+ * ・期限：開始日から1年後
+ * ・対象期間があるか
  */
-func calculateRequiredUseInfo(hireDate time.Time, targetDate time.Time, usedDays float64) (*time.Time, float64) {
-	var latestGrantDate *time.Time
-	var latestGrantDays float64
+func calculateRequiredUsePeriod(hireDate time.Time, targetDate time.Time) (time.Time, *time.Time, bool) {
+	var latestGrantDate time.Time
+	hasRequiredUsePeriod := false
 
 	for _, rule := range constants.PaidLeaveGrantRules {
 		grantDate := hireDate.AddDate(0, rule.AfterMonths, 0)
@@ -499,24 +609,67 @@ func calculateRequiredUseInfo(hireDate time.Time, targetDate time.Time, usedDays
 			continue
 		}
 
-		latestGrantDate = &grantDate
-		latestGrantDays = rule.GrantDays
+		if rule.GrantDays < 10 {
+			continue
+		}
+
+		latestGrantDate = grantDate
+		hasRequiredUsePeriod = true
 	}
 
-	if latestGrantDate == nil {
-		return nil, 0
-	}
-
-	if latestGrantDays < 10 {
-		return nil, 0
+	if !hasRequiredUsePeriod {
+		return time.Time{}, nil, false
 	}
 
 	deadline := latestGrantDate.AddDate(1, 0, 0)
 
-	remainingRequiredDays := constants.PaidLeaveRequiredUseDays - usedDays
+	return latestGrantDate, &deadline, true
+}
+
+/*
+ * 年5日取得義務の期限と残り必要取得日数を計算する
+ *
+ * usedDaysInRequiredPeriod：
+ * ・直近の10日以上付与日から、その1年後の期限までに取得した有給使用日数
+ */
+func calculateRequiredUseInfo(hireDate time.Time, targetDate time.Time, usedDaysInRequiredPeriod float64) (*time.Time, float64) {
+	_, deadline, hasRequiredUsePeriod := calculateRequiredUsePeriod(hireDate, targetDate)
+	if !hasRequiredUsePeriod {
+		return nil, 0
+	}
+
+	remainingRequiredDays := constants.PaidLeaveRequiredUseDays - usedDaysInRequiredPeriod
 	if remainingRequiredDays < 0 {
 		remainingRequiredDays = 0
 	}
 
-	return &deadline, remainingRequiredDays
+	return deadline, remainingRequiredDays
+}
+
+/*
+ * 年5日取得義務警告の期限日数条件を補正する
+ */
+func normalizePaidLeaveRequiredUseWarningDeadlineWithinDays(deadlineWithinDays int) int {
+	if deadlineWithinDays <= 0 {
+		return 90
+	}
+
+	return deadlineWithinDays
+}
+
+/*
+ * 日付の時刻部分を切り捨てる
+ */
+func truncatePaidLeaveUsageDate(value time.Time) time.Time {
+	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, value.Location())
+}
+
+/*
+ * 日付差分を日数で計算する
+ */
+func calculateDateDiffDays(from time.Time, to time.Time) int {
+	fromDate := truncateDate(from)
+	toDate := truncateDate(to)
+
+	return int(toDate.Sub(fromDate).Hours() / 24)
 }

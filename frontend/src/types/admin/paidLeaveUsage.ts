@@ -6,6 +6,7 @@
  * 対応API：
  * ・有給使用日一覧取得
  * ・有給残数取得
+ * ・有給取得義務警告一覧取得
  * ・過去有給使用日追加
  * ・過去有給使用日更新
  * ・過去有給使用日削除
@@ -34,6 +35,10 @@ export type SearchPaidLeaveUsagesRequest = {
 
 export type GetPaidLeaveBalanceRequest = {
   targetUserId: number;
+};
+
+export type SearchPaidLeaveRequiredUseWarningsRequest = {
+  deadlineWithinDays: number;
 };
 
 export type CreatePaidLeaveUsageRequest = {
@@ -96,6 +101,28 @@ export type PaidLeaveBalanceResponse = {
   requiredUseDays: number;
   requiredUseDeadline: string | null;
   requiredUseRemainingDays: number;
+};
+
+export type PaidLeaveRequiredUseWarningResponse = {
+  userId: number;
+  userName: string;
+  userEmail: string;
+  departmentName: string;
+  hireDate: string;
+
+  requiredUseStartDate: string;
+  requiredUseDeadline: string;
+  deadlineRemainingDays: number;
+
+  requiredUseDays: number;
+  usedDaysInPeriod: number;
+  requiredUseRemainingDays: number;
+};
+
+export type SearchPaidLeaveRequiredUseWarningsResponse = {
+  warnings: PaidLeaveRequiredUseWarningResponse[];
+  total: number;
+  deadlineWithinDays: number;
 };
 
 export type CreatePaidLeaveUsageResponse = {

@@ -11,6 +11,7 @@ import (
 
 type PaidLeaveUsageRepository interface {
 	FindUser(query *gorm.DB) (models.User, results.Result)
+	FindUsers(query *gorm.DB) ([]models.User, results.Result)
 	FindPaidLeaveUsages(query *gorm.DB) ([]models.PaidLeaveUsage, results.Result)
 	CountPaidLeaveUsages(query *gorm.DB) (int64, results.Result)
 	SumPaidLeaveUsageDays(query *gorm.DB) (float64, results.Result)
@@ -86,6 +87,39 @@ func (repository *paidLeaveUsageRepository) FindUser(query *gorm.DB) (models.Use
 /*
  * 有給使用日一覧取得
  */
+
+/*
+ * ユーザー一覧取得
+ *
+ * 年5日取得義務警告の対象候補ユーザー一覧取得で使う。
+ */
+func (repository *paidLeaveUsageRepository) FindUsers(query *gorm.DB) ([]models.User, results.Result) {
+	if query == nil {
+		return nil, results.InternalServerError(
+			"FIND_PAID_LEAVE_USAGE_USERS_QUERY_IS_NIL",
+			"対象ユーザー一覧の取得に失敗しました",
+			nil,
+		)
+	}
+
+	var users []models.User
+
+	if err := query.Find(&users).Error; err != nil {
+		return nil, results.InternalServerError(
+			"FIND_PAID_LEAVE_USAGE_USERS_FAILED",
+			"対象ユーザー一覧の取得に失敗しました",
+			err.Error(),
+		)
+	}
+
+	return users, results.OK(
+		nil,
+		"FIND_PAID_LEAVE_USAGE_USERS_SUCCESS",
+		"",
+		nil,
+	)
+}
+
 func (repository *paidLeaveUsageRepository) FindPaidLeaveUsages(query *gorm.DB) ([]models.PaidLeaveUsage, results.Result) {
 	if query == nil {
 		return nil, results.InternalServerError(

@@ -1,10 +1,13 @@
 package builders
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/csv"
+	"encoding/xml"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"timexeed/backend/internal/modules/admin/types"
 	"timexeed/backend/internal/results"
@@ -21,7 +24,9 @@ import (
  */
 type MonthlyAttendanceSummaryExportBuilder interface {
 	BuildCSV(rows []types.MonthlyAttendanceSummaryCsvRow) ([]byte, results.Result)
+	BuildExcel(rows []types.MonthlyAttendanceSummaryCsvRow, targetYear int, targetMonth int) ([]byte, results.Result)
 	BuildFileName(targetYear int, targetMonth int) string
+	BuildExcelFileName(targetYear int, targetMonth int) string
 }
 
 /*
@@ -45,6 +50,13 @@ func NewMonthlyAttendanceSummaryExportBuilder(db *gorm.DB) MonthlyAttendanceSumm
  */
 func (builder *monthlyAttendanceSummaryExportBuilder) BuildFileName(targetYear int, targetMonth int) string {
 	return fmt.Sprintf("monthly_attendance_summary_%04d_%02d.csv", targetYear, targetMonth)
+}
+
+/*
+ * Excelファイル名生成
+ */
+func (builder *monthlyAttendanceSummaryExportBuilder) BuildExcelFileName(targetYear int, targetMonth int) string {
+	return fmt.Sprintf("monthly_attendance_summary_%04d_%02d.xlsx", targetYear, targetMonth)
 }
 
 /*
@@ -106,49 +118,34 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildCSV(
 /*
  * CSVヘッダー生成
  *
- * 給与計算担当者がそのまま見られるように、日本語ヘッダーで出力する。
+ * 経理提出・給与確認に必要な集計結果だけを中心に出力する。
+ * 内部ID、権限、給与設定の詳細、計算途中の基準値、boolean警告フラグは出力しない。
  */
 func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 	return []string{
 		"対象年",
 		"対象月",
 		"出力日時",
-		"出力状態",
 		"集計状態",
 
 		"従業員ID",
 		"従業員名",
-		"メールアドレス",
-		"部署ID",
 		"部署名",
-		"権限",
 		"入社日",
 		"退職日",
 		"対象月退職済み",
 
-		"月次申請ID",
 		"月次申請状態",
-		"申請メモ",
 		"申請日時",
-		"承認者ID",
 		"承認日時",
-		"否認理由",
-		"否認日時",
-		"取下理由",
-		"取下日時",
 
-		"給与詳細ID",
 		"給与区分",
 		"月給",
 		"時給",
 		"日給",
 		"追加手当",
-		"追加手当メモ",
 		"固定控除",
-		"固定控除メモ",
 		"給与計算対象",
-		"給与設定適用開始日",
-		"給与設定適用終了日",
 
 		"暦日数",
 		"勤怠登録日数",
@@ -157,6 +154,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 		"実出勤日数",
 		"日勤出勤日数",
 		"夜勤出勤日数",
+		"公休数",
 		"有給日数",
 		"半日有給回数",
 		"欠勤日数",
@@ -168,10 +166,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 		"実績あり予定なし日数",
 		"予定労働時間未設定日数",
 		"平日数",
-		"祝日数",
 
-		"会社1日標準労働時間_分",
-		"会社週標準労働時間_分",
 		"予定労働時間_分",
 		"総労働時間_分",
 		"日中労働時間_分",
@@ -179,18 +174,11 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 		"休憩時間_分",
 		"所定内労働時間_分",
 		"控除対象不足時間_分",
-		"予定超過時間_分",
-		"日別残業基準時間_分",
-		"週予定労働時間_分",
-		"週残業基準時間_分",
-		"日別残業時間_分",
-		"週残業時間_分",
 		"総残業時間_分",
 		"日中残業時間_分",
 		"夜勤残業時間_分",
 		"深夜労働時間_分",
 		"休日労働時間_分",
-		"休日深夜労働時間_分",
 		"有給換算時間_分",
 		"欠勤控除時間_分",
 		"病欠控除時間_分",
@@ -204,9 +192,6 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 		"日別交通費合計",
 		"月次定期代",
 		"交通費合計",
-		"通勤区間From",
-		"通勤区間To",
-		"通勤方法",
 		"日別交通費登録回数",
 
 		"有給使用日数",
@@ -224,13 +209,6 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 		"警告内容",
 		"休憩不整合件数",
 		"時刻不整合件数",
-		"データ警告あり",
-		"給与設定警告あり",
-		"給与計算対象外警告あり",
-		"月次承認警告あり",
-		"勤怠未登録警告あり",
-		"予定実績不整合警告あり",
-		"経費カテゴリ警告あり",
 	}
 }
 
@@ -244,42 +222,26 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		strconv.Itoa(row.ExportTargetYear),
 		strconv.Itoa(row.ExportTargetMonth),
 		row.ExportedAt,
-		row.ExportStatus,
 		row.CalculationStatus,
 
 		uintToString(row.UserID),
 		row.UserName,
-		row.UserEmail,
-		uintToString(row.DepartmentID),
 		row.DepartmentName,
-		row.Role,
 		row.HireDate,
 		row.RetirementDate,
 		boolToString(row.IsRetiredInTargetMonth),
 
-		uintToString(row.MonthlyRequestID),
 		row.MonthlyStatus,
-		row.RequestMemo,
 		row.RequestedAt,
-		uintToString(row.ApprovedBy),
 		row.ApprovedAt,
-		row.RejectedReason,
-		row.RejectedAt,
-		row.CanceledReason,
-		row.CanceledAt,
 
-		calcUintToString(calculated, row.UserSalaryDetailID),
 		calcString(calculated, row.SalaryType),
 		calcIntToString(calculated, row.BaseSalary),
 		calcIntToString(calculated, row.HourlyWage),
 		calcIntToString(calculated, row.DailyWage),
 		calcIntToString(calculated, row.ExtraAllowanceAmount),
-		calcString(calculated, row.ExtraAllowanceMemo),
 		calcIntToString(calculated, row.FixedDeductionAmount),
-		calcString(calculated, row.FixedDeductionMemo),
 		calcBoolToString(calculated, row.IsPayrollTarget),
-		calcString(calculated, row.SalaryEffectiveFrom),
-		calcString(calculated, row.SalaryEffectiveTo),
 
 		calcIntToString(calculated, row.CalendarDays),
 		calcIntToString(calculated, row.RegisteredAttendanceDays),
@@ -288,6 +250,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		calcIntToString(calculated, row.ActualWorkDays),
 		calcIntToString(calculated, row.DayShiftWorkDays),
 		calcIntToString(calculated, row.NightShiftWorkDays),
+		calcIntToString(calculated, row.PlannedHolidayDays),
 		calcIntToString(calculated, row.PaidLeaveDays),
 		calcIntToString(calculated, row.HalfPaidLeaveDays),
 		calcIntToString(calculated, row.AbsenceDays),
@@ -299,10 +262,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		calcIntToString(calculated, row.ActualButNoScheduledDays),
 		calcIntToString(calculated, row.MissingScheduledWorkDays),
 		calcIntToString(calculated, row.WorkingDayCount),
-		calcIntToString(calculated, row.HolidayCount),
 
-		calcIntToString(calculated, row.CompanyDailyStandardWorkMinutes),
-		calcIntToString(calculated, row.CompanyWeeklyStandardWorkMinutes),
 		calcIntToString(calculated, row.ScheduledWorkMinutes),
 		calcIntToString(calculated, row.ActualWorkMinutes),
 		calcIntToString(calculated, row.DayWorkMinutes),
@@ -310,18 +270,11 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		calcIntToString(calculated, row.BreakMinutes),
 		calcIntToString(calculated, row.RegularWorkMinutes),
 		calcIntToString(calculated, row.WorkShortageMinutes),
-		calcIntToString(calculated, row.WorkExcessAgainstScheduledMinutes),
-		calcIntToString(calculated, row.DailyOvertimeThresholdMinutes),
-		calcIntToString(calculated, row.WeeklyScheduledWorkMinutes),
-		calcIntToString(calculated, row.WeeklyOvertimeThresholdMinutes),
-		calcIntToString(calculated, row.DailyOvertimeMinutes),
-		calcIntToString(calculated, row.WeeklyOvertimeMinutes),
 		calcIntToString(calculated, row.OvertimeMinutes),
 		calcIntToString(calculated, row.DayOvertimeMinutes),
 		calcIntToString(calculated, row.NightOvertimeMinutes),
 		calcIntToString(calculated, row.LateNightWorkMinutes),
 		calcIntToString(calculated, row.HolidayWorkMinutes),
-		calcIntToString(calculated, row.HolidayLateNightWorkMinutes),
 		calcIntToString(calculated, row.PaidLeaveMinutes),
 		calcIntToString(calculated, row.AbsenceMinutes),
 		calcIntToString(calculated, row.SickLeaveMinutes),
@@ -335,9 +288,6 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		calcIntToString(calculated, row.DailyTransportationAmount),
 		calcIntToString(calculated, row.CommuterPassAmount),
 		calcIntToString(calculated, row.TotalTransportationAmount),
-		calcString(calculated, row.CommuterPassFrom),
-		calcString(calculated, row.CommuterPassTo),
-		calcString(calculated, row.CommuterPassMethod),
 		calcIntToString(calculated, row.DailyTransportationCount),
 
 		calcFloatToString(calculated, row.PaidLeaveUsedDays),
@@ -355,14 +305,492 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		row.Warnings,
 		intToString(row.InvalidBreakCount),
 		intToString(row.InvalidTimeCount),
-		boolToString(row.HasDataWarning),
-		boolToString(row.HasSalarySettingWarning),
-		boolToString(row.HasPayrollExcludedWarning),
-		boolToString(row.HasMonthlyApprovalWarning),
-		boolToString(row.HasAttendanceMissingWarning),
-		boolToString(row.HasScheduleActualMismatchWarning),
-		boolToString(row.HasExpenseCategoryWarning),
 	}
+}
+
+/*
+ * Excel生成
+ *
+ * CSVと同じ集計行を使い、提出用に見やすい表として出力する。
+ * 外部ライブラリを増やさないため、xlsxの最小構成を標準ライブラリで生成する。
+ */
+func (builder *monthlyAttendanceSummaryExportBuilder) BuildExcel(
+	rows []types.MonthlyAttendanceSummaryCsvRow,
+	targetYear int,
+	targetMonth int,
+) ([]byte, results.Result) {
+	header := builder.buildHeader()
+	records := make([][]string, 0, len(rows))
+	for _, row := range rows {
+		records = append(records, builder.buildRecord(row))
+	}
+
+	buffer := &bytes.Buffer{}
+	zipWriter := zip.NewWriter(buffer)
+
+	exportedAt := ""
+	if len(rows) > 0 {
+		exportedAt = rows[0].ExportedAt
+	}
+
+	files := map[string]string{
+		"[Content_Types].xml":        buildExcelContentTypesXML(),
+		"_rels/.rels":                buildExcelRootRelsXML(),
+		"docProps/app.xml":           buildExcelAppXML(),
+		"docProps/core.xml":          buildExcelCoreXML(),
+		"xl/workbook.xml":            buildExcelWorkbookXML(),
+		"xl/_rels/workbook.xml.rels": buildExcelWorkbookRelsXML(),
+		"xl/styles.xml":              buildExcelStylesXML(),
+		"xl/worksheets/sheet1.xml":   buildExcelWorksheetXML(header, records, targetYear, targetMonth, exportedAt),
+	}
+
+	fileNames := []string{
+		"[Content_Types].xml",
+		"_rels/.rels",
+		"docProps/app.xml",
+		"docProps/core.xml",
+		"xl/workbook.xml",
+		"xl/_rels/workbook.xml.rels",
+		"xl/styles.xml",
+		"xl/worksheets/sheet1.xml",
+	}
+
+	for _, fileName := range fileNames {
+		if err := writeExcelZipFile(zipWriter, fileName, files[fileName]); err != nil {
+			return nil, results.BadRequest(
+				"BUILD_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_EXCEL_FILE_FAILED",
+				"月次勤怠集計Excelのファイル生成に失敗しました",
+				map[string]any{
+					"fileName": fileName,
+					"error":    err.Error(),
+				},
+			)
+		}
+	}
+
+	if err := zipWriter.Close(); err != nil {
+		return nil, results.BadRequest(
+			"BUILD_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_EXCEL_CLOSE_FAILED",
+			"月次勤怠集計Excelの書き込み完了に失敗しました",
+			map[string]any{
+				"error": err.Error(),
+			},
+		)
+	}
+
+	return buffer.Bytes(), results.OK(
+		nil,
+		"BUILD_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_EXCEL_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+func writeExcelZipFile(zipWriter *zip.Writer, fileName string, content string) error {
+	writer, err := zipWriter.Create(fileName)
+	if err != nil {
+		return err
+	}
+
+	_, err = writer.Write([]byte(content))
+	return err
+}
+
+func buildExcelWorksheetXML(
+	header []string,
+	records [][]string,
+	targetYear int,
+	targetMonth int,
+	exportedAt string,
+) string {
+	lastColumn := excelColumnName(len(header))
+	headerRowNumber := 4
+	dataStartRowNumber := 5
+	dataEndRowNumber := dataStartRowNumber + len(records) - 1
+	totalRowNumber := dataStartRowNumber + len(records)
+	if len(records) == 0 {
+		dataEndRowNumber = headerRowNumber
+		totalRowNumber = headerRowNumber + 1
+	}
+
+	var builder strings.Builder
+	builder.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`)
+	builder.WriteString(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`)
+	builder.WriteString(`<sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`)
+	builder.WriteString(buildExcelColumnsXML(header, records))
+	builder.WriteString(`<sheetData>`)
+
+	builder.WriteString(`<row r="1" ht="24" customHeight="1">`)
+	builder.WriteString(buildExcelStringCell("A1", fmt.Sprintf("%04d年%02d月 月次勤怠集計表", targetYear, targetMonth), 1))
+	builder.WriteString(`</row>`)
+
+	builder.WriteString(`<row r="2">`)
+	builder.WriteString(buildExcelStringCell("A2", "対象年月", 2))
+	builder.WriteString(buildExcelStringCell("B2", fmt.Sprintf("%04d年%02d月", targetYear, targetMonth), 2))
+	builder.WriteString(buildExcelStringCell("C2", "出力日時", 2))
+	builder.WriteString(buildExcelStringCell("D2", exportedAt, 2))
+	builder.WriteString(`</row>`)
+
+	builder.WriteString(`<row r="4">`)
+	for index, headerName := range header {
+		ref := fmt.Sprintf("%s%d", excelColumnName(index+1), headerRowNumber)
+		builder.WriteString(buildExcelStringCell(ref, headerName, 3))
+	}
+	builder.WriteString(`</row>`)
+
+	for rowIndex, record := range records {
+		rowNumber := dataStartRowNumber + rowIndex
+		warningRow := isExcelWarningRecord(header, record)
+		alternateRow := rowIndex%2 == 1
+
+		builder.WriteString(fmt.Sprintf(`<row r="%d">`, rowNumber))
+		for columnIndex, value := range record {
+			ref := fmt.Sprintf("%s%d", excelColumnName(columnIndex+1), rowNumber)
+			headerName := header[columnIndex]
+			styleID := excelBodyStyleID(headerName, warningRow, alternateRow)
+			builder.WriteString(buildExcelCell(ref, value, styleID, isExcelNumericHeader(headerName)))
+		}
+		builder.WriteString(`</row>`)
+	}
+
+	totalRecord := buildExcelTotalRecord(header, records)
+	builder.WriteString(fmt.Sprintf(`<row r="%d">`, totalRowNumber))
+	for columnIndex, value := range totalRecord {
+		ref := fmt.Sprintf("%s%d", excelColumnName(columnIndex+1), totalRowNumber)
+		headerName := header[columnIndex]
+		styleID := 10
+		if isExcelNumericHeader(headerName) {
+			styleID = 11
+		}
+		builder.WriteString(buildExcelCell(ref, value, styleID, isExcelNumericHeader(headerName)))
+	}
+	builder.WriteString(`</row>`)
+
+	builder.WriteString(`</sheetData>`)
+	builder.WriteString(fmt.Sprintf(`<autoFilter ref="A4:%s%d"/>`, lastColumn, maxIntForExcel(dataEndRowNumber, headerRowNumber)))
+	builder.WriteString(fmt.Sprintf(`<mergeCells count="1"><mergeCell ref="A1:%s1"/></mergeCells>`, lastColumn))
+	builder.WriteString(`<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>`)
+	builder.WriteString(`</worksheet>`)
+
+	return builder.String()
+}
+
+func buildExcelColumnsXML(header []string, records [][]string) string {
+	var builder strings.Builder
+	builder.WriteString(`<cols>`)
+
+	for index, headerName := range header {
+		maxWidth := excelTextWidth(headerName) + 2
+		for _, record := range records {
+			if index >= len(record) {
+				continue
+			}
+
+			width := excelTextWidth(record[index]) + 2
+			if width > maxWidth {
+				maxWidth = width
+			}
+		}
+
+		if maxWidth < 10 {
+			maxWidth = 10
+		}
+		if maxWidth > 36 {
+			maxWidth = 36
+		}
+
+		columnNumber := index + 1
+		builder.WriteString(fmt.Sprintf(`<col min="%d" max="%d" width="%d" customWidth="1"/>`, columnNumber, columnNumber, maxWidth))
+	}
+
+	builder.WriteString(`</cols>`)
+	return builder.String()
+}
+
+func buildExcelCell(ref string, value string, styleID int, numeric bool) string {
+	trimmedValue := strings.TrimSpace(value)
+	if trimmedValue == "" {
+		return fmt.Sprintf(`<c r="%s" s="%d"/>`, ref, styleID)
+	}
+
+	if numeric {
+		if _, err := strconv.ParseFloat(trimmedValue, 64); err == nil {
+			return fmt.Sprintf(`<c r="%s" s="%d"><v>%s</v></c>`, ref, styleID, trimmedValue)
+		}
+	}
+
+	return buildExcelStringCell(ref, value, styleID)
+}
+
+func buildExcelStringCell(ref string, value string, styleID int) string {
+	return fmt.Sprintf(`<c r="%s" s="%d" t="inlineStr"><is><t>%s</t></is></c>`, ref, styleID, escapeExcelXML(value))
+}
+
+func buildExcelTotalRecord(header []string, records [][]string) []string {
+	totalRecord := make([]string, len(header))
+	if len(header) == 0 {
+		return totalRecord
+	}
+
+	for columnIndex, headerName := range header {
+		if columnIndex == 5 {
+			totalRecord[columnIndex] = "合計"
+			continue
+		}
+
+		if !isExcelSummableHeader(headerName) {
+			continue
+		}
+
+		sum := 0.0
+		hasValue := false
+		for _, record := range records {
+			if columnIndex >= len(record) {
+				continue
+			}
+
+			value := strings.TrimSpace(record[columnIndex])
+			if value == "" {
+				continue
+			}
+
+			parsedValue, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				continue
+			}
+
+			sum += parsedValue
+			hasValue = true
+		}
+
+		if !hasValue {
+			continue
+		}
+
+		if sum == float64(int64(sum)) {
+			totalRecord[columnIndex] = strconv.FormatInt(int64(sum), 10)
+		} else {
+			totalRecord[columnIndex] = strconv.FormatFloat(sum, 'f', 1, 64)
+		}
+	}
+
+	return totalRecord
+}
+
+func isExcelWarningRecord(header []string, record []string) bool {
+	for index, headerName := range header {
+		if headerName != "警告件数" || index >= len(record) {
+			continue
+		}
+
+		warningCount, err := strconv.Atoi(strings.TrimSpace(record[index]))
+		return err == nil && warningCount > 0
+	}
+
+	return false
+}
+
+func excelBodyStyleID(headerName string, warningRow bool, alternateRow bool) int {
+	if warningRow {
+		if isExcelNumericHeader(headerName) {
+			return 9
+		}
+		return 6
+	}
+
+	if isExcelNumericHeader(headerName) {
+		if alternateRow {
+			return 8
+		}
+		return 7
+	}
+
+	if alternateRow {
+		return 5
+	}
+
+	return 4
+}
+
+func isExcelNumericHeader(headerName string) bool {
+	textHeaders := map[string]bool{
+		"出力日時":    true,
+		"集計状態":    true,
+		"従業員名":    true,
+		"部署名":     true,
+		"入社日":     true,
+		"退職日":     true,
+		"対象月退職済み": true,
+		"月次申請状態":  true,
+		"申請日時":    true,
+		"承認日時":    true,
+		"給与区分":    true,
+		"給与計算対象":  true,
+		"稼働率判定":   true,
+		"警告内容":    true,
+	}
+
+	return !textHeaders[headerName]
+}
+
+func isExcelSummableHeader(headerName string) bool {
+	if strings.Contains(headerName, "率") || strings.Contains(headerName, "判定") {
+		return false
+	}
+
+	nonSummableHeaders := map[string]bool{
+		"対象年":   true,
+		"対象月":   true,
+		"従業員ID": true,
+		"暦日数":   true,
+		"平日数":   true,
+		"月給":    true,
+		"時給":    true,
+		"日給":    true,
+	}
+	if nonSummableHeaders[headerName] {
+		return false
+	}
+
+	summableWords := []string{"日数", "回数", "_分", "合計", "金額", "件数", "手当", "控除"}
+	for _, word := range summableWords {
+		if strings.Contains(headerName, word) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func excelColumnName(columnNumber int) string {
+	name := ""
+	for columnNumber > 0 {
+		columnNumber--
+		name = string(rune('A'+columnNumber%26)) + name
+		columnNumber /= 26
+	}
+
+	return name
+}
+
+func excelTextWidth(value string) int {
+	width := 0
+	for _, r := range value {
+		if r <= 127 {
+			width++
+		} else {
+			width += 2
+		}
+	}
+
+	return width
+}
+
+func escapeExcelXML(value string) string {
+	buffer := &bytes.Buffer{}
+	_ = xml.EscapeText(buffer, []byte(value))
+	return buffer.String()
+}
+
+func maxIntForExcel(a int, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+func buildExcelContentTypesXML() string {
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`
+}
+
+func buildExcelRootRelsXML() string {
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`
+}
+
+func buildExcelWorkbookXML() string {
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets><sheet name="月次勤怠集計" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`
+}
+
+func buildExcelWorkbookRelsXML() string {
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`
+}
+
+func buildExcelAppXML() string {
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+<Application>Timexeed</Application>
+</Properties>`
+}
+
+func buildExcelCoreXML() string {
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<dc:creator>Timexeed</dc:creator>
+<cp:lastModifiedBy>Timexeed</cp:lastModifiedBy>
+</cp:coreProperties>`
+}
+
+func buildExcelStylesXML() string {
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="4">
+<font><sz val="11"/><color rgb="FF000000"/><name val="Yu Gothic"/></font>
+<font><b/><sz val="16"/><color rgb="FF1F2937"/><name val="Yu Gothic"/></font>
+<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Yu Gothic"/></font>
+<font><b/><sz val="11"/><color rgb="FF000000"/><name val="Yu Gothic"/></font>
+</fonts>
+<fills count="7">
+<fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFF7F7F7"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFEAF2F8"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFFE5E5"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE2F0D9"/><bgColor indexed="64"/></patternFill></fill>
+</fills>
+<borders count="2">
+<border><left/><right/><top/><bottom/><diagonal/></border>
+<border><left style="thin"><color rgb="FFD9D9D9"/></left><right style="thin"><color rgb="FFD9D9D9"/></right><top style="thin"><color rgb="FFD9D9D9"/></top><bottom style="thin"><color rgb="FFD9D9D9"/></bottom><diagonal/></border>
+</borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="12">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"><alignment horizontal="right" vertical="center"/></xf>
+<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="right" vertical="center"/></xf>
+<xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="right" vertical="center"/></xf>
+<xf numFmtId="0" fontId="3" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="3" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="right" vertical="center"/></xf>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`
 }
 
 func calcString(calculated bool, value string) string {
@@ -371,14 +799,6 @@ func calcString(calculated bool, value string) string {
 	}
 
 	return value
-}
-
-func calcUintToString(calculated bool, value uint) string {
-	if !calculated {
-		return ""
-	}
-
-	return uintToString(value)
 }
 
 func calcIntToString(calculated bool, value int) string {

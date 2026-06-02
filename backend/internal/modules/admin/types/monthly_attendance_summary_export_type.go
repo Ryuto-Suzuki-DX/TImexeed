@@ -40,6 +40,7 @@ type ExportMonthlyAttendanceSummaryCsvRequest struct {
 	DepartmentID       *uint  `json:"departmentId"`
 	Keyword            string `json:"keyword"`
 	IncludeNotApproved bool   `json:"includeNotApproved"`
+	Format             string `json:"format"`
 }
 
 /*
@@ -119,6 +120,7 @@ type MonthlyAttendanceSummaryCsvRow struct {
 	ActualWorkDays           int `json:"actualWorkDays"`
 	DayShiftWorkDays         int `json:"dayShiftWorkDays"`
 	NightShiftWorkDays       int `json:"nightShiftWorkDays"`
+	PlannedHolidayDays       int `json:"plannedHolidayDays"`
 	PaidLeaveDays            int `json:"paidLeaveDays"`
 	HalfPaidLeaveDays        int `json:"halfPaidLeaveDays"`
 	AbsenceDays              int `json:"absenceDays"`
@@ -307,7 +309,15 @@ type MonthlyAttendanceSummaryWarning struct {
 }
 
 /*
- * CSV出力ステータス
+ * 出力形式
+ *
+ * 未指定の場合はCSVとして扱う。
+ */
+const MonthlyAttendanceSummaryExportFormatCSV = "CSV"
+const MonthlyAttendanceSummaryExportFormatXLSX = "XLSX"
+
+/*
+ * 出力ステータス
  */
 const MonthlyAttendanceSummaryExportStatusRowOutput = "ROW_OUTPUT"
 

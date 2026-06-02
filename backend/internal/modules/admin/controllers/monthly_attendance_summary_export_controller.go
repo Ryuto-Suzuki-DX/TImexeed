@@ -13,15 +13,17 @@ import (
 )
 
 /*
- * 月次勤怠集計CSV出力 Controller
+ * 月次勤怠集計ファイル出力 Controller
  *
  * 管理者専用。
  *
  * 注意：
  * ・給与計算そのものは行わない
- * ・APPROVED の月だけ勤怠/給与/交通費/有給/経費の集計値をCSVに出力する
- * ・APPROVED 以外はステータスと警告のみCSVに出力する
- * ・CSVファイルを返すため、正常時は responses.JSON ではなく c.Data で返す
+ * ・APPROVED の月だけ勤怠/給与/交通費/有給/経費の集計値を出力する
+ * ・APPROVED 以外はステータスと警告のみ出力する
+ * ・format が XLSX の場合は見た目付きExcelを返す
+ * ・format 未指定または CSV の場合は従来通りCSVを返す
+ * ・ファイルを返すため、正常時は responses.JSON ではなく c.Data で返す
  */
 type MonthlyAttendanceSummaryExportController struct {
 	monthlyAttendanceSummaryExportService services.MonthlyAttendanceSummaryExportService
@@ -39,7 +41,7 @@ func NewMonthlyAttendanceSummaryExportController(
 }
 
 /*
- * 月次勤怠集計CSV出力
+ * 月次勤怠集計ファイル出力
  *
  * POST /admin/monthly-attendance-summary-exports/export
  */
@@ -49,7 +51,7 @@ func (controller *MonthlyAttendanceSummaryExportController) ExportMonthlyAttenda
 	if err := c.ShouldBindJSON(&request); err != nil {
 		responses.JSON(c, results.BadRequest(
 			"INVALID_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_REQUEST",
-			"月次勤怠集計CSV出力リクエストの形式が正しくありません",
+			"月次勤怠集計出力リクエストの形式が正しくありません",
 			map[string]any{
 				"error": err.Error(),
 			},
@@ -57,7 +59,7 @@ func (controller *MonthlyAttendanceSummaryExportController) ExportMonthlyAttenda
 		return
 	}
 
-	csvBytes, fileName, result := controller.monthlyAttendanceSummaryExportService.ExportMonthlyAttendanceSummaryCsv(request)
+	fileBytes, fileName, contentType, result := controller.monthlyAttendanceSummaryExportService.ExportMonthlyAttendanceSummaryFile(request)
 	if result.Error {
 		responses.JSON(c, result)
 		return
@@ -67,7 +69,11 @@ func (controller *MonthlyAttendanceSummaryExportController) ExportMonthlyAttenda
 		fileName = fmt.Sprintf("monthly_attendance_summary_%04d_%02d.csv", request.TargetYear, request.TargetMonth)
 	}
 
+	if contentType == "" {
+		contentType = "text/csv; charset=utf-8"
+	}
+
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
-	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Data(http.StatusOK, "text/csv; charset=utf-8", csvBytes)
+	c.Header("Content-Type", contentType)
+	c.Data(http.StatusOK, contentType, fileBytes)
 }

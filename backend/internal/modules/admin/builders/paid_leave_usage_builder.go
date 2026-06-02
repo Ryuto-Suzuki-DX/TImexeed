@@ -12,8 +12,10 @@ import (
 
 type PaidLeaveUsageBuilder interface {
 	BuildFindActiveUserByIDQuery(targetUserID uint) (*gorm.DB, results.Result)
+	BuildFindActiveUsersForPaidLeaveRequiredUseWarningsQuery(targetDate time.Time) (*gorm.DB, results.Result)
 	BuildSearchPaidLeaveUsagesQuery(req types.SearchPaidLeaveUsagesRequest) (*gorm.DB, *gorm.DB, results.Result)
 	BuildSumActivePaidLeaveUsageDaysByUserIDQuery(targetUserID uint) (*gorm.DB, results.Result)
+	BuildSumActivePaidLeaveUsageDaysByUserIDAndPeriodQuery(targetUserID uint, periodStart time.Time, periodEnd time.Time) (*gorm.DB, results.Result)
 	BuildCreatePaidLeaveUsageModel(req types.CreatePaidLeaveUsageRequest, usageDate time.Time) (models.PaidLeaveUsage, results.Result)
 	BuildFindManualPaidLeaveUsageByIDAndUserIDQuery(targetPaidLeaveUsageID uint, targetUserID uint) (*gorm.DB, results.Result)
 	BuildUpdatePaidLeaveUsageModel(currentPaidLeaveUsage models.PaidLeaveUsage, req types.UpdatePaidLeaveUsageRequest, usageDate time.Time) (models.PaidLeaveUsage, results.Result)
@@ -89,6 +91,34 @@ func (builder *paidLeaveUsageBuilder) BuildFindActiveUserByIDQuery(targetUserID 
  * ・総件数取得用
  * ・offset / limit は含めない
  */
+
+/*
+ * 年5日取得義務警告対象候補ユーザー検索用クエリ作成
+ *
+ * 管理者ホーム画面で、期限が近い年5日取得義務未達ユーザーを抽出する前段として使う。
+ *
+ * 対象：
+ * ・role = USER
+ * ・論理削除されていない
+ * ・退職日が未設定、または基準日以降
+ */
+func (builder *paidLeaveUsageBuilder) BuildFindActiveUsersForPaidLeaveRequiredUseWarningsQuery(targetDate time.Time) (*gorm.DB, results.Result) {
+	query := builder.db.
+		Model(&models.User{}).
+		Where("role = ?", "USER").
+		Where("is_deleted = ?", false).
+		Where("retirement_date IS NULL OR retirement_date >= ?", targetDate).
+		Order("hire_date ASC").
+		Order("id ASC")
+
+	return query, results.OK(
+		nil,
+		"BUILD_FIND_ACTIVE_USERS_FOR_PAID_LEAVE_REQUIRED_USE_WARNINGS_QUERY_SUCCESS",
+		"",
+		nil,
+	)
+}
+
 func (builder *paidLeaveUsageBuilder) BuildSearchPaidLeaveUsagesQuery(req types.SearchPaidLeaveUsagesRequest) (*gorm.DB, *gorm.DB, results.Result) {
 	if req.TargetUserID == 0 {
 		return nil, nil, results.BadRequest(
@@ -179,6 +209,67 @@ func (builder *paidLeaveUsageBuilder) BuildSumActivePaidLeaveUsageDaysByUserIDQu
  * 管理者が過去有給使用日として追加するため、
  * IsManual は必ず true にする。
  */
+
+/*
+ * 指定期間内の有効な有給使用日数合計クエリ作成
+ *
+ * 年5日取得義務の判定で使う。
+ *
+ * 対象：
+ * ・指定ユーザーの有給使用日
+ * ・論理削除されていないもの
+ * ・usage_date が periodStart 以上
+ * ・usage_date が periodEnd 未満
+ */
+func (builder *paidLeaveUsageBuilder) BuildSumActivePaidLeaveUsageDaysByUserIDAndPeriodQuery(
+	targetUserID uint,
+	periodStart time.Time,
+	periodEnd time.Time,
+) (*gorm.DB, results.Result) {
+	if targetUserID == 0 {
+		return nil, results.BadRequest(
+			"BUILD_SUM_ACTIVE_PAID_LEAVE_USAGE_DAYS_BY_USER_ID_AND_PERIOD_QUERY_INVALID_TARGET_USER_ID",
+			"有給使用日数合計条件の作成に失敗しました",
+			map[string]any{
+				"targetUserId": targetUserID,
+			},
+		)
+	}
+
+	if periodStart.IsZero() {
+		return nil, results.BadRequest(
+			"BUILD_SUM_ACTIVE_PAID_LEAVE_USAGE_DAYS_BY_USER_ID_AND_PERIOD_QUERY_EMPTY_PERIOD_START",
+			"有給使用日数合計条件の作成に失敗しました",
+			nil,
+		)
+	}
+
+	if periodEnd.IsZero() || !periodEnd.After(periodStart) {
+		return nil, results.BadRequest(
+			"BUILD_SUM_ACTIVE_PAID_LEAVE_USAGE_DAYS_BY_USER_ID_AND_PERIOD_QUERY_INVALID_PERIOD_END",
+			"有給使用日数合計条件の作成に失敗しました",
+			map[string]any{
+				"periodStart": periodStart,
+				"periodEnd":   periodEnd,
+			},
+		)
+	}
+
+	query := builder.db.
+		Model(&models.PaidLeaveUsage{}).
+		Where("user_id = ?", targetUserID).
+		Where("is_deleted = ?", false).
+		Where("usage_date >= ?", periodStart).
+		Where("usage_date < ?", periodEnd)
+
+	return query, results.OK(
+		nil,
+		"BUILD_SUM_ACTIVE_PAID_LEAVE_USAGE_DAYS_BY_USER_ID_AND_PERIOD_QUERY_SUCCESS",
+		"",
+		nil,
+	)
+}
+
 func (builder *paidLeaveUsageBuilder) BuildCreatePaidLeaveUsageModel(
 	req types.CreatePaidLeaveUsageRequest,
 	usageDate time.Time,

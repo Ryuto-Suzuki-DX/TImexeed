@@ -97,6 +97,32 @@ func (controller *PaidLeaveUsageController) GetPaidLeaveBalance(c *gin.Context) 
 }
 
 /*
+ * 年5日取得義務警告一覧取得
+ *
+ * POST /admin/paid-leave-usages/required-use-warnings
+ */
+func (controller *PaidLeaveUsageController) SearchPaidLeaveRequiredUseWarnings(c *gin.Context) {
+	var req types.SearchPaidLeaveRequiredUseWarningsRequest
+
+	// リクエストJSONをSearchPaidLeaveRequiredUseWarningsRequest型にbindする
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// Controllerで発生したbindエラーなので、Controller用のcode/messageを詰めて返す
+		responses.JSON(c, results.BadRequest(
+			"SEARCH_PAID_LEAVE_REQUIRED_USE_WARNINGS_INVALID_REQUEST",
+			"年5日取得義務警告一覧取得のリクエスト形式が正しくありません",
+			err.Error(),
+		))
+		return
+	}
+
+	// bindしたRequest型をそのままServiceへ渡す
+	result := controller.paidLeaveUsageService.SearchPaidLeaveRequiredUseWarnings(req)
+
+	// Service / Builder / Repository の結果を共通レスポンス形式のJSONでフロントへ返す
+	responses.JSON(c, result)
+}
+
+/*
  * 過去有給使用日追加
  *
  * POST /admin/paid-leave-usages/create

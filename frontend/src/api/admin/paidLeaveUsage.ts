@@ -6,6 +6,8 @@ import type {
   DeletePaidLeaveUsageResponse,
   GetPaidLeaveBalanceRequest,
   PaidLeaveBalanceResponse,
+  SearchPaidLeaveRequiredUseWarningsRequest,
+  SearchPaidLeaveRequiredUseWarningsResponse,
   SearchPaidLeaveUsagesRequest,
   SearchPaidLeaveUsagesResponse,
   UpdatePaidLeaveUsageRequest,
@@ -34,6 +36,24 @@ export function getPaidLeaveBalance(request: GetPaidLeaveBalanceRequest) {
     "/admin/paid-leave-usages/balance",
     request
   );
+}
+
+/*
+ * 管理者 有給取得義務警告一覧取得
+ *
+ * POST /admin/paid-leave-usages/required-use-warnings
+ *
+ * 用途：
+ * ・年5日取得義務の期限が近い
+ * ・かつ必要取得日数を満たしていないユーザーを取得する
+ */
+export function searchPaidLeaveRequiredUseWarnings(
+  request: SearchPaidLeaveRequiredUseWarningsRequest
+) {
+  return apiPost<
+    SearchPaidLeaveRequiredUseWarningsResponse,
+    SearchPaidLeaveRequiredUseWarningsRequest
+  >("/admin/paid-leave-usages/required-use-warnings", request);
 }
 
 /*

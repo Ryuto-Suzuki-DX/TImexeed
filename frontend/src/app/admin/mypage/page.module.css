@@ -7,7 +7,7 @@
 }
 
 .card {
-  max-width: 720px;
+  max-width: 980px;
   margin: 60px auto;
   padding: 32px;
   border-radius: 16px;
@@ -18,9 +18,16 @@
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   margin-bottom: 24px;
+}
+
+.headerActionArea {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .title {
@@ -41,10 +48,46 @@
   color: #666666;
 }
 
+.pageMessage {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid #fed7aa;
+  background-color: #fff7ed;
+  color: #9a3412;
+}
+
+.pageMessage_info {
+  border-color: #bfdbfe;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.pageMessage_success {
+  border-color: #bbf7d0;
+  background-color: #f0fdf4;
+  color: #15803d;
+}
+
+.pageMessage_warning {
+  border-color: #fed7aa;
+  background-color: #fff7ed;
+  color: #c2410c;
+}
+
+.pageMessage_error {
+  border-color: #fecaca;
+  background-color: #fef2f2;
+  color: #b91c1c;
+}
+
 .infoList {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+  margin-bottom: 24px;
 }
 
 .infoBox {
@@ -65,4 +108,226 @@
   margin: 0;
   font-size: 18px;
   color: #111827;
+  overflow-wrap: anywhere;
+}
+
+.dashboardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.dashboardCard {
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid #fed7aa;
+  background: linear-gradient(180deg, #ffffff 0%, #fff7ed 100%);
+}
+
+.dashboardCardHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.dashboardTitle {
+  margin: 0 0 6px;
+  font-size: 18px;
+  color: #111827;
+}
+
+.dashboardDescription {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #666666;
+}
+
+.dashboardValue {
+  margin: 0 0 8px;
+  font-size: 34px;
+  font-weight: 800;
+  color: #ea580c;
+}
+
+.dashboardText {
+  min-height: 42px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+}
+
+.successBadge,
+.warningBadge {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.successBadge {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.warningBadge {
+  background-color: #ffedd5;
+  color: #c2410c;
+}
+
+.cardActionArea {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.warningSection {
+  padding-top: 4px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.sectionTitle {
+  margin: 0 0 6px;
+  font-size: 20px;
+  color: #111827;
+}
+
+.sectionDescription {
+  margin: 0;
+  font-size: 13px;
+  color: #666666;
+}
+
+.emptyBox {
+  padding: 22px;
+  border-radius: 16px;
+  background-color: #f9fafb;
+  border: 1px dashed #d1d5db;
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #374151;
+}
+
+.emptyText {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.warningList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.warningItem {
+  padding: 16px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.08);
+}
+
+.warningItemMain {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.warningUserName {
+  margin: 0 0 5px;
+  font-size: 17px;
+  color: #111827;
+}
+
+.warningUserMeta {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+  overflow-wrap: anywhere;
+}
+
+.deadlineBadge {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background-color: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.warningDetailGrid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  gap: 10px;
+}
+
+.warningDetailBox,
+.warningDetailBoxStrong {
+  padding: 12px;
+  border-radius: 12px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.warningDetailBoxStrong {
+  background-color: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.warningDetailLabel {
+  margin: 0 0 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #9a3412;
+}
+
+.warningDetailValue {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+
+@media (max-width: 900px) {
+  .card {
+    max-width: none;
+    margin: 40px auto;
+  }
+
+  .infoList,
+  .dashboardGrid,
+  .warningDetailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .header,
+  .warningItemMain {
+    flex-direction: column;
+  }
+
+  .headerActionArea {
+    justify-content: flex-start;
+  }
 }

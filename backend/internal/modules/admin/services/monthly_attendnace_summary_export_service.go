@@ -21,8 +21,12 @@ import (
  * 管理者専用。
  */
 type MonthlyAttendanceSummaryExportService interface {
+	ExportMonthlyAttendanceSummaryFile(request types.ExportMonthlyAttendanceSummaryCsvRequest) ([]byte, string, string, results.Result)
 	ExportMonthlyAttendanceSummaryCsv(request types.ExportMonthlyAttendanceSummaryCsvRequest) ([]byte, string, results.Result)
 }
+
+const monthlyAttendanceSummaryExportContentTypeCSV = "text/csv; charset=utf-8"
+const monthlyAttendanceSummaryExportContentTypeXLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 /*
  * 月次勤怠集計CSV出力 Service
@@ -56,13 +60,16 @@ func NewMonthlyAttendanceSummaryExportService(
 }
 
 /*
- * 月次勤怠集計CSV出力
+ * 月次勤怠集計ファイル出力
+ *
+ * format が XLSX の場合は、同じ集計結果を見た目付きExcelとして出力する。
+ * 未指定または CSV の場合は、従来通りCSVを出力する。
  */
-func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSummaryCsv(
+func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSummaryFile(
 	request types.ExportMonthlyAttendanceSummaryCsvRequest,
-) ([]byte, string, results.Result) {
+) ([]byte, string, string, results.Result) {
 	if request.TargetYear <= 0 {
-		return nil, "", results.BadRequest(
+		return nil, "", "", results.BadRequest(
 			"EXPORT_MONTHLY_ATTENDANCE_SUMMARY_CSV_INVALID_TARGET_YEAR",
 			"対象年が正しくありません",
 			map[string]any{
@@ -72,7 +79,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 	}
 
 	if request.TargetMonth < 1 || request.TargetMonth > 12 {
-		return nil, "", results.BadRequest(
+		return nil, "", "", results.BadRequest(
 			"EXPORT_MONTHLY_ATTENDANCE_SUMMARY_CSV_INVALID_TARGET_MONTH",
 			"対象月が正しくありません",
 			map[string]any{
@@ -96,7 +103,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 
 	users, usersResult := service.monthlyAttendanceSummaryExportRepository.SearchExportTargetUsers(request)
 	if usersResult.Error {
-		return nil, "", usersResult
+		return nil, "", "", usersResult
 	}
 
 	userIDs := make([]uint, 0, len(users))
@@ -110,7 +117,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		request.TargetMonth,
 	)
 	if monthlyRequestResult.Error {
-		return nil, "", monthlyRequestResult
+		return nil, "", "", monthlyRequestResult
 	}
 
 	attendanceDays, attendanceDaysResult := service.monthlyAttendanceSummaryExportRepository.FindAttendanceDays(
@@ -119,7 +126,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		extendedToDate,
 	)
 	if attendanceDaysResult.Error {
-		return nil, "", attendanceDaysResult
+		return nil, "", "", attendanceDaysResult
 	}
 
 	attendanceDayIDs := make([]uint, 0, len(attendanceDays))
@@ -129,7 +136,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 
 	attendanceBreakMap, attendanceBreakResult := service.monthlyAttendanceSummaryExportRepository.FindAttendanceBreaks(attendanceDayIDs)
 	if attendanceBreakResult.Error {
-		return nil, "", attendanceBreakResult
+		return nil, "", "", attendanceBreakResult
 	}
 
 	monthlyCommuterPassMap, commuterPassResult := service.monthlyAttendanceSummaryExportRepository.FindMonthlyCommuterPasses(
@@ -138,7 +145,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		request.TargetMonth,
 	)
 	if commuterPassResult.Error {
-		return nil, "", commuterPassResult
+		return nil, "", "", commuterPassResult
 	}
 
 	userSalaryDetailMap, userSalaryDetailResult := service.monthlyAttendanceSummaryExportRepository.FindUserSalaryDetails(
@@ -147,7 +154,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		targetMonthEnd,
 	)
 	if userSalaryDetailResult.Error {
-		return nil, "", userSalaryDetailResult
+		return nil, "", "", userSalaryDetailResult
 	}
 
 	paidLeaveUsageMap, paidLeaveUsageResult := service.monthlyAttendanceSummaryExportRepository.FindPaidLeaveUsages(
@@ -156,7 +163,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		targetMonthEnd,
 	)
 	if paidLeaveUsageResult.Error {
-		return nil, "", paidLeaveUsageResult
+		return nil, "", "", paidLeaveUsageResult
 	}
 
 	expenseMap, expenseResult := service.monthlyAttendanceSummaryExportRepository.FindExpenses(
@@ -164,7 +171,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		targetMonthStart,
 	)
 	if expenseResult.Error {
-		return nil, "", expenseResult
+		return nil, "", "", expenseResult
 	}
 
 	attendanceDaysByUserID := groupAttendanceDaysByUserID(attendanceDays)
@@ -213,14 +220,40 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		rows = append(rows, calculatedRow)
 	}
 
+	format := normalizeMonthlyAttendanceSummaryExportFormat(request.Format)
+	if format == types.MonthlyAttendanceSummaryExportFormatXLSX {
+		excelBytes, excelResult := service.monthlyAttendanceSummaryExportBuilder.BuildExcel(
+			rows,
+			request.TargetYear,
+			request.TargetMonth,
+		)
+		if excelResult.Error {
+			return nil, "", "", excelResult
+		}
+
+		fileName := service.monthlyAttendanceSummaryExportBuilder.BuildExcelFileName(request.TargetYear, request.TargetMonth)
+
+		return excelBytes, fileName, monthlyAttendanceSummaryExportContentTypeXLSX, results.OK(
+			types.ExportMonthlyAttendanceSummaryCsvResponse{
+				FileName:    fileName,
+				TargetYear:  request.TargetYear,
+				TargetMonth: request.TargetMonth,
+				RowCount:    len(rows),
+			},
+			"EXPORT_MONTHLY_ATTENDANCE_SUMMARY_EXCEL_SUCCESS",
+			"月次勤怠集計Excelを出力しました",
+			nil,
+		)
+	}
+
 	csvBytes, csvResult := service.monthlyAttendanceSummaryExportBuilder.BuildCSV(rows)
 	if csvResult.Error {
-		return nil, "", csvResult
+		return nil, "", "", csvResult
 	}
 
 	fileName := service.monthlyAttendanceSummaryExportBuilder.BuildFileName(request.TargetYear, request.TargetMonth)
 
-	return csvBytes, fileName, results.OK(
+	return csvBytes, fileName, monthlyAttendanceSummaryExportContentTypeCSV, results.OK(
 		types.ExportMonthlyAttendanceSummaryCsvResponse{
 			FileName:    fileName,
 			TargetYear:  request.TargetYear,
@@ -231,6 +264,19 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		"月次勤怠集計CSVを出力しました",
 		nil,
 	)
+}
+
+/*
+ * 月次勤怠集計CSV出力
+ *
+ * 既存呼び出しとの互換用。
+ */
+func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSummaryCsv(
+	request types.ExportMonthlyAttendanceSummaryCsvRequest,
+) ([]byte, string, results.Result) {
+	request.Format = types.MonthlyAttendanceSummaryExportFormatCSV
+	csvBytes, fileName, _, result := service.ExportMonthlyAttendanceSummaryFile(request)
+	return csvBytes, fileName, result
 }
 
 /*
@@ -359,6 +405,10 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 			} else {
 				row.DayShiftWorkDays++
 			}
+		}
+
+		if workRow.IsPlannedHoliday {
+			row.PlannedHolidayDays++
 		}
 
 		if workRow.IsHolidayWorkDay {
@@ -1316,6 +1366,15 @@ func overlapMinutes(
 	}
 
 	return minutesBetween(start, end)
+}
+
+func normalizeMonthlyAttendanceSummaryExportFormat(format string) string {
+	normalizedFormat := strings.ToUpper(strings.TrimSpace(format))
+	if normalizedFormat == types.MonthlyAttendanceSummaryExportFormatXLSX {
+		return types.MonthlyAttendanceSummaryExportFormatXLSX
+	}
+
+	return types.MonthlyAttendanceSummaryExportFormatCSV
 }
 
 func jstLocation() *time.Location {
