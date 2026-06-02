@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import { downloadMonthlyAttendanceSummaryCsv } from "@/api/admin/monthlyAttendanceSummaryExport";
+import { downloadMonthlyAttendanceSummaryExport } from "@/api/admin/monthlyAttendanceSummaryExport";
 import Button from "@/components/atoms/Button";
 import MessageBox from "@/components/atoms/MessageBox";
 import PageContainer from "@/components/atoms/PageContainer";
@@ -14,6 +14,8 @@ type PageMessage = {
   variant: "info" | "success" | "warning" | "error";
   text: string;
 };
+
+type ExportFormat = "CSV" | "XLSX";
 
 type ExportFormState = {
   targetMonth: string;
@@ -34,7 +36,7 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [pageMessage, setPageMessage] = useState<PageMessage>({
     variant: "info",
-    text: "対象月を選択して、月次勤怠集計CSVを出力できます。",
+    text: "対象月を選択して、月次勤怠集計をCSVまたはExcelで出力できます。",
   });
 
   const targetMonthText = useMemo(() => {
@@ -52,7 +54,7 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
         <AdminSideMenu />
 
         <section className={styles.loadingCard}>
-          <PageTitle title="月次勤怠集計CSV出力" description="ログイン情報を確認しています。" />
+          <PageTitle title="月次勤怠集計出力" description="ログイン情報を確認しています。" />
           <MessageBox variant="info">{authMessage}</MessageBox>
         </section>
       </PageContainer>
@@ -61,7 +63,10 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    await handleExport("XLSX");
+  }
 
+  async function handleExport(format: ExportFormat) {
     const validationMessage = validateExportForm(exportForm);
     if (validationMessage) {
       setPageMessage({
@@ -75,30 +80,33 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
     const targetYear = Number(targetYearText);
     const targetMonth = Number(targetMonthTextValue);
 
+    const formatLabel = format === "XLSX" ? "Excel" : "CSV";
+
     setIsExporting(true);
     setPageMessage({
       variant: "info",
-      text: "月次勤怠集計CSVを出力しています。",
+      text: `月次勤怠集計${formatLabel}を出力しています。`,
     });
 
     try {
-      await downloadMonthlyAttendanceSummaryCsv({
+      await downloadMonthlyAttendanceSummaryExport({
         targetYear,
         targetMonth,
         targetUserIds: [],
         departmentId: null,
         keyword: exportForm.keyword.trim(),
         includeNotApproved: exportForm.includeNotApproved,
+        format,
       });
 
       setPageMessage({
         variant: "success",
-        text: "月次勤怠集計CSVを出力しました。",
+        text: `月次勤怠集計${formatLabel}を出力しました。`,
       });
     } catch (error) {
       setPageMessage({
         variant: "error",
-        text: error instanceof Error ? error.message : "月次勤怠集計CSVの出力に失敗しました。",
+        text: error instanceof Error ? error.message : `月次勤怠集計${formatLabel}の出力に失敗しました。`,
       });
     } finally {
       setIsExporting(false);
@@ -121,8 +129,8 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
         <section className={styles.pageCard}>
           <div className={styles.headerArea}>
             <PageTitle
-              title="月次勤怠集計CSV出力"
-              description="承認済みの月次勤怠を集計し、給与計算前の確認用CSVとして出力します。"
+              title="月次勤怠集計出力"
+              description="承認済みの月次勤怠を集計し、CSVまたは提出用Excelとして出力します。"
             />
 
             <MessageBox variant={pageMessage.variant}>{pageMessage.text}</MessageBox>
@@ -182,12 +190,21 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
                       }))
                     }
                   />
-                  <span>未承認・未申請の従業員もステータスのみCSVに含める</span>
+                  <span>未承認・未申請の従業員もステータスのみ出力に含める</span>
                 </label>
 
                 <div className={styles.formActions}>
                   <Button type="submit" variant="primary" disabled={isExporting}>
-                    {isExporting ? "出力中..." : "CSV出力"}
+                    {isExporting ? "出力中..." : "Excel出力"}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void handleExport("CSV")}
+                    disabled={isExporting}
+                  >
+                    CSV出力
                   </Button>
 
                   <Button type="button" variant="secondary" onClick={handleReset} disabled={isExporting}>
@@ -202,7 +219,7 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
                 <div>
                   <h2 className={styles.sectionTitle}>出力内容</h2>
                   <p className={styles.sectionDescription}>
-                    CSVは対象年月 × 従業員の1行形式です。APPROVED以外は集計値を空欄にし、ステータスのみ出力します。
+                    Excelは提出用の見やすい表形式、CSVは加工・連携用のデータ形式として出力します。
                   </p>
                 </div>
               </div>
@@ -235,6 +252,7 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
                   <li>残業は日別超過と週超過を重複しないように分けて集計します。</li>
                   <li>深夜労働は22:00〜翌5:00を休憩除外で集計します。</li>
                   <li>休日出勤は残業とは別枠で集計します。</li>
+                  <li>Excel出力では、警告行や合計行を見やすく装飾します。</li>
                 </ul>
               </div>
             </section>

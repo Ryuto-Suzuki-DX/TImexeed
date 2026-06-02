@@ -1,4 +1,7 @@
-import { getAccessToken } from "@/api/auth";
+import {
+  getAccessToken,
+  handleUnauthorizedResponse,
+} from "@/api/auth";
 import { API_BASE_URL } from "@/api/config";
 import type { ApiResponse } from "@/types/api";
 
@@ -8,6 +11,7 @@ import type { ApiResponse } from "@/types/api";
  * ・APIのベースURLは .env.local の NEXT_PUBLIC_API_BASE_URL を使う
  * ・Content-Typeを付ける
  * ・accessTokenがあれば Authorization を付ける
+ * ・401 Unauthorized の場合はログインページへ戻す
  * ・JSONを返す
  */
 async function apiRequest<T>(path: string, options: RequestInit): Promise<ApiResponse<T>> {
@@ -23,6 +27,15 @@ async function apiRequest<T>(path: string, options: RequestInit): Promise<ApiRes
     ...options,
     headers,
   });
+
+  if (handleUnauthorizedResponse(response)) {
+    return {
+      data: null,
+      error: true,
+      code: "UNAUTHORIZED",
+      message: "ログイン期限が切れました。再ログインしてください。",
+    };
+  }
 
   return response.json();
 }

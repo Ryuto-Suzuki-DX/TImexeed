@@ -15,6 +15,10 @@ export function saveAccessToken(token: string) {
  * accessTokenを取得する
  */
 export function getAccessToken() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
   return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
@@ -22,7 +26,48 @@ export function getAccessToken() {
  * accessTokenを削除する
  */
 export function removeAccessToken() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
   localStorage.removeItem(ACCESS_TOKEN_KEY);
+}
+
+/*
+ * ログインページへ遷移する
+ *
+ * 認証切れ時に使う。
+ * 現在のURLを redirect パラメータに残しておく。
+ */
+export function redirectToLogin() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  removeAccessToken();
+
+  const currentPath = window.location.pathname + window.location.search;
+
+  if (window.location.pathname === "/login") {
+    return;
+  }
+
+  window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+}
+
+/*
+ * 401 Unauthorized を共通処理する
+ *
+ * true  : 401だったのでログイン画面へ遷移した
+ * false : 401ではない
+ */
+export function handleUnauthorizedResponse(response: Response) {
+  if (response.status !== 401) {
+    return false;
+  }
+
+  redirectToLogin();
+  return true;
 }
 
 /*
@@ -54,6 +99,8 @@ export async function fetchMe(): Promise<ApiResponse<MeResponse>> {
   const token = getAccessToken();
 
   if (!token) {
+    redirectToLogin();
+
     return {
       data: null,
       error: true,
@@ -68,6 +115,15 @@ export async function fetchMe(): Promise<ApiResponse<MeResponse>> {
       Authorization: `Bearer ${token}`,
     },
   });
+
+  if (handleUnauthorizedResponse(response)) {
+    return {
+      data: null,
+      error: true,
+      code: "UNAUTHORIZED",
+      message: "ログイン期限が切れました。再ログインしてください。",
+    };
+  }
 
   return response.json();
 }
