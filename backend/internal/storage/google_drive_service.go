@@ -43,8 +43,11 @@ import (
  */
 type GoogleDriveService interface {
 	UploadFile(ctx context.Context, folderID string, storedFileName string, mimeType string, reader io.Reader) (GoogleDriveUploadedFile, error)
+	UpdateFile(ctx context.Context, fileID string, mimeType string, reader io.Reader) (GoogleDriveUploadedFile, error)
 	DownloadFile(ctx context.Context, fileID string) (GoogleDriveDownloadedFile, error)
 	GetFileMetadata(ctx context.Context, fileID string) (GoogleDriveFileMetadata, error)
+	FindFileByNameInFolder(ctx context.Context, folderID string, fileName string) (*GoogleDriveFileMetadata, bool, error)
+	ListFilesInFolder(ctx context.Context, folderID string) ([]GoogleDriveFileMetadata, error)
 	DeleteFile(ctx context.Context, fileID string) error
 	ParseFolderID(folderURLOrID string) (string, error)
 
@@ -236,6 +239,168 @@ func (service *googleDriveService) UploadFile(
 		MimeType:    createdFile.MimeType,
 		SizeBytes:   createdFile.Size,
 	}, nil
+}
+
+/*
+ * ファイル更新
+ *
+ * 既存のGoogle DriveファイルIDに対して中身を上書きする。
+ * 日次ログCSVの再アップロードで使用する。
+ */
+func (service *googleDriveService) UpdateFile(
+	ctx context.Context,
+	fileID string,
+	mimeType string,
+	reader io.Reader,
+) (GoogleDriveUploadedFile, error) {
+	fileID = strings.TrimSpace(fileID)
+	mimeType = strings.TrimSpace(mimeType)
+
+	if fileID == "" {
+		return GoogleDriveUploadedFile{}, errors.New("google drive file id is empty")
+	}
+
+	if reader == nil {
+		return GoogleDriveUploadedFile{}, errors.New("file reader is nil")
+	}
+
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+
+	file := &drive.File{
+		MimeType: mimeType,
+	}
+
+	updatedFile, err := service.driveService.Files.
+		Update(fileID, file).
+		Media(reader).
+		Fields("id", "name", "mimeType", "size", "webViewLink").
+		SupportsAllDrives(true).
+		Context(ctx).
+		Do()
+	if err != nil {
+		return GoogleDriveUploadedFile{}, fmt.Errorf("failed to update google drive file: %w", err)
+	}
+
+	return GoogleDriveUploadedFile{
+		DriveFileID: updatedFile.Id,
+		FileName:    updatedFile.Name,
+		FileURL:     buildGoogleDriveWebURL(updatedFile.Id, updatedFile.WebViewLink),
+		MimeType:    updatedFile.MimeType,
+		SizeBytes:   updatedFile.Size,
+	}, nil
+}
+
+/*
+ * フォルダ内の同名ファイルを検索する。
+ *
+ * 日次ログCSVで、同じ日付のCSVが既に存在するか確認するために使う。
+ */
+func (service *googleDriveService) FindFileByNameInFolder(
+	ctx context.Context,
+	folderID string,
+	fileName string,
+) (*GoogleDriveFileMetadata, bool, error) {
+	folderID = strings.TrimSpace(folderID)
+	fileName = strings.TrimSpace(fileName)
+
+	if folderID == "" {
+		return nil, false, errors.New("google drive folder id is empty")
+	}
+
+	if fileName == "" {
+		return nil, false, errors.New("google drive file name is empty")
+	}
+
+	query := fmt.Sprintf(
+		"'%s' in parents and name = '%s' and trashed = false",
+		escapeGoogleDriveQueryValue(folderID),
+		escapeGoogleDriveQueryValue(fileName),
+	)
+
+	fileList, err := service.driveService.Files.
+		List().
+		Q(query).
+		Fields("files(id,name,mimeType,size,webViewLink)").
+		PageSize(1).
+		SupportsAllDrives(true).
+		IncludeItemsFromAllDrives(true).
+		Context(ctx).
+		Do()
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to find google drive file by name: %w", err)
+	}
+
+	if len(fileList.Files) == 0 {
+		return nil, false, nil
+	}
+
+	file := fileList.Files[0]
+	metadata := GoogleDriveFileMetadata{
+		DriveFileID: file.Id,
+		FileName:    file.Name,
+		FileURL:     buildGoogleDriveWebURL(file.Id, file.WebViewLink),
+		MimeType:    file.MimeType,
+		SizeBytes:   file.Size,
+	}
+
+	return &metadata, true, nil
+}
+
+/*
+ * フォルダ内のファイル一覧を取得する。
+ *
+ * 半年を超えたログCSVを削除するために使う。
+ */
+func (service *googleDriveService) ListFilesInFolder(ctx context.Context, folderID string) ([]GoogleDriveFileMetadata, error) {
+	folderID = strings.TrimSpace(folderID)
+	if folderID == "" {
+		return nil, errors.New("google drive folder id is empty")
+	}
+
+	query := fmt.Sprintf("'%s' in parents and trashed = false", escapeGoogleDriveQueryValue(folderID))
+
+	files := make([]GoogleDriveFileMetadata, 0)
+	pageToken := ""
+
+	for {
+		call := service.driveService.Files.
+			List().
+			Q(query).
+			Fields("nextPageToken, files(id,name,mimeType,size,webViewLink)").
+			PageSize(1000).
+			SupportsAllDrives(true).
+			IncludeItemsFromAllDrives(true).
+			Context(ctx)
+
+		if pageToken != "" {
+			call = call.PageToken(pageToken)
+		}
+
+		fileList, err := call.Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list google drive files in folder: %w", err)
+		}
+
+		for _, file := range fileList.Files {
+			files = append(files, GoogleDriveFileMetadata{
+				DriveFileID: file.Id,
+				FileName:    file.Name,
+				FileURL:     buildGoogleDriveWebURL(file.Id, file.WebViewLink),
+				MimeType:    file.MimeType,
+				SizeBytes:   file.Size,
+			})
+		}
+
+		if fileList.NextPageToken == "" {
+			break
+		}
+
+		pageToken = fileList.NextPageToken
+	}
+
+	return files, nil
 }
 
 /*
@@ -716,6 +881,12 @@ func isInheritedGoogleDrivePermission(permission *drive.Permission) bool {
 	}
 
 	return false
+}
+
+func escapeGoogleDriveQueryValue(value string) string {
+	value = strings.ReplaceAll(value, `\`, `\\`)
+	value = strings.ReplaceAll(value, `'`, `\'`)
+	return value
 }
 
 func buildGoogleDriveWebURL(fileID string, webViewLink string) string {

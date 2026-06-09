@@ -42,9 +42,13 @@ func RunMigrations(db *gorm.DB) error {
 		&models.HolidayDate{},
 		// 外部ストレージリンク
 		&models.ExternalStorageLink{},
+		// API操作ログ
+		&models.ApiOperationLog{},
 		// 個人情報Driveフォルダ
 		&models.PersonalInformationDriveFolder{},
 		// 経費
 		&models.Expense{},
+		// 勤怠リアルタイムイベント
+		&models.AttendanceRealtimeEvent{},
 	)
 }

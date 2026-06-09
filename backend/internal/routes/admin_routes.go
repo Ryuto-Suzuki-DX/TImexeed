@@ -152,10 +152,17 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	monthlyAttendanceSummaryExportService := services.NewMonthlyAttendanceSummaryExportService(monthlyAttendanceSummaryExportBuilder, monthlyAttendanceSummaryExportRepository)
 	monthlyAttendanceSummaryExportController := controllers.NewMonthlyAttendanceSummaryExportController(monthlyAttendanceSummaryExportService)
 
+	// 勤怠リアルタイムイベント
+	attendanceRealtimeEventBuilder := builders.NewAttendanceRealtimeEventBuilder(db)
+	attendanceRealtimeEventRepository := repositories.NewAttendanceRealtimeEventRepository(db)
+	attendanceRealtimeEventService := services.NewAttendanceRealtimeEventService(attendanceRealtimeEventBuilder, attendanceRealtimeEventRepository)
+	attendanceRealtimeEventController := controllers.NewAttendanceRealtimeEventController(attendanceRealtimeEventService)
+
 	admin := r.Group("/admin")
 
 	admin.Use(
 		middlewares.AuthMiddleware(),
+		middlewares.ApiOperationLogMiddleware(db),
 		middlewares.AdminMiddleware(),
 	)
 
@@ -255,6 +262,9 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		admin.POST("/notification-reminders/update", notificationReminderController.UpdateNotificationReminder)
 		admin.POST("/notification-reminders/delete", notificationReminderController.DeleteNotificationReminder)
 		admin.POST("/notification-reminders/toggle-enabled", notificationReminderController.ToggleNotificationReminderEnabled)
+
+		// 勤怠リアルタイムイベント
+		admin.POST("/attendance-realtime-events/search", attendanceRealtimeEventController.SearchAttendanceRealtimeEvents)
 
 		// 月次勤怠全体保存（勤怠・休憩・月次通勤定期）
 		admin.POST("/monthly-attendances/update", monthlyAttendanceSaveController.UpdateMonthlyAttendance)

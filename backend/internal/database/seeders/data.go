@@ -234,8 +234,15 @@ var externalStorageLinks = []SeedExternalStorageLink{
 	{
 		LinkType:    "SHARED_DOCUMENT_DRIVE_ROOT",
 		LinkName:    "共有資料Drive親フォルダ",
-		URL:         "https://drive.google.com/drive/folders/ここに親フォルダID",
+		URL:         "https://drive.google.com/drive/folders/1EcbkLhImlWZHxPHfeFFD7u5CFKxiv8fo",
 		Description: "共有資料・FAQなど、全ユーザー向けDriveフォルダを作成する親フォルダ",
 		Memo:        "この親フォルダ配下にTimexeedが共有資料Driveフォルダを自動作成する。Drive権限は管理者の同期操作で有効な一般ユーザーへ付与する。",
+	},
+	{
+		LinkType:    "SYSTEM_LOG_DRIVE_ROOT",
+		LinkName:    "システムログDrive親フォルダ",
+		URL:         "https://drive.google.com/drive/folders/ここにログ保存用フォルダID",
+		Description: "API操作ログやシステムログを保存するGoogle Drive親フォルダ",
+		Memo:        "API操作ログはDBに保存し、日次CSVとしてこのDriveフォルダ配下へアップロードする。必要に応じてエラーログ、バッチログ、メール送信ログもこの配下で管理する。",
 	},
 }

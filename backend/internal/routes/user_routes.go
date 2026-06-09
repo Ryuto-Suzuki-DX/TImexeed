@@ -123,6 +123,12 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	expenseService := services.NewExpenseService(expenseBuilder, expenseRepository, googleDriveService)
 	expenseController := controllers.NewExpenseController(expenseService)
 
+	// 勤怠リアルタイムイベント
+	attendanceRealtimeEventBuilder := builders.NewAttendanceRealtimeEventBuilder(db)
+	attendanceRealtimeEventRepository := repositories.NewAttendanceRealtimeEventRepository(db)
+	attendanceRealtimeEventService := services.NewAttendanceRealtimeEventService(attendanceRealtimeEventBuilder, attendanceRealtimeEventRepository)
+	attendanceRealtimeEventController := controllers.NewAttendanceRealtimeEventController(attendanceRealtimeEventService)
+
 	user := r.Group("/user")
 
 	/*
@@ -130,9 +136,13 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	 * 1. JWT認証済みであること
 	 * 2. role が USER であること
 	 * を必須にする。
+	 *
+	 * API操作ログはAuthMiddleware後に実行する。
+	 * これにより userId / email / role をログへ保存できる。
 	 */
 	user.Use(
 		middlewares.AuthMiddleware(),
+		middlewares.ApiOperationLogMiddleware(db),
 		middlewares.UserMiddleware(),
 	)
 
@@ -162,6 +172,10 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 
 		// 月次勤怠全体保存（勤怠・休憩・月次通勤定期）
 		user.POST("/monthly-attendances/update", monthlyAttendanceSaveController.UpdateMonthlyAttendance)
+
+		// 勤怠リアルタイムイベント
+		user.POST("/attendance-realtime-events/create", attendanceRealtimeEventController.CreateAttendanceRealtimeEvent)
+		user.POST("/attendance-realtime-events/today", attendanceRealtimeEventController.GetTodayAttendanceRealtimeEvents)
 
 		// お知らせ機能
 		user.POST("/notifications/search", notificationController.SearchNotifications)
