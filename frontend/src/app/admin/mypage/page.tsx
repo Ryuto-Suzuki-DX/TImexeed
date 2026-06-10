@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { removeAccessToken } from "@/api/auth";
 import { countUnreadNotifications } from "@/api/admin/notification";
 import { searchPaidLeaveRequiredUseWarnings } from "@/api/admin/paidLeaveUsage";
+import { searchAttendanceRealtimeEvents } from "@/api/admin/attendanceRealtimeEvent";
 import Button from "@/components/atoms/Button";
 import { useRequireRole } from "@/hooks/useRequireRole";
 import AdminSideMenu from "@/components/sideMenu/AdminSideMenu";
 import type { PaidLeaveRequiredUseWarningResponse } from "@/types/admin/paidLeaveUsage";
+import type { AttendanceRealtimeEventResponse } from "@/types/admin/attendanceRealtimeEvent";
 import styles from "./page.module.css";
 
 type PageMessageVariant = "info" | "success" | "warning" | "error";
@@ -27,12 +29,76 @@ function formatDate(value: string | null | undefined) {
   return dateValue.replaceAll("-", "/");
 }
 
+function formatDateTime(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatTime(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+
 function formatNumber(value: number | null | undefined) {
   if (value === null || value === undefined) {
     return "-";
   }
 
   return value.toFixed(1).replace(".0", "");
+}
+
+
+function formatAttendanceRealtimeEventType(eventType: string) {
+  switch (eventType) {
+    case "CLOCK_IN":
+      return "出勤";
+    case "CLOCK_OUT":
+      return "退勤";
+    case "OTHER":
+      return "その他";
+    default:
+      return eventType || "-";
+  }
+}
+
+function getAttendanceRealtimeEventBadgeClass(eventType: string) {
+  switch (eventType) {
+    case "CLOCK_IN":
+      return styles.attendanceEventBadgeClockIn;
+    case "CLOCK_OUT":
+      return styles.attendanceEventBadgeClockOut;
+    case "OTHER":
+      return styles.attendanceEventBadgeOther;
+    default:
+      return styles.attendanceEventBadgeOther;
+  }
 }
 
 export default function AdminMyPage() {
@@ -42,10 +108,38 @@ export default function AdminMyPage() {
 
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [paidLeaveWarnings, setPaidLeaveWarnings] = useState<PaidLeaveRequiredUseWarningResponse[]>([]);
+  const [attendanceRealtimeEvents, setAttendanceRealtimeEvents] = useState<AttendanceRealtimeEventResponse[]>([]);
 
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
+  const [isAttendanceRealtimeLoading, setIsAttendanceRealtimeLoading] = useState(false);
   const [pageMessage, setPageMessage] = useState("管理者ホーム情報を確認できます。");
   const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
+
+  const loadAttendanceRealtimeEvents = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+
+    setIsAttendanceRealtimeLoading(true);
+
+    const result = await searchAttendanceRealtimeEvents({
+      targetDate: "",
+      keyword: "",
+      eventTypes: [],
+      limit: 20,
+      offset: 0,
+    });
+
+    if (result.error || !result.data) {
+      setPageMessage(result.message || "本日の出退勤速報の取得に失敗しました。");
+      setPageMessageVariant("error");
+      setIsAttendanceRealtimeLoading(false);
+      return;
+    }
+
+    setAttendanceRealtimeEvents(result.data.events);
+    setIsAttendanceRealtimeLoading(false);
+  }, [user]);
 
   const loadDashboard = useCallback(async () => {
     if (!user) {
@@ -56,10 +150,17 @@ export default function AdminMyPage() {
     setPageMessage("ホーム情報を取得しています。");
     setPageMessageVariant("info");
 
-    const [notificationResult, paidLeaveResult] = await Promise.all([
+    const [notificationResult, paidLeaveResult, attendanceRealtimeResult] = await Promise.all([
       countUnreadNotifications({}),
       searchPaidLeaveRequiredUseWarnings({
         deadlineWithinDays: 90,
+      }),
+      searchAttendanceRealtimeEvents({
+        targetDate: "",
+        keyword: "",
+        eventTypes: [],
+        limit: 20,
+        offset: 0,
       }),
     ]);
 
@@ -77,8 +178,16 @@ export default function AdminMyPage() {
       return;
     }
 
+    if (attendanceRealtimeResult.error || !attendanceRealtimeResult.data) {
+      setPageMessage(attendanceRealtimeResult.message || "本日の出退勤速報の取得に失敗しました。");
+      setPageMessageVariant("error");
+      setIsDashboardLoading(false);
+      return;
+    }
+
     setUnreadNotificationCount(notificationResult.data.unreadCount);
     setPaidLeaveWarnings(paidLeaveResult.data.warnings);
+    setAttendanceRealtimeEvents(attendanceRealtimeResult.data.events);
 
     if (notificationResult.data.unreadCount > 0 || paidLeaveResult.data.warnings.length > 0) {
       setPageMessage("確認が必要な項目があります。");
@@ -104,6 +213,21 @@ export default function AdminMyPage() {
       window.clearTimeout(timerId);
     };
   }, [isLoading, loadDashboard, user]);
+
+
+  useEffect(() => {
+    if (isLoading || !user) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void loadAttendanceRealtimeEvents();
+    }, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isLoading, loadAttendanceRealtimeEvents, user]);
 
   const handleLogout = () => {
     removeAccessToken();
@@ -143,6 +267,66 @@ export default function AdminMyPage() {
             <div className={`${styles.pageMessage} ${styles[`pageMessage_${pageMessageVariant}`]}`}>
               {isDashboardLoading ? "読み込み中..." : pageMessage}
             </div>
+
+
+            <section className={styles.attendanceRealtimeSection}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h2 className={styles.sectionTitle}>本日の出退勤速報</h2>
+                  <p className={styles.sectionDescription}>
+                    従業員がマイページで押した出勤・退勤・その他の時刻を表示します。30秒ごとに自動更新します。
+                  </p>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void loadAttendanceRealtimeEvents()}
+                  disabled={isAttendanceRealtimeLoading}
+                >
+                  {isAttendanceRealtimeLoading ? "更新中..." : "速報を更新"}
+                </Button>
+              </div>
+
+              {attendanceRealtimeEvents.length === 0 ? (
+                <div className={styles.emptyBox}>
+                  <p className={styles.emptyTitle}>本日の出退勤速報はまだありません</p>
+                  <p className={styles.emptyText}>従業員が出勤・退勤・その他ボタンを押すと、ここに表示されます。</p>
+                </div>
+              ) : (
+                <div className={styles.attendanceEventList}>
+                  {attendanceRealtimeEvents.map((event) => (
+                    <article key={event.id} className={styles.attendanceEventItem}>
+                      <div className={styles.attendanceEventMain}>
+                        <div>
+                          <div className={styles.attendanceEventTitleRow}>
+                            <span className={`${styles.attendanceEventBadge} ${getAttendanceRealtimeEventBadgeClass(event.eventType)}`}>
+                              {formatAttendanceRealtimeEventType(event.eventType)}
+                            </span>
+                            <h3 className={styles.attendanceEventUserName}>{event.userName}</h3>
+                          </div>
+                          <p className={styles.attendanceEventMeta}>{event.userEmail}</p>
+                        </div>
+
+                        <div className={styles.attendanceEventTimeBox}>
+                          <p className={styles.attendanceEventTimeLabel}>押下時刻</p>
+                          <p className={styles.attendanceEventTimeValue}>{formatTime(event.eventAt)}</p>
+                        </div>
+                      </div>
+
+                      {event.note && (
+                        <div className={styles.attendanceEventNoteBox}>
+                          <p className={styles.attendanceEventNoteLabel}>コメント</p>
+                          <p className={styles.attendanceEventNote}>{event.note}</p>
+                        </div>
+                      )}
+
+                      <p className={styles.attendanceEventCreatedAt}>記録日時：{formatDateTime(event.createdAt)}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
 
             <div className={styles.infoList}>
               <div className={styles.infoBox}>

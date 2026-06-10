@@ -83,6 +83,82 @@
   color: #b91c1c;
 }
 
+.attendanceRealtimeSection {
+  margin-bottom: 24px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid #fed7aa;
+  background: linear-gradient(180deg, #ffffff 0%, #fff7ed 100%);
+}
+
+.attendancePunchGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.attendancePunchCard,
+.attendancePunchCardWide {
+  padding: 16px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.08);
+}
+
+.attendancePunchCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.attendancePunchCardWide {
+  grid-column: 1 / -1;
+}
+
+.attendancePunchOtherHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.attendancePunchLabel {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #9a3412;
+}
+
+.attendancePunchTime {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+  color: #ea580c;
+}
+
+.attendancePunchTextarea {
+  width: 100%;
+  min-height: 82px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #fed7aa;
+  background-color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  color: #111827;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.attendancePunchTextarea:disabled {
+  color: #9ca3af;
+  background-color: #f9fafb;
+  cursor: not-allowed;
+}
+
 .infoList {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -154,6 +230,7 @@
 }
 
 .dashboardText {
+  min-height: 42px;
   margin: 0;
   font-size: 14px;
   line-height: 1.6;
@@ -185,66 +262,6 @@
   margin-top: 16px;
 }
 
-.monthlyStatusList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.monthlyStatusItem {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 12px;
-  background-color: #ffffff;
-  border: 1px solid #fed7aa;
-}
-
-.monthlyStatusLabel {
-  margin: 0 0 4px;
-  font-size: 12px;
-  font-weight: 800;
-  color: #9a3412;
-}
-
-.monthlyStatusMonth {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-  color: #111827;
-}
-
-.monthlyStatusBadge {
-  flex: 0 0 auto;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.monthlyStatusBadge_info {
-  background-color: #dbeafe;
-  color: #1d4ed8;
-}
-
-.monthlyStatusBadge_success {
-  background-color: #dcfce7;
-  color: #15803d;
-}
-
-.monthlyStatusBadge_warning {
-  background-color: #ffedd5;
-  color: #c2410c;
-}
-
-.monthlyStatusBadge_error {
-  background-color: #fee2e2;
-  color: #b91c1c;
-}
-
 .statusSection {
   padding-top: 4px;
 }
@@ -269,6 +286,66 @@
   color: #666666;
 }
 
+.monthlyStatusList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.monthlyStatusItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 12px;
+  background-color: #ffffff;
+  border: 1px solid #fed7aa;
+}
+
+.monthlyStatusLabel {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #9a3412;
+}
+
+.monthlyStatusMonth {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.monthlyStatusBadge {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.monthlyStatusBadge_success {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.monthlyStatusBadge_info {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.monthlyStatusBadge_warning {
+  background-color: #ffedd5;
+  color: #c2410c;
+}
+
+.monthlyStatusBadge_error {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
 .statusList {
   display: flex;
   flex-direction: column;
@@ -286,12 +363,12 @@
 .statusItemHeader {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
   gap: 14px;
+  align-items: flex-start;
 }
 
 .statusTitle {
-  margin: 0 0 6px;
+  margin: 0 0 5px;
   font-size: 17px;
   color: #111827;
 }
@@ -331,21 +408,20 @@
   }
 
   .infoList,
-  .dashboardGrid {
+  .dashboardGrid,
+  .attendancePunchGrid {
     grid-template-columns: 1fr;
   }
 
   .header,
-  .statusItemHeader {
+  .statusItemHeader,
+  .attendancePunchCard,
+  .attendancePunchOtherHeader,
+  .sectionHeader {
     flex-direction: column;
   }
 
   .headerActionArea {
     justify-content: flex-start;
-  }
-
-  .monthlyStatusItem {
-    align-items: flex-start;
-    flex-direction: column;
   }
 }

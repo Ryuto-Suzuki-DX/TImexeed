@@ -83,6 +83,136 @@
   color: #b91c1c;
 }
 
+
+.attendanceRealtimeSection {
+  margin-bottom: 24px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid #fed7aa;
+  background: linear-gradient(180deg, #ffffff 0%, #fff7ed 100%);
+}
+
+.attendanceEventList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attendanceEventItem {
+  padding: 16px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.08);
+}
+
+.attendanceEventMain {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.attendanceEventTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.attendanceEventBadge,
+.attendanceEventBadgeClockIn,
+.attendanceEventBadgeClockOut,
+.attendanceEventBadgeOther {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.attendanceEventBadgeClockIn {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.attendanceEventBadgeClockOut {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.attendanceEventBadgeOther {
+  background-color: #ffedd5;
+  color: #c2410c;
+}
+
+.attendanceEventUserName {
+  margin: 0;
+  font-size: 17px;
+  color: #111827;
+}
+
+.attendanceEventMeta {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+  overflow-wrap: anywhere;
+}
+
+.attendanceEventTimeBox {
+  flex: 0 0 auto;
+  min-width: 96px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background-color: #fff7ed;
+  border: 1px solid #fed7aa;
+  text-align: center;
+}
+
+.attendanceEventTimeLabel {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #9a3412;
+}
+
+.attendanceEventTimeValue {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  color: #ea580c;
+}
+
+.attendanceEventNoteBox {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.attendanceEventNoteLabel {
+  margin: 0 0 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #9a3412;
+}
+
+.attendanceEventNote {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.attendanceEventCreatedAt {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
 .infoList {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -323,11 +453,17 @@
   }
 
   .header,
-  .warningItemMain {
+  .warningItemMain,
+  .attendanceEventMain,
+  .sectionHeader {
     flex-direction: column;
   }
 
   .headerActionArea {
     justify-content: flex-start;
+  }
+
+  .attendanceEventTimeBox {
+    width: 100%;
   }
 }

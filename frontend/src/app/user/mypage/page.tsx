@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { removeAccessToken } from "@/api/auth";
 import { countUnreadNotifications } from "@/api/user/notification";
 import { searchMonthlyAttendanceRequest } from "@/api/user/monthlyAttendanceRequest";
+import {
+  createAttendanceRealtimeEvent,
+  getTodayAttendanceRealtimeEvents,
+} from "@/api/user/attendanceRealtimeEvent";
 import Button from "@/components/atoms/Button";
 import { useRequireRole } from "@/hooks/useRequireRole";
 import UserSideMenu from "@/components/sideMenu/UserSideMenu";
@@ -12,6 +16,10 @@ import type {
   MonthlyAttendanceRequestStatus,
   SearchMonthlyAttendanceRequestResponse,
 } from "@/types/user/monthlyAttendanceRequest";
+import type {
+  AttendanceRealtimeEventType,
+  GetTodayAttendanceRealtimeEventsResponse,
+} from "@/types/user/attendanceRealtimeEvent";
 import styles from "./page.module.css";
 
 type PageMessageVariant = "info" | "success" | "warning" | "error";
@@ -105,6 +113,35 @@ function getMonthlyStatusVariant(status: MonthlyStatusSummary["status"]) {
   }
 }
 
+function formatTime(value: string | null | undefined) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getInitialTodayAttendanceRealtimeEvents(): GetTodayAttendanceRealtimeEventsResponse {
+  return {
+    clockInRecorded: false,
+    clockOutRecorded: false,
+    otherRecorded: false,
+    clockInAt: null,
+    clockOutAt: null,
+    otherAt: null,
+    events: [],
+  };
+}
+
 export default function UserMyPage() {
   const router = useRouter();
 
@@ -112,12 +149,37 @@ export default function UserMyPage() {
 
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [monthlyStatuses, setMonthlyStatuses] = useState<MonthlyStatusSummary[]>([]);
+  const [todayAttendanceRealtimeEvents, setTodayAttendanceRealtimeEvents] =
+    useState<GetTodayAttendanceRealtimeEventsResponse>(getInitialTodayAttendanceRealtimeEvents);
 
+  const [otherNote, setOtherNote] = useState("");
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
+  const [isAttendanceRealtimeLoading, setIsAttendanceRealtimeLoading] = useState(false);
+  const [isAttendanceRealtimeSubmitting, setIsAttendanceRealtimeSubmitting] = useState(false);
   const [pageMessage, setPageMessage] = useState("従業員ホーム情報を確認できます。");
   const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
 
   const targetMonths = useMemo(() => getTargetMonths(), []);
+
+  const loadTodayAttendanceRealtimeEvents = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+
+    setIsAttendanceRealtimeLoading(true);
+
+    const result = await getTodayAttendanceRealtimeEvents({});
+
+    if (result.error || !result.data) {
+      setPageMessage(result.message || "本日の出退勤状態の取得に失敗しました。");
+      setPageMessageVariant("error");
+      setIsAttendanceRealtimeLoading(false);
+      return;
+    }
+
+    setTodayAttendanceRealtimeEvents(result.data);
+    setIsAttendanceRealtimeLoading(false);
+  }, [user]);
 
   const loadDashboard = useCallback(async () => {
     if (!user) {
@@ -128,7 +190,7 @@ export default function UserMyPage() {
     setPageMessage("ホーム情報を取得しています。");
     setPageMessageVariant("info");
 
-    const [notificationResult, previousMonthResult, currentMonthResult] = await Promise.all([
+    const [notificationResult, previousMonthResult, currentMonthResult, attendanceRealtimeResult] = await Promise.all([
       countUnreadNotifications({}),
       searchMonthlyAttendanceRequest({
         targetYear: targetMonths[0].year,
@@ -138,6 +200,7 @@ export default function UserMyPage() {
         targetYear: targetMonths[1].year,
         targetMonth: targetMonths[1].month,
       }),
+      getTodayAttendanceRealtimeEvents({}),
     ]);
 
     if (notificationResult.error || !notificationResult.data) {
@@ -161,6 +224,13 @@ export default function UserMyPage() {
       return;
     }
 
+    if (attendanceRealtimeResult.error || !attendanceRealtimeResult.data) {
+      setPageMessage(attendanceRealtimeResult.message || "本日の出退勤状態の取得に失敗しました。");
+      setPageMessageVariant("error");
+      setIsDashboardLoading(false);
+      return;
+    }
+
     const nextMonthlyStatuses = [
       toMonthlyStatusSummary(targetMonths[0], previousMonthResult.data),
       toMonthlyStatusSummary(targetMonths[1], currentMonthResult.data),
@@ -168,6 +238,7 @@ export default function UserMyPage() {
 
     setUnreadNotificationCount(notificationResult.data.unreadCount);
     setMonthlyStatuses(nextMonthlyStatuses);
+    setTodayAttendanceRealtimeEvents(attendanceRealtimeResult.data);
 
     const hasUnreadNotifications = notificationResult.data.unreadCount > 0;
     const hasAttentionMonthlyStatus = nextMonthlyStatuses.some((monthlyStatus) => {
@@ -208,6 +279,50 @@ export default function UserMyPage() {
     void loadDashboard();
   };
 
+  const handleCreateAttendanceRealtimeEvent = async (eventType: AttendanceRealtimeEventType) => {
+    if (isAttendanceRealtimeSubmitting) {
+      return;
+    }
+
+    if (eventType === "CLOCK_IN" && todayAttendanceRealtimeEvents.clockInRecorded) {
+      return;
+    }
+
+    if (eventType === "CLOCK_OUT" && todayAttendanceRealtimeEvents.clockOutRecorded) {
+      return;
+    }
+
+    if (eventType === "OTHER" && todayAttendanceRealtimeEvents.otherRecorded) {
+      return;
+    }
+
+    setIsAttendanceRealtimeSubmitting(true);
+    setPageMessage("出退勤情報を記録しています。");
+    setPageMessageVariant("info");
+
+    const result = await createAttendanceRealtimeEvent({
+      eventType,
+      note: eventType === "OTHER" ? otherNote : "",
+    });
+
+    if (result.error || !result.data) {
+      setPageMessage(result.message || "出退勤情報の記録に失敗しました。");
+      setPageMessageVariant("error");
+      setIsAttendanceRealtimeSubmitting(false);
+      return;
+    }
+
+    if (eventType === "OTHER") {
+      setOtherNote("");
+    }
+
+    await loadTodayAttendanceRealtimeEvents();
+
+    setPageMessage("出退勤情報を記録しました。");
+    setPageMessageVariant("success");
+    setIsAttendanceRealtimeSubmitting(false);
+  };
+
   return (
     <main className={styles.page}>
       <UserSideMenu />
@@ -237,6 +352,115 @@ export default function UserMyPage() {
             <div className={`${styles.pageMessage} ${styles[`pageMessage_${pageMessageVariant}`]}`}>
               {isDashboardLoading ? "読み込み中..." : pageMessage}
             </div>
+
+            <section className={styles.attendanceRealtimeSection}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h2 className={styles.sectionTitle}>本日の出退勤</h2>
+                  <p className={styles.sectionDescription}>
+                    出勤・退勤・その他はそれぞれ1日1回だけ記録できます。月次勤怠には自動反映されません。
+                  </p>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void loadTodayAttendanceRealtimeEvents()}
+                  disabled={isAttendanceRealtimeLoading || isAttendanceRealtimeSubmitting}
+                >
+                  {isAttendanceRealtimeLoading ? "確認中..." : "状態を更新"}
+                </Button>
+              </div>
+
+              <div className={styles.attendancePunchGrid}>
+                <div className={styles.attendancePunchCard}>
+                  <div>
+                    <p className={styles.attendancePunchLabel}>出勤</p>
+                    <p className={styles.attendancePunchTime}>
+                      {todayAttendanceRealtimeEvents.clockInRecorded
+                        ? formatTime(todayAttendanceRealtimeEvents.clockInAt)
+                        : "未記録"}
+                    </p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => void handleCreateAttendanceRealtimeEvent("CLOCK_IN")}
+                    disabled={
+                      todayAttendanceRealtimeEvents.clockInRecorded ||
+                      isAttendanceRealtimeLoading ||
+                      isAttendanceRealtimeSubmitting
+                    }
+                  >
+                    {todayAttendanceRealtimeEvents.clockInRecorded ? "出勤済み" : "出勤"}
+                  </Button>
+                </div>
+
+                <div className={styles.attendancePunchCard}>
+                  <div>
+                    <p className={styles.attendancePunchLabel}>退勤</p>
+                    <p className={styles.attendancePunchTime}>
+                      {todayAttendanceRealtimeEvents.clockOutRecorded
+                        ? formatTime(todayAttendanceRealtimeEvents.clockOutAt)
+                        : "未記録"}
+                    </p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => void handleCreateAttendanceRealtimeEvent("CLOCK_OUT")}
+                    disabled={
+                      todayAttendanceRealtimeEvents.clockOutRecorded ||
+                      isAttendanceRealtimeLoading ||
+                      isAttendanceRealtimeSubmitting
+                    }
+                  >
+                    {todayAttendanceRealtimeEvents.clockOutRecorded ? "退勤済み" : "退勤"}
+                  </Button>
+                </div>
+
+                <div className={styles.attendancePunchCardWide}>
+                  <div className={styles.attendancePunchOtherHeader}>
+                    <div>
+                      <p className={styles.attendancePunchLabel}>その他</p>
+                      <p className={styles.attendancePunchTime}>
+                        {todayAttendanceRealtimeEvents.otherRecorded
+                          ? formatTime(todayAttendanceRealtimeEvents.otherAt)
+                          : "未記録"}
+                      </p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => void handleCreateAttendanceRealtimeEvent("OTHER")}
+                      disabled={
+                        todayAttendanceRealtimeEvents.otherRecorded ||
+                        isAttendanceRealtimeLoading ||
+                        isAttendanceRealtimeSubmitting
+                      }
+                    >
+                      {todayAttendanceRealtimeEvents.otherRecorded ? "その他連絡済み" : "その他を記録"}
+                    </Button>
+                  </div>
+
+                  <textarea
+                    className={styles.attendancePunchTextarea}
+                    value={otherNote}
+                    onChange={(event) => setOtherNote(event.target.value)}
+                    placeholder="その他の内容やコメントを入力してください。"
+                    disabled={
+                      todayAttendanceRealtimeEvents.otherRecorded ||
+                      isAttendanceRealtimeLoading ||
+                      isAttendanceRealtimeSubmitting
+                    }
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </section>
 
             <div className={styles.infoList}>
               <div className={styles.infoBox}>
