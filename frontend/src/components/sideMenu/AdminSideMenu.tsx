@@ -23,6 +23,7 @@ export default function AdminSideMenu() {
   }, []);
 
   const adminMenuItems: SideMenuItem[] = [
+    { label: "出退勤リアルタイム", href: "/admin/attendance-realtime-events" },
     { label: "マイページ", href: "/admin/mypage" },
     { label: "ユーザー管理", href: "/admin/users" },
     { label: "所属管理", href: "/admin/departments" },

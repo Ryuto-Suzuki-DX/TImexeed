@@ -15,6 +15,8 @@ import styles from "./page.module.css";
 
 type PageMessageVariant = "info" | "success" | "warning" | "error";
 
+const ATTENDANCE_REALTIME_SUMMARY_LIMIT = 3;
+
 function formatDate(value: string | null | undefined) {
   if (!value) {
     return "-";
@@ -65,7 +67,6 @@ function formatTime(value: string | null | undefined) {
   }).format(date);
 }
 
-
 function formatNumber(value: number | null | undefined) {
   if (value === null || value === undefined) {
     return "-";
@@ -73,7 +74,6 @@ function formatNumber(value: number | null | undefined) {
 
   return value.toFixed(1).replace(".0", "");
 }
-
 
 function formatAttendanceRealtimeEventType(eventType: string) {
   switch (eventType) {
@@ -126,7 +126,7 @@ export default function AdminMyPage() {
       targetDate: "",
       keyword: "",
       eventTypes: [],
-      limit: 20,
+      limit: ATTENDANCE_REALTIME_SUMMARY_LIMIT,
       offset: 0,
     });
 
@@ -159,7 +159,7 @@ export default function AdminMyPage() {
         targetDate: "",
         keyword: "",
         eventTypes: [],
-        limit: 20,
+        limit: ATTENDANCE_REALTIME_SUMMARY_LIMIT,
         offset: 0,
       }),
     ]);
@@ -214,7 +214,6 @@ export default function AdminMyPage() {
     };
   }, [isLoading, loadDashboard, user]);
 
-
   useEffect(() => {
     if (isLoading || !user) {
       return;
@@ -236,6 +235,10 @@ export default function AdminMyPage() {
 
   const handleReload = () => {
     void loadDashboard();
+  };
+
+  const handleMoveToAttendanceRealtimeEvents = () => {
+    router.push("/admin/attendance-realtime-events");
   };
 
   return (
@@ -268,24 +271,33 @@ export default function AdminMyPage() {
               {isDashboardLoading ? "読み込み中..." : pageMessage}
             </div>
 
-
             <section className={styles.attendanceRealtimeSection}>
               <div className={styles.sectionHeader}>
                 <div>
                   <h2 className={styles.sectionTitle}>本日の出退勤速報</h2>
                   <p className={styles.sectionDescription}>
-                    従業員がマイページで押した出勤・退勤・その他の時刻を表示します。30秒ごとに自動更新します。
+                    従業員がマイページで押した出勤・退勤・その他の直近{ATTENDANCE_REALTIME_SUMMARY_LIMIT}件を表示します。30秒ごとに自動更新します。
                   </p>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => void loadAttendanceRealtimeEvents()}
-                  disabled={isAttendanceRealtimeLoading}
-                >
-                  {isAttendanceRealtimeLoading ? "更新中..." : "速報を更新"}
-                </Button>
+                <div className={styles.headerActionArea}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleMoveToAttendanceRealtimeEvents}
+                  >
+                    一覧を見る
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void loadAttendanceRealtimeEvents()}
+                    disabled={isAttendanceRealtimeLoading}
+                  >
+                    {isAttendanceRealtimeLoading ? "更新中..." : "速報を更新"}
+                  </Button>
+                </div>
               </div>
 
               {attendanceRealtimeEvents.length === 0 ? (

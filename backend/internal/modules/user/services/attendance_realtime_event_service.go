@@ -1,6 +1,7 @@
 package services
 
 import (
+	"log"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"timexeed/backend/internal/modules/user/repositories"
 	"timexeed/backend/internal/modules/user/types"
 	"timexeed/backend/internal/results"
+	"timexeed/backend/internal/slack"
 )
 
 /*
@@ -41,6 +43,7 @@ type AttendanceRealtimeEventService interface {
 type attendanceRealtimeEventService struct {
 	attendanceRealtimeEventBuilder    builders.AttendanceRealtimeEventBuilder
 	attendanceRealtimeEventRepository repositories.AttendanceRealtimeEventRepository
+	slackNotificationService          slack.SlackNotificationService
 }
 
 /*
@@ -49,10 +52,12 @@ type attendanceRealtimeEventService struct {
 func NewAttendanceRealtimeEventService(
 	attendanceRealtimeEventBuilder builders.AttendanceRealtimeEventBuilder,
 	attendanceRealtimeEventRepository repositories.AttendanceRealtimeEventRepository,
+	slackNotificationService slack.SlackNotificationService,
 ) *attendanceRealtimeEventService {
 	return &attendanceRealtimeEventService{
 		attendanceRealtimeEventBuilder:    attendanceRealtimeEventBuilder,
 		attendanceRealtimeEventRepository: attendanceRealtimeEventRepository,
+		slackNotificationService:          slackNotificationService,
 	}
 }
 
@@ -145,6 +150,8 @@ func (service *attendanceRealtimeEventService) CreateAttendanceRealtimeEvent(
 		return createResult
 	}
 
+	service.sendAttendanceRealtimeEventSlackNotification(createdEvent)
+
 	return results.Created(
 		types.CreateAttendanceRealtimeEventResponse{
 			Event: toAttendanceRealtimeEventResponse(createdEvent),
@@ -213,6 +220,39 @@ func (service *attendanceRealtimeEventService) GetTodayAttendanceRealtimeEvents(
 		"本日の勤怠リアルタイムイベント状態を取得しました",
 		nil,
 	)
+}
+
+/*
+ * Slackへ勤怠リアルタイムイベント通知を送る。
+ *
+ * 注意：
+ * ・Slack通知失敗で勤怠イベント作成自体を失敗扱いにしない
+ * ・Webhook未設定の場合はSlackService側で送信スキップする
+ */
+func (service *attendanceRealtimeEventService) sendAttendanceRealtimeEventSlackNotification(
+	createdEvent models.AttendanceRealtimeEvent,
+) {
+	if service.slackNotificationService == nil {
+		return
+	}
+
+	eventWithUser, findResult := service.attendanceRealtimeEventRepository.FindAttendanceRealtimeEventByIDWithUser(createdEvent.ID)
+	if findResult.Error {
+		log.Printf("failed to find attendance realtime event for slack notification: code=%s details=%v\n", findResult.Code, findResult.Details)
+		return
+	}
+
+	if err := service.slackNotificationService.SendAttendanceRealtimeEventNotification(
+		slack.AttendanceRealtimeEventSlackNotificationRequest{
+			EventType: eventWithUser.EventType,
+			UserName:  eventWithUser.User.Name,
+			UserEmail: eventWithUser.User.Email,
+			EventAt:   eventWithUser.EventAt,
+			Note:      eventWithUser.Note,
+		},
+	); err != nil {
+		log.Printf("failed to send attendance realtime event slack notification: %v\n", err)
+	}
 }
 
 func buildAttendanceRealtimeEventDate(value time.Time) time.Time {

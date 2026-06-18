@@ -5,6 +5,7 @@ import (
 
 	"timexeed/backend/internal/mail"
 	"timexeed/backend/internal/middlewares"
+	"timexeed/backend/internal/slack"
 	"timexeed/backend/internal/storage"
 
 	"timexeed/backend/internal/modules/user/builders"
@@ -34,6 +35,14 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	// ・未設定の場合、メール送信はスキップされる
 	// ・お知らせ作成後のメール送信で使用する
 	mailService, _ := mail.NewSMTPMailServiceFromEnv()
+
+	// Slack通知
+	//
+	// 注意：
+	// ・環境変数が未設定でもアプリ起動自体は止めない
+	// ・未設定の場合、リアルタイム勤怠のSlack通知はスキップされる
+	// ・リアルタイム勤怠イベント作成後のSlack通知で使用する
+	slackNotificationService := slack.NewSlackNotificationServiceFromEnv()
 
 	// お知らせ機能
 	//
@@ -126,7 +135,11 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	// 勤怠リアルタイムイベント
 	attendanceRealtimeEventBuilder := builders.NewAttendanceRealtimeEventBuilder(db)
 	attendanceRealtimeEventRepository := repositories.NewAttendanceRealtimeEventRepository(db)
-	attendanceRealtimeEventService := services.NewAttendanceRealtimeEventService(attendanceRealtimeEventBuilder, attendanceRealtimeEventRepository)
+	attendanceRealtimeEventService := services.NewAttendanceRealtimeEventService(
+		attendanceRealtimeEventBuilder,
+		attendanceRealtimeEventRepository,
+		slackNotificationService,
+	)
 	attendanceRealtimeEventController := controllers.NewAttendanceRealtimeEventController(attendanceRealtimeEventService)
 
 	user := r.Group("/user")

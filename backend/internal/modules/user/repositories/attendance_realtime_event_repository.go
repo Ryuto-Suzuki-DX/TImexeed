@@ -16,6 +16,7 @@ import (
  */
 type AttendanceRealtimeEventRepository interface {
 	FindAttendanceRealtimeEvents(query *gorm.DB) ([]models.AttendanceRealtimeEvent, results.Result)
+	FindAttendanceRealtimeEventByIDWithUser(eventID uint) (models.AttendanceRealtimeEvent, results.Result)
 	CountAttendanceRealtimeEvents(query *gorm.DB) (int64, results.Result)
 	CreateAttendanceRealtimeEvent(event models.AttendanceRealtimeEvent) (models.AttendanceRealtimeEvent, results.Result)
 }
@@ -71,6 +72,61 @@ func (repository *attendanceRealtimeEventRepository) FindAttendanceRealtimeEvent
 	return events, results.OK(
 		nil,
 		"FIND_ATTENDANCE_REALTIME_EVENTS_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 勤怠リアルタイムイベントをUser情報付きで1件取得する。
+ *
+ * 用途：
+ * ・Slack通知で氏名/メールアドレスを表示するため
+ */
+func (repository *attendanceRealtimeEventRepository) FindAttendanceRealtimeEventByIDWithUser(
+	eventID uint,
+) (models.AttendanceRealtimeEvent, results.Result) {
+	if repository.db == nil {
+		return models.AttendanceRealtimeEvent{}, results.InternalServerError(
+			"FIND_ATTENDANCE_REALTIME_EVENT_BY_ID_WITH_USER_DB_IS_NIL",
+			"勤怠リアルタイムイベントの取得に失敗しました",
+			nil,
+		)
+	}
+
+	if eventID == 0 {
+		return models.AttendanceRealtimeEvent{}, results.InternalServerError(
+			"FIND_ATTENDANCE_REALTIME_EVENT_BY_ID_WITH_USER_EMPTY_EVENT_ID",
+			"勤怠リアルタイムイベントの取得に失敗しました",
+			nil,
+		)
+	}
+
+	var event models.AttendanceRealtimeEvent
+
+	if err := repository.db.
+		Preload("User").
+		First(&event, eventID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.AttendanceRealtimeEvent{}, results.NotFound(
+				"FIND_ATTENDANCE_REALTIME_EVENT_BY_ID_WITH_USER_NOT_FOUND",
+				"勤怠リアルタイムイベントが見つかりません",
+				map[string]any{
+					"eventId": eventID,
+				},
+			)
+		}
+
+		return models.AttendanceRealtimeEvent{}, results.InternalServerError(
+			"FIND_ATTENDANCE_REALTIME_EVENT_BY_ID_WITH_USER_FAILED",
+			"勤怠リアルタイムイベントの取得に失敗しました",
+			err.Error(),
+		)
+	}
+
+	return event, results.OK(
+		nil,
+		"FIND_ATTENDANCE_REALTIME_EVENT_BY_ID_WITH_USER_SUCCESS",
 		"",
 		nil,
 	)
