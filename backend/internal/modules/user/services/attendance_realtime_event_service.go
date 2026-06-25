@@ -24,10 +24,20 @@ import (
  * ・ControllerでAuthMiddleware由来のuserIdを取得し、Serviceへ渡す
  * ・月次勤怠には反映しない
  * ・登録後の取消・編集はしない
+ * ・ユーザーが登録できるのは出勤と退勤のみ
  */
 type AttendanceRealtimeEventService interface {
-	CreateAttendanceRealtimeEvent(userID uint, req types.CreateAttendanceRealtimeEventRequest, clientIP string, userAgent string) results.Result
-	GetTodayAttendanceRealtimeEvents(userID uint, req types.GetTodayAttendanceRealtimeEventsRequest) results.Result
+	CreateAttendanceRealtimeEvent(
+		userID uint,
+		req types.CreateAttendanceRealtimeEventRequest,
+		clientIP string,
+		userAgent string,
+	) results.Result
+
+	GetTodayAttendanceRealtimeEvents(
+		userID uint,
+		req types.GetTodayAttendanceRealtimeEventsRequest,
+	) results.Result
 }
 
 /*
@@ -62,7 +72,8 @@ func NewAttendanceRealtimeEventService(
 }
 
 /*
- * models.AttendanceRealtimeEventをフロント返却用AttendanceRealtimeEventResponseへ変換する
+ * models.AttendanceRealtimeEventを
+ * フロント返却用AttendanceRealtimeEventResponseへ変換する。
  */
 func toAttendanceRealtimeEventResponse(
 	event models.AttendanceRealtimeEvent,
@@ -95,10 +106,11 @@ func (service *attendanceRealtimeEventService) CreateAttendanceRealtimeEvent(
 	}
 
 	eventType := strings.ToUpper(strings.TrimSpace(req.EventType))
+
 	if !isValidAttendanceRealtimeEventTypeForUser(eventType) {
 		return results.BadRequest(
 			"CREATE_ATTENDANCE_REALTIME_EVENT_INVALID_EVENT_TYPE",
-			"勤怠リアルタイムイベント種別が正しくありません",
+			"出勤または退勤を指定してください",
 			map[string]any{
 				"eventType": req.EventType,
 			},
@@ -108,16 +120,22 @@ func (service *attendanceRealtimeEventService) CreateAttendanceRealtimeEvent(
 	now := time.Now()
 	eventDate := buildAttendanceRealtimeEventDate(now)
 
-	countQuery, buildCountResult := service.attendanceRealtimeEventBuilder.BuildCountEventByUserIDDateAndTypeQuery(
-		userID,
-		eventDate,
-		eventType,
-	)
+	countQuery, buildCountResult :=
+		service.attendanceRealtimeEventBuilder.
+			BuildCountEventByUserIDDateAndTypeQuery(
+				userID,
+				eventDate,
+				eventType,
+			)
+
 	if buildCountResult.Error {
 		return buildCountResult
 	}
 
-	count, countResult := service.attendanceRealtimeEventRepository.CountAttendanceRealtimeEvents(countQuery)
+	count, countResult :=
+		service.attendanceRealtimeEventRepository.
+			CountAttendanceRealtimeEvents(countQuery)
+
 	if countResult.Error {
 		return countResult
 	}
@@ -132,20 +150,26 @@ func (service *attendanceRealtimeEventService) CreateAttendanceRealtimeEvent(
 		)
 	}
 
-	event, buildCreateResult := service.attendanceRealtimeEventBuilder.BuildCreateAttendanceRealtimeEventModel(
-		userID,
-		eventDate,
-		eventType,
-		req.Note,
-		clientIP,
-		userAgent,
-		now,
-	)
+	event, buildCreateResult :=
+		service.attendanceRealtimeEventBuilder.
+			BuildCreateAttendanceRealtimeEventModel(
+				userID,
+				eventDate,
+				eventType,
+				req.Note,
+				clientIP,
+				userAgent,
+				now,
+			)
+
 	if buildCreateResult.Error {
 		return buildCreateResult
 	}
 
-	createdEvent, createResult := service.attendanceRealtimeEventRepository.CreateAttendanceRealtimeEvent(event)
+	createdEvent, createResult :=
+		service.attendanceRealtimeEventRepository.
+			CreateAttendanceRealtimeEvent(event)
+
 	if createResult.Error {
 		return createResult
 	}
@@ -157,7 +181,7 @@ func (service *attendanceRealtimeEventService) CreateAttendanceRealtimeEvent(
 			Event: toAttendanceRealtimeEventResponse(createdEvent),
 		},
 		"CREATE_ATTENDANCE_REALTIME_EVENT_SUCCESS",
-		"勤怠リアルタイムイベントを記録しました",
+		"出退勤情報を記録しました",
 		nil,
 	)
 }
@@ -180,18 +204,31 @@ func (service *attendanceRealtimeEventService) GetTodayAttendanceRealtimeEvents(
 	now := time.Now()
 	eventDate := buildAttendanceRealtimeEventDate(now)
 
-	query, buildResult := service.attendanceRealtimeEventBuilder.BuildFindTodayEventsByUserIDQuery(userID, eventDate)
+	query, buildResult :=
+		service.attendanceRealtimeEventBuilder.
+			BuildFindTodayEventsByUserIDQuery(
+				userID,
+				eventDate,
+			)
+
 	if buildResult.Error {
 		return buildResult
 	}
 
-	events, findResult := service.attendanceRealtimeEventRepository.FindAttendanceRealtimeEvents(query)
+	events, findResult :=
+		service.attendanceRealtimeEventRepository.
+			FindAttendanceRealtimeEvents(query)
+
 	if findResult.Error {
 		return findResult
 	}
 
 	response := types.GetTodayAttendanceRealtimeEventsResponse{
-		Events: make([]types.AttendanceRealtimeEventResponse, 0, len(events)),
+		Events: make(
+			[]types.AttendanceRealtimeEventResponse,
+			0,
+			len(events),
+		),
 	}
 
 	for _, event := range events {
@@ -201,23 +238,24 @@ func (service *attendanceRealtimeEventService) GetTodayAttendanceRealtimeEvents(
 		switch event.EventType {
 		case constants.AttendanceRealtimeEventTypeClockIn:
 			response.ClockInRecorded = true
+
 			eventAt := event.EventAt
 			response.ClockInAt = &eventAt
+			response.ClockInNote = event.Note
+
 		case constants.AttendanceRealtimeEventTypeClockOut:
 			response.ClockOutRecorded = true
+
 			eventAt := event.EventAt
 			response.ClockOutAt = &eventAt
-		case constants.AttendanceRealtimeEventTypeOther:
-			response.OtherRecorded = true
-			eventAt := event.EventAt
-			response.OtherAt = &eventAt
+			response.ClockOutNote = event.Note
 		}
 	}
 
 	return results.OK(
 		response,
 		"GET_TODAY_ATTENDANCE_REALTIME_EVENTS_SUCCESS",
-		"本日の勤怠リアルタイムイベント状態を取得しました",
+		"本日の出退勤状態を取得しました",
 		nil,
 	)
 }
@@ -227,7 +265,8 @@ func (service *attendanceRealtimeEventService) GetTodayAttendanceRealtimeEvents(
  *
  * 注意：
  * ・Slack通知失敗で勤怠イベント作成自体を失敗扱いにしない
- * ・Webhook未設定の場合はSlackService側で送信スキップする
+ * ・Webhook未設定の場合はSlackService側で送信をスキップする
+ * ・メールアドレスはSlackへ送信しない
  */
 func (service *attendanceRealtimeEventService) sendAttendanceRealtimeEventSlackNotification(
 	createdEvent models.AttendanceRealtimeEvent,
@@ -236,25 +275,38 @@ func (service *attendanceRealtimeEventService) sendAttendanceRealtimeEventSlackN
 		return
 	}
 
-	eventWithUser, findResult := service.attendanceRealtimeEventRepository.FindAttendanceRealtimeEventByIDWithUser(createdEvent.ID)
+	eventWithUser, findResult :=
+		service.attendanceRealtimeEventRepository.
+			FindAttendanceRealtimeEventByIDWithUser(createdEvent.ID)
+
 	if findResult.Error {
-		log.Printf("failed to find attendance realtime event for slack notification: code=%s details=%v\n", findResult.Code, findResult.Details)
+		log.Printf(
+			"failed to find attendance realtime event for slack notification: code=%s details=%v\n",
+			findResult.Code,
+			findResult.Details,
+		)
 		return
 	}
 
-	if err := service.slackNotificationService.SendAttendanceRealtimeEventNotification(
-		slack.AttendanceRealtimeEventSlackNotificationRequest{
-			EventType: eventWithUser.EventType,
-			UserName:  eventWithUser.User.Name,
-			UserEmail: eventWithUser.User.Email,
-			EventAt:   eventWithUser.EventAt,
-			Note:      eventWithUser.Note,
-		},
-	); err != nil {
-		log.Printf("failed to send attendance realtime event slack notification: %v\n", err)
+	if err := service.slackNotificationService.
+		SendAttendanceRealtimeEventNotification(
+			slack.AttendanceRealtimeEventSlackNotificationRequest{
+				EventType: eventWithUser.EventType,
+				UserName:  eventWithUser.User.Name,
+				EventAt:   eventWithUser.EventAt,
+				Note:      eventWithUser.Note,
+			},
+		); err != nil {
+		log.Printf(
+			"failed to send attendance realtime event slack notification: %v\n",
+			err,
+		)
 	}
 }
 
+/*
+ * JST基準のイベント日を作成する。
+ */
 func buildAttendanceRealtimeEventDate(value time.Time) time.Time {
 	location, err := time.LoadLocation("Asia/Tokyo")
 	if err != nil {
@@ -262,17 +314,35 @@ func buildAttendanceRealtimeEventDate(value time.Time) time.Time {
 	}
 
 	jstValue := value.In(location)
-	return time.Date(jstValue.Year(), jstValue.Month(), jstValue.Day(), 0, 0, 0, 0, location)
+
+	return time.Date(
+		jstValue.Year(),
+		jstValue.Month(),
+		jstValue.Day(),
+		0,
+		0,
+		0,
+		0,
+		location,
+	)
 }
 
-func isValidAttendanceRealtimeEventTypeForUser(eventType string) bool {
+/*
+ * ユーザーが登録できるイベント種別を判定する。
+ *
+ * OTHERは旧データとの互換性用に定数が残っていても、
+ * ユーザーAPIからは新規登録できない。
+ */
+func isValidAttendanceRealtimeEventTypeForUser(
+	eventType string,
+) bool {
 	switch eventType {
 	case constants.AttendanceRealtimeEventTypeClockIn:
 		return true
+
 	case constants.AttendanceRealtimeEventTypeClockOut:
 		return true
-	case constants.AttendanceRealtimeEventTypeOther:
-		return true
+
 	default:
 		return false
 	}

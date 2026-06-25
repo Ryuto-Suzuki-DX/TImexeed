@@ -8,7 +8,6 @@ import "time"
  * ユーザーがマイページで押した
  * ・出勤
  * ・退勤
- * ・その他
  * のリアルタイム操作を記録する。
  *
  * 目的：
@@ -21,6 +20,7 @@ import "time"
  * ・user_id はリクエストでは受け取らず、JWTから取得する
  * ・同じユーザーが同じ日に同じイベント種別を登録できるのは1回だけ
  * ・登録後の取消・編集はしない
+ * ・旧仕様のOTHERデータがDBに残る可能性はある
  */
 type AttendanceRealtimeEvent struct {
 	ID uint `gorm:"primaryKey" json:"id"`
@@ -52,7 +52,9 @@ type AttendanceRealtimeEvent struct {
 	 *
 	 * CLOCK_IN  ：出勤
 	 * CLOCK_OUT ：退勤
-	 * OTHER     ：その他
+	 *
+	 * OTHERは旧仕様の互換性用データとして
+	 * DBに残る可能性がある。
 	 */
 	EventType string `gorm:"size:30;not null;uniqueIndex:idx_attendance_realtime_event_unique;index" json:"eventType"`
 
@@ -64,10 +66,10 @@ type AttendanceRealtimeEvent struct {
 	EventAt time.Time `gorm:"not null;index" json:"eventAt"`
 
 	/*
-	 * メモ
+	 * コメント
 	 *
-	 * OTHER のときの補足や、
-	 * 必要に応じて出勤・退勤時の補足を入れる。
+	 * 出勤・退勤時の任意コメントを保存する。
+	 * 未入力の場合はnilになる。
 	 */
 	Note *string `gorm:"type:text" json:"note"`
 

@@ -4,7 +4,6 @@
  * ユーザー側mypageの
  * ・出勤
  * ・退勤
- * ・その他
  * ボタンで使用する。
  *
  * 注意：
@@ -18,7 +17,7 @@
 /*
  * 勤怠リアルタイムイベント種別
  */
-export type AttendanceRealtimeEventType = "CLOCK_IN" | "CLOCK_OUT" | "OTHER";
+export type AttendanceRealtimeEventType = "CLOCK_IN" | "CLOCK_OUT";
 
 /*
  * =========================================================
@@ -70,15 +69,18 @@ export type CreateAttendanceRealtimeEventResponse = {
  * 本日の勤怠リアルタイムイベント状態取得レスポンス
  *
  * mypage側では、
- * clockInRecorded / clockOutRecorded / otherRecorded を見て
- * ボタンをdisabledにする。
+ * clockInRecorded / clockOutRecorded を見て
+ * 出勤・退勤ボタンをdisabledにする。
+ *
+ * 登録済みの場合は、
+ * 押下時刻とコメントを表示する。
  */
 export type GetTodayAttendanceRealtimeEventsResponse = {
   clockInRecorded: boolean;
   clockOutRecorded: boolean;
-  otherRecorded: boolean;
   clockInAt: string | null;
   clockOutAt: string | null;
-  otherAt: string | null;
+  clockInNote: string | null;
+  clockOutNote: string | null;
   events: AttendanceRealtimeEventResponse[];
 };

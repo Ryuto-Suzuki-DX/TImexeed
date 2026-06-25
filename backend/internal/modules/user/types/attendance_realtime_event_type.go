@@ -5,7 +5,7 @@ import "time"
 /*
  * 〇 従業員 勤怠リアルタイムイベント Type
  *
- * ユーザー側mypageの出勤・退勤・その他ボタンで使用する。
+ * ユーザー側mypageの出勤・退勤ボタンで使用する。
  *
  * 注意：
  * ・ユーザーIDはリクエストで受け取らない
@@ -13,6 +13,7 @@ import "time"
  * ・月次勤怠には反映しない
  * ・同じユーザーが同じ日に同じイベント種別を登録できるのは1回だけ
  * ・登録後の取消・編集はしない
+ * ・ユーザーが登録できるイベント種別は出勤と退勤のみ
  */
 
 /*
@@ -64,13 +65,20 @@ type CreateAttendanceRealtimeEventResponse struct {
 
 /*
  * 本日の勤怠リアルタイムイベント状態取得レスポンス
+ *
+ * 出勤・退勤それぞれについて、
+ * ・登録済みか
+ * ・押下時刻
+ * ・コメント
+ * を返す。
  */
 type GetTodayAttendanceRealtimeEventsResponse struct {
-	ClockInRecorded  bool                              `json:"clockInRecorded"`
-	ClockOutRecorded bool                              `json:"clockOutRecorded"`
-	OtherRecorded    bool                              `json:"otherRecorded"`
-	ClockInAt        *time.Time                        `json:"clockInAt"`
-	ClockOutAt       *time.Time                        `json:"clockOutAt"`
-	OtherAt          *time.Time                        `json:"otherAt"`
-	Events           []AttendanceRealtimeEventResponse `json:"events"`
+	ClockInRecorded  bool       `json:"clockInRecorded"`
+	ClockOutRecorded bool       `json:"clockOutRecorded"`
+	ClockInAt        *time.Time `json:"clockInAt"`
+	ClockOutAt       *time.Time `json:"clockOutAt"`
+	ClockInNote      *string    `json:"clockInNote"`
+	ClockOutNote     *string    `json:"clockOutNote"`
+
+	Events []AttendanceRealtimeEventResponse `json:"events"`
 }

@@ -36,13 +36,11 @@
   color: #ea580c;
 }
 
-.description {
-  margin: 0;
-  font-size: 14px;
-  color: #666666;
-}
-
-.loadingText {
+.description,
+.loadingText,
+.sectionDescription,
+.dashboardDescription,
+.emptyText {
   margin: 0;
   font-size: 14px;
   color: #666666;
@@ -97,35 +95,27 @@
   gap: 14px;
 }
 
-.attendancePunchCard,
-.attendancePunchCardWide {
-  padding: 16px;
+.attendancePunchCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px;
   border-radius: 16px;
   background-color: #ffffff;
   border: 1px solid #fed7aa;
   box-shadow: 0 4px 14px rgba(234, 88, 12, 0.08);
 }
 
-.attendancePunchCard {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 14px;
-}
-
-.attendancePunchCardWide {
-  grid-column: 1 / -1;
-}
-
-.attendancePunchOtherHeader {
+.attendancePunchHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 14px;
-  margin-bottom: 12px;
 }
 
-.attendancePunchLabel {
+.attendancePunchLabel,
+.attendanceCommentLabel {
   margin: 0 0 6px;
   font-size: 13px;
   font-weight: 800;
@@ -134,29 +124,90 @@
 
 .attendancePunchTime {
   margin: 0;
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 900;
   color: #ea580c;
 }
 
+.attendanceRecordedBadge,
+.attendancePendingBadge,
+.successBadge,
+.warningBadge,
+.monthlyStatusBadge {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.attendanceRecordedBadge,
+.successBadge,
+.monthlyStatusBadge_success {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.attendancePendingBadge,
+.warningBadge,
+.monthlyStatusBadge_warning {
+  background-color: #ffedd5;
+  color: #c2410c;
+}
+
+.attendanceCommentField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .attendancePunchTextarea {
   width: 100%;
-  min-height: 82px;
+  min-height: 88px;
   padding: 12px;
   border-radius: 12px;
   border: 1px solid #fed7aa;
   background-color: #ffffff;
   font: inherit;
   font-size: 14px;
+  line-height: 1.6;
   color: #111827;
   resize: vertical;
   box-sizing: border-box;
+}
+
+.attendancePunchTextarea:focus {
+  border-color: #fb923c;
+  outline: 3px solid rgba(251, 146, 60, 0.18);
 }
 
 .attendancePunchTextarea:disabled {
   color: #9ca3af;
   background-color: #f9fafb;
   cursor: not-allowed;
+}
+
+.attendanceActionArea {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+.attendanceRecordedInfo {
+  min-height: 88px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #bbf7d0;
+  background-color: #f0fdf4;
+}
+
+.attendanceCommentValue {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #374151;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .infoList {
@@ -173,7 +224,8 @@
   border: 1px solid #fed7aa;
 }
 
-.infoLabel {
+.infoLabel,
+.monthlyStatusLabel {
   margin: 0 0 6px;
   font-size: 13px;
   font-weight: bold;
@@ -201,7 +253,9 @@
   background: linear-gradient(180deg, #ffffff 0%, #fff7ed 100%);
 }
 
-.dashboardCardHeader {
+.dashboardCardHeader,
+.sectionHeader,
+.statusItemHeader {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -209,17 +263,11 @@
   margin-bottom: 14px;
 }
 
-.dashboardTitle {
+.dashboardTitle,
+.sectionTitle {
   margin: 0 0 6px;
-  font-size: 18px;
+  font-size: 20px;
   color: #111827;
-}
-
-.dashboardDescription {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #666666;
 }
 
 .dashboardValue {
@@ -237,25 +285,6 @@
   color: #374151;
 }
 
-.successBadge,
-.warningBadge {
-  flex: 0 0 auto;
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.successBadge {
-  background-color: #dcfce7;
-  color: #15803d;
-}
-
-.warningBadge {
-  background-color: #ffedd5;
-  color: #c2410c;
-}
-
 .cardActionArea {
   display: flex;
   justify-content: flex-end;
@@ -266,27 +295,8 @@
   padding-top: 4px;
 }
 
-.sectionHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 14px;
-}
-
-.sectionTitle {
-  margin: 0 0 6px;
-  font-size: 20px;
-  color: #111827;
-}
-
-.sectionDescription {
-  margin: 0;
-  font-size: 13px;
-  color: #666666;
-}
-
-.monthlyStatusList {
+.monthlyStatusList,
+.statusList {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -304,13 +314,6 @@
   border: 1px solid #fed7aa;
 }
 
-.monthlyStatusLabel {
-  margin: 0 0 4px;
-  font-size: 12px;
-  font-weight: 800;
-  color: #9a3412;
-}
-
 .monthlyStatusMonth {
   margin: 0;
   font-size: 15px;
@@ -318,38 +321,14 @@
   color: #111827;
 }
 
-.monthlyStatusBadge {
-  flex: 0 0 auto;
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.monthlyStatusBadge_success {
-  background-color: #dcfce7;
-  color: #15803d;
-}
-
 .monthlyStatusBadge_info {
   background-color: #dbeafe;
   color: #1d4ed8;
 }
 
-.monthlyStatusBadge_warning {
-  background-color: #ffedd5;
-  color: #c2410c;
-}
-
 .monthlyStatusBadge_error {
   background-color: #fee2e2;
   color: #b91c1c;
-}
-
-.statusList {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 .statusItem {
@@ -358,13 +337,6 @@
   background-color: #ffffff;
   border: 1px solid #fed7aa;
   box-shadow: 0 4px 14px rgba(234, 88, 12, 0.08);
-}
-
-.statusItemHeader {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  align-items: flex-start;
 }
 
 .statusTitle {
@@ -395,12 +367,6 @@
   color: #374151;
 }
 
-.emptyText {
-  margin: 0;
-  font-size: 13px;
-  color: #6b7280;
-}
-
 @media (max-width: 900px) {
   .card {
     max-width: none;
@@ -415,8 +381,6 @@
 
   .header,
   .statusItemHeader,
-  .attendancePunchCard,
-  .attendancePunchOtherHeader,
   .sectionHeader {
     flex-direction: column;
   }

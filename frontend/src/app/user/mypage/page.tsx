@@ -40,20 +40,15 @@ type MonthlyStatusSummary = {
 
 function getTargetMonths(): TargetMonth[] {
   const today = new Date();
-
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
-
   const previousDate = new Date(currentYear, currentMonth - 2, 1);
   const currentDate = new Date(currentYear, currentMonth - 1, 1);
 
-  const previousYear = previousDate.getFullYear();
-  const previousMonth = previousDate.getMonth() + 1;
-
   return [
     {
-      year: previousYear,
-      month: previousMonth,
+      year: previousDate.getFullYear(),
+      month: previousDate.getMonth() + 1,
       label: "前月",
     },
     {
@@ -92,7 +87,6 @@ function formatMonthlyStatus(status: MonthlyStatusSummary["status"]) {
     case "REJECTED":
       return "否認";
     case "NONE":
-      return "未申請";
     default:
       return "未申請";
   }
@@ -115,13 +109,13 @@ function getMonthlyStatusVariant(status: MonthlyStatusSummary["status"]) {
 
 function formatTime(value: string | null | undefined) {
   if (!value) {
-    return "-";
+    return "未記録";
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "-";
+    return "未記録";
   }
 
   return new Intl.DateTimeFormat("ja-JP", {
@@ -130,34 +124,53 @@ function formatTime(value: string | null | undefined) {
   }).format(date);
 }
 
+function formatAttendanceNote(value: string | null | undefined) {
+  const note = value?.trim();
+
+  if (!note) {
+    return "コメントなし";
+  }
+
+  return note;
+}
+
 function getInitialTodayAttendanceRealtimeEvents(): GetTodayAttendanceRealtimeEventsResponse {
   return {
     clockInRecorded: false,
     clockOutRecorded: false,
-    otherRecorded: false,
     clockInAt: null,
     clockOutAt: null,
-    otherAt: null,
+    clockInNote: null,
+    clockOutNote: null,
     events: [],
   };
 }
 
 export default function UserMyPage() {
   const router = useRouter();
-
   const { user, isLoading, message } = useRequireRole("USER");
 
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [monthlyStatuses, setMonthlyStatuses] = useState<MonthlyStatusSummary[]>([]);
   const [todayAttendanceRealtimeEvents, setTodayAttendanceRealtimeEvents] =
-    useState<GetTodayAttendanceRealtimeEventsResponse>(getInitialTodayAttendanceRealtimeEvents);
+    useState<GetTodayAttendanceRealtimeEventsResponse>(
+      getInitialTodayAttendanceRealtimeEvents,
+    );
 
-  const [otherNote, setOtherNote] = useState("");
+  const [clockInNote, setClockInNote] = useState("");
+  const [clockOutNote, setClockOutNote] = useState("");
+
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
-  const [isAttendanceRealtimeLoading, setIsAttendanceRealtimeLoading] = useState(false);
-  const [isAttendanceRealtimeSubmitting, setIsAttendanceRealtimeSubmitting] = useState(false);
-  const [pageMessage, setPageMessage] = useState("従業員ホーム情報を確認できます。");
-  const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
+  const [isAttendanceRealtimeLoading, setIsAttendanceRealtimeLoading] =
+    useState(false);
+  const [isAttendanceRealtimeSubmitting, setIsAttendanceRealtimeSubmitting] =
+    useState(false);
+
+  const [pageMessage, setPageMessage] = useState(
+    "従業員ホーム情報を確認できます。",
+  );
+  const [pageMessageVariant, setPageMessageVariant] =
+    useState<PageMessageVariant>("info");
 
   const targetMonths = useMemo(() => getTargetMonths(), []);
 
@@ -171,7 +184,9 @@ export default function UserMyPage() {
     const result = await getTodayAttendanceRealtimeEvents({});
 
     if (result.error || !result.data) {
-      setPageMessage(result.message || "本日の出退勤状態の取得に失敗しました。");
+      setPageMessage(
+        result.message || "本日の出退勤状態の取得に失敗しました。",
+      );
       setPageMessageVariant("error");
       setIsAttendanceRealtimeLoading(false);
       return;
@@ -190,7 +205,12 @@ export default function UserMyPage() {
     setPageMessage("ホーム情報を取得しています。");
     setPageMessageVariant("info");
 
-    const [notificationResult, previousMonthResult, currentMonthResult, attendanceRealtimeResult] = await Promise.all([
+    const [
+      notificationResult,
+      previousMonthResult,
+      currentMonthResult,
+      attendanceRealtimeResult,
+    ] = await Promise.all([
       countUnreadNotifications({}),
       searchMonthlyAttendanceRequest({
         targetYear: targetMonths[0].year,
@@ -204,28 +224,40 @@ export default function UserMyPage() {
     ]);
 
     if (notificationResult.error || !notificationResult.data) {
-      setPageMessage(notificationResult.message || "未読お知らせ件数の取得に失敗しました。");
+      setPageMessage(
+        notificationResult.message ||
+          "未読お知らせ件数の取得に失敗しました。",
+      );
       setPageMessageVariant("error");
       setIsDashboardLoading(false);
       return;
     }
 
     if (previousMonthResult.error || !previousMonthResult.data) {
-      setPageMessage(previousMonthResult.message || "前月の月次勤怠申請状態の取得に失敗しました。");
+      setPageMessage(
+        previousMonthResult.message ||
+          "前月の月次勤怠申請状態の取得に失敗しました。",
+      );
       setPageMessageVariant("error");
       setIsDashboardLoading(false);
       return;
     }
 
     if (currentMonthResult.error || !currentMonthResult.data) {
-      setPageMessage(currentMonthResult.message || "当月の月次勤怠申請状態の取得に失敗しました。");
+      setPageMessage(
+        currentMonthResult.message ||
+          "当月の月次勤怠申請状態の取得に失敗しました。",
+      );
       setPageMessageVariant("error");
       setIsDashboardLoading(false);
       return;
     }
 
     if (attendanceRealtimeResult.error || !attendanceRealtimeResult.data) {
-      setPageMessage(attendanceRealtimeResult.message || "本日の出退勤状態の取得に失敗しました。");
+      setPageMessage(
+        attendanceRealtimeResult.message ||
+          "本日の出退勤状態の取得に失敗しました。",
+      );
       setPageMessageVariant("error");
       setIsDashboardLoading(false);
       return;
@@ -240,10 +272,15 @@ export default function UserMyPage() {
     setMonthlyStatuses(nextMonthlyStatuses);
     setTodayAttendanceRealtimeEvents(attendanceRealtimeResult.data);
 
-    const hasUnreadNotifications = notificationResult.data.unreadCount > 0;
-    const hasAttentionMonthlyStatus = nextMonthlyStatuses.some((monthlyStatus) => {
-      return monthlyStatus.status === "DRAFT" || monthlyStatus.status === "NONE" || monthlyStatus.status === "REJECTED";
-    });
+    const hasUnreadNotifications =
+      notificationResult.data.unreadCount > 0;
+
+    const hasAttentionMonthlyStatus = nextMonthlyStatuses.some(
+      (monthlyStatus) =>
+        monthlyStatus.status === "DRAFT" ||
+        monthlyStatus.status === "NONE" ||
+        monthlyStatus.status === "REJECTED",
+    );
 
     if (hasUnreadNotifications || hasAttentionMonthlyStatus) {
       setPageMessage("確認が必要な項目があります。");
@@ -279,22 +316,29 @@ export default function UserMyPage() {
     void loadDashboard();
   };
 
-  const handleCreateAttendanceRealtimeEvent = async (eventType: AttendanceRealtimeEventType) => {
+  const handleCreateAttendanceRealtimeEvent = async (
+    eventType: AttendanceRealtimeEventType,
+  ) => {
     if (isAttendanceRealtimeSubmitting) {
       return;
     }
 
-    if (eventType === "CLOCK_IN" && todayAttendanceRealtimeEvents.clockInRecorded) {
+    if (
+      eventType === "CLOCK_IN" &&
+      todayAttendanceRealtimeEvents.clockInRecorded
+    ) {
       return;
     }
 
-    if (eventType === "CLOCK_OUT" && todayAttendanceRealtimeEvents.clockOutRecorded) {
+    if (
+      eventType === "CLOCK_OUT" &&
+      todayAttendanceRealtimeEvents.clockOutRecorded
+    ) {
       return;
     }
 
-    if (eventType === "OTHER" && todayAttendanceRealtimeEvents.otherRecorded) {
-      return;
-    }
+    const note =
+      eventType === "CLOCK_IN" ? clockInNote : clockOutNote;
 
     setIsAttendanceRealtimeSubmitting(true);
     setPageMessage("出退勤情報を記録しています。");
@@ -302,23 +346,31 @@ export default function UserMyPage() {
 
     const result = await createAttendanceRealtimeEvent({
       eventType,
-      note: eventType === "OTHER" ? otherNote : "",
+      note,
     });
 
     if (result.error || !result.data) {
-      setPageMessage(result.message || "出退勤情報の記録に失敗しました。");
+      setPageMessage(
+        result.message || "出退勤情報の記録に失敗しました。",
+      );
       setPageMessageVariant("error");
       setIsAttendanceRealtimeSubmitting(false);
       return;
     }
 
-    if (eventType === "OTHER") {
-      setOtherNote("");
+    if (eventType === "CLOCK_IN") {
+      setClockInNote("");
+    } else {
+      setClockOutNote("");
     }
 
     await loadTodayAttendanceRealtimeEvents();
 
-    setPageMessage("出退勤情報を記録しました。");
+    setPageMessage(
+      eventType === "CLOCK_IN"
+        ? "出勤を記録しました。"
+        : "退勤を記録しました。",
+    );
     setPageMessageVariant("success");
     setIsAttendanceRealtimeSubmitting(false);
   };
@@ -331,11 +383,18 @@ export default function UserMyPage() {
         <div className={styles.header}>
           <div>
             <h1 className={styles.title}>従業員マイページ</h1>
-            <p className={styles.description}>ログイン中の従業員情報と、確認が必要な項目を表示しています。</p>
+            <p className={styles.description}>
+              ログイン中の従業員情報と、確認が必要な項目を表示しています。
+            </p>
           </div>
 
           <div className={styles.headerActionArea}>
-            <Button type="button" variant="secondary" onClick={handleReload} disabled={isLoading || isDashboardLoading || !user}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleReload}
+              disabled={isLoading || isDashboardLoading || !user}
+            >
               {isDashboardLoading ? "更新中..." : "再読み込み"}
             </Button>
 
@@ -349,7 +408,11 @@ export default function UserMyPage() {
 
         {!isLoading && user && (
           <>
-            <div className={`${styles.pageMessage} ${styles[`pageMessage_${pageMessageVariant}`]}`}>
+            <div
+              className={`${styles.pageMessage} ${
+                styles[`pageMessage_${pageMessageVariant}`]
+              }`}
+            >
               {isDashboardLoading ? "読み込み中..." : pageMessage}
             </div>
 
@@ -358,107 +421,186 @@ export default function UserMyPage() {
                 <div>
                   <h2 className={styles.sectionTitle}>本日の出退勤</h2>
                   <p className={styles.sectionDescription}>
-                    出勤・退勤・その他はそれぞれ1日1回だけ記録できます。月次勤怠には自動反映されません。
+                    出勤と退勤はそれぞれ1日1回だけ記録できます。
+                    コメントは任意です。月次勤怠には自動反映されません。
                   </p>
                 </div>
 
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => void loadTodayAttendanceRealtimeEvents()}
-                  disabled={isAttendanceRealtimeLoading || isAttendanceRealtimeSubmitting}
+                  onClick={() =>
+                    void loadTodayAttendanceRealtimeEvents()
+                  }
+                  disabled={
+                    isAttendanceRealtimeLoading ||
+                    isAttendanceRealtimeSubmitting
+                  }
                 >
-                  {isAttendanceRealtimeLoading ? "確認中..." : "状態を更新"}
+                  {isAttendanceRealtimeLoading
+                    ? "確認中..."
+                    : "状態を更新"}
                 </Button>
               </div>
 
               <div className={styles.attendancePunchGrid}>
-                <div className={styles.attendancePunchCard}>
-                  <div>
-                    <p className={styles.attendancePunchLabel}>出勤</p>
-                    <p className={styles.attendancePunchTime}>
-                      {todayAttendanceRealtimeEvents.clockInRecorded
-                        ? formatTime(todayAttendanceRealtimeEvents.clockInAt)
-                        : "未記録"}
-                    </p>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={() => void handleCreateAttendanceRealtimeEvent("CLOCK_IN")}
-                    disabled={
-                      todayAttendanceRealtimeEvents.clockInRecorded ||
-                      isAttendanceRealtimeLoading ||
-                      isAttendanceRealtimeSubmitting
-                    }
-                  >
-                    {todayAttendanceRealtimeEvents.clockInRecorded ? "出勤済み" : "出勤"}
-                  </Button>
-                </div>
-
-                <div className={styles.attendancePunchCard}>
-                  <div>
-                    <p className={styles.attendancePunchLabel}>退勤</p>
-                    <p className={styles.attendancePunchTime}>
-                      {todayAttendanceRealtimeEvents.clockOutRecorded
-                        ? formatTime(todayAttendanceRealtimeEvents.clockOutAt)
-                        : "未記録"}
-                    </p>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={() => void handleCreateAttendanceRealtimeEvent("CLOCK_OUT")}
-                    disabled={
-                      todayAttendanceRealtimeEvents.clockOutRecorded ||
-                      isAttendanceRealtimeLoading ||
-                      isAttendanceRealtimeSubmitting
-                    }
-                  >
-                    {todayAttendanceRealtimeEvents.clockOutRecorded ? "退勤済み" : "退勤"}
-                  </Button>
-                </div>
-
-                <div className={styles.attendancePunchCardWide}>
-                  <div className={styles.attendancePunchOtherHeader}>
+                <article className={styles.attendancePunchCard}>
+                  <div className={styles.attendancePunchHeader}>
                     <div>
-                      <p className={styles.attendancePunchLabel}>その他</p>
+                      <p className={styles.attendancePunchLabel}>出勤</p>
                       <p className={styles.attendancePunchTime}>
-                        {todayAttendanceRealtimeEvents.otherRecorded
-                          ? formatTime(todayAttendanceRealtimeEvents.otherAt)
-                          : "未記録"}
+                        {formatTime(
+                          todayAttendanceRealtimeEvents.clockInAt,
+                        )}
                       </p>
                     </div>
 
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={() => void handleCreateAttendanceRealtimeEvent("OTHER")}
-                      disabled={
-                        todayAttendanceRealtimeEvents.otherRecorded ||
-                        isAttendanceRealtimeLoading ||
-                        isAttendanceRealtimeSubmitting
+                    <span
+                      className={
+                        todayAttendanceRealtimeEvents.clockInRecorded
+                          ? styles.attendanceRecordedBadge
+                          : styles.attendancePendingBadge
                       }
                     >
-                      {todayAttendanceRealtimeEvents.otherRecorded ? "その他連絡済み" : "その他を記録"}
-                    </Button>
+                      {todayAttendanceRealtimeEvents.clockInRecorded
+                        ? "記録済み"
+                        : "未記録"}
+                    </span>
                   </div>
 
-                  <textarea
-                    className={styles.attendancePunchTextarea}
-                    value={otherNote}
-                    onChange={(event) => setOtherNote(event.target.value)}
-                    placeholder="その他の内容やコメントを入力してください。"
-                    disabled={
-                      todayAttendanceRealtimeEvents.otherRecorded ||
-                      isAttendanceRealtimeLoading ||
-                      isAttendanceRealtimeSubmitting
-                    }
-                    rows={3}
-                  />
-                </div>
+                  {todayAttendanceRealtimeEvents.clockInRecorded ? (
+                    <div className={styles.attendanceRecordedInfo}>
+                      <p className={styles.attendanceCommentLabel}>
+                        コメント
+                      </p>
+                      <p className={styles.attendanceCommentValue}>
+                        {formatAttendanceNote(
+                          todayAttendanceRealtimeEvents.clockInNote,
+                        )}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <label className={styles.attendanceCommentField}>
+                        <span className={styles.attendanceCommentLabel}>
+                          出勤コメント（任意）
+                        </span>
+                        <textarea
+                          className={styles.attendancePunchTextarea}
+                          value={clockInNote}
+                          onChange={(event) =>
+                            setClockInNote(event.target.value)
+                          }
+                          placeholder="出勤時の連絡事項を入力してください。"
+                          disabled={
+                            isAttendanceRealtimeLoading ||
+                            isAttendanceRealtimeSubmitting
+                          }
+                          rows={3}
+                        />
+                      </label>
+
+                      <div className={styles.attendanceActionArea}>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={() =>
+                            void handleCreateAttendanceRealtimeEvent(
+                              "CLOCK_IN",
+                            )
+                          }
+                          disabled={
+                            isAttendanceRealtimeLoading ||
+                            isAttendanceRealtimeSubmitting
+                          }
+                        >
+                          {isAttendanceRealtimeSubmitting
+                            ? "記録中..."
+                            : "出勤"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </article>
+
+                <article className={styles.attendancePunchCard}>
+                  <div className={styles.attendancePunchHeader}>
+                    <div>
+                      <p className={styles.attendancePunchLabel}>退勤</p>
+                      <p className={styles.attendancePunchTime}>
+                        {formatTime(
+                          todayAttendanceRealtimeEvents.clockOutAt,
+                        )}
+                      </p>
+                    </div>
+
+                    <span
+                      className={
+                        todayAttendanceRealtimeEvents.clockOutRecorded
+                          ? styles.attendanceRecordedBadge
+                          : styles.attendancePendingBadge
+                      }
+                    >
+                      {todayAttendanceRealtimeEvents.clockOutRecorded
+                        ? "記録済み"
+                        : "未記録"}
+                    </span>
+                  </div>
+
+                  {todayAttendanceRealtimeEvents.clockOutRecorded ? (
+                    <div className={styles.attendanceRecordedInfo}>
+                      <p className={styles.attendanceCommentLabel}>
+                        コメント
+                      </p>
+                      <p className={styles.attendanceCommentValue}>
+                        {formatAttendanceNote(
+                          todayAttendanceRealtimeEvents.clockOutNote,
+                        )}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <label className={styles.attendanceCommentField}>
+                        <span className={styles.attendanceCommentLabel}>
+                          退勤コメント（任意）
+                        </span>
+                        <textarea
+                          className={styles.attendancePunchTextarea}
+                          value={clockOutNote}
+                          onChange={(event) =>
+                            setClockOutNote(event.target.value)
+                          }
+                          placeholder="退勤時の連絡事項を入力してください。"
+                          disabled={
+                            isAttendanceRealtimeLoading ||
+                            isAttendanceRealtimeSubmitting
+                          }
+                          rows={3}
+                        />
+                      </label>
+
+                      <div className={styles.attendanceActionArea}>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={() =>
+                            void handleCreateAttendanceRealtimeEvent(
+                              "CLOCK_OUT",
+                            )
+                          }
+                          disabled={
+                            isAttendanceRealtimeLoading ||
+                            isAttendanceRealtimeSubmitting
+                          }
+                        >
+                          {isAttendanceRealtimeSubmitting
+                            ? "記録中..."
+                            : "退勤"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </article>
               </div>
             </section>
 
@@ -484,7 +626,9 @@ export default function UserMyPage() {
                 <div className={styles.dashboardCardHeader}>
                   <div>
                     <h2 className={styles.dashboardTitle}>お知らせ</h2>
-                    <p className={styles.dashboardDescription}>あなた宛の未読お知らせを確認します。</p>
+                    <p className={styles.dashboardDescription}>
+                      あなた宛の未読お知らせを確認します。
+                    </p>
                   </div>
 
                   {unreadNotificationCount > 0 ? (
@@ -494,7 +638,9 @@ export default function UserMyPage() {
                   )}
                 </div>
 
-                <p className={styles.dashboardValue}>{unreadNotificationCount}件</p>
+                <p className={styles.dashboardValue}>
+                  {unreadNotificationCount}件
+                </p>
                 <p className={styles.dashboardText}>
                   {unreadNotificationCount > 0
                     ? "未読のお知らせがあります。内容を確認してください。"
@@ -502,7 +648,13 @@ export default function UserMyPage() {
                 </p>
 
                 <div className={styles.cardActionArea}>
-                  <Button type="button" variant="secondary" onClick={() => router.push("/user/notifications")}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() =>
+                      router.push("/user/notifications")
+                    }
+                  >
                     お知らせを見る
                   </Button>
                 </div>
@@ -512,10 +664,17 @@ export default function UserMyPage() {
                 <div className={styles.dashboardCardHeader}>
                   <div>
                     <h2 className={styles.dashboardTitle}>勤怠申請</h2>
-                    <p className={styles.dashboardDescription}>前月と当月の月次勤怠申請状態を確認します。</p>
+                    <p className={styles.dashboardDescription}>
+                      前月と当月の月次勤怠申請状態を確認します。
+                    </p>
                   </div>
 
-                  {monthlyStatuses.some((monthlyStatus) => monthlyStatus.status === "DRAFT" || monthlyStatus.status === "NONE" || monthlyStatus.status === "REJECTED") ? (
+                  {monthlyStatuses.some(
+                    (monthlyStatus) =>
+                      monthlyStatus.status === "DRAFT" ||
+                      monthlyStatus.status === "NONE" ||
+                      monthlyStatus.status === "REJECTED",
+                  ) ? (
                     <span className={styles.warningBadge}>要確認</span>
                   ) : (
                     <span className={styles.successBadge}>OK</span>
@@ -524,17 +683,35 @@ export default function UserMyPage() {
 
                 <div className={styles.monthlyStatusList}>
                   {monthlyStatuses.map((monthlyStatus) => {
-                    const variant = getMonthlyStatusVariant(monthlyStatus.status);
+                    const variant = getMonthlyStatusVariant(
+                      monthlyStatus.status,
+                    );
 
                     return (
-                      <div key={`${monthlyStatus.year}-${monthlyStatus.month}`} className={styles.monthlyStatusItem}>
+                      <div
+                        key={`${monthlyStatus.year}-${monthlyStatus.month}`}
+                        className={styles.monthlyStatusItem}
+                      >
                         <div>
-                          <p className={styles.monthlyStatusLabel}>{monthlyStatus.label}</p>
-                          <p className={styles.monthlyStatusMonth}>{formatYearMonth(monthlyStatus.year, monthlyStatus.month)}</p>
+                          <p className={styles.monthlyStatusLabel}>
+                            {monthlyStatus.label}
+                          </p>
+                          <p className={styles.monthlyStatusMonth}>
+                            {formatYearMonth(
+                              monthlyStatus.year,
+                              monthlyStatus.month,
+                            )}
+                          </p>
                         </div>
 
-                        <span className={`${styles.monthlyStatusBadge} ${styles[`monthlyStatusBadge_${variant}`]}`}>
-                          {formatMonthlyStatus(monthlyStatus.status)}
+                        <span
+                          className={`${styles.monthlyStatusBadge} ${
+                            styles[`monthlyStatusBadge_${variant}`]
+                          }`}
+                        >
+                          {formatMonthlyStatus(
+                            monthlyStatus.status,
+                          )}
                         </span>
                       </div>
                     );
@@ -542,7 +719,8 @@ export default function UserMyPage() {
                 </div>
 
                 <p className={styles.dashboardText}>
-                  未申請または否認の月がある場合は、勤怠画面から内容を確認してください。
+                  未申請または否認の月がある場合は、
+                  勤怠画面から内容を確認してください。
                 </p>
               </section>
             </div>
@@ -550,41 +728,67 @@ export default function UserMyPage() {
             <section className={styles.statusSection}>
               <div className={styles.sectionHeader}>
                 <div>
-                  <h2 className={styles.sectionTitle}>月次勤怠申請状況</h2>
-                  <p className={styles.sectionDescription}>前月・当月の申請状態をまとめて表示しています。</p>
+                  <h2 className={styles.sectionTitle}>
+                    月次勤怠申請状況
+                  </h2>
+                  <p className={styles.sectionDescription}>
+                    前月・当月の申請状態をまとめて表示しています。
+                  </p>
                 </div>
               </div>
 
               <div className={styles.statusList}>
                 {monthlyStatuses.map((monthlyStatus) => {
-                  const variant = getMonthlyStatusVariant(monthlyStatus.status);
+                  const variant = getMonthlyStatusVariant(
+                    monthlyStatus.status,
+                  );
 
                   return (
-                    <article key={`${monthlyStatus.year}-${monthlyStatus.month}-detail`} className={styles.statusItem}>
+                    <article
+                      key={`${monthlyStatus.year}-${monthlyStatus.month}-detail`}
+                      className={styles.statusItem}
+                    >
                       <div className={styles.statusItemHeader}>
                         <div>
                           <h3 className={styles.statusTitle}>
-                            {monthlyStatus.label}：{formatYearMonth(monthlyStatus.year, monthlyStatus.month)}
+                            {monthlyStatus.label}：
+                            {formatYearMonth(
+                              monthlyStatus.year,
+                              monthlyStatus.month,
+                            )}
                           </h3>
                           <p className={styles.statusDescription}>
-                            {monthlyStatus.adminMessage || "管理者からのメッセージはありません。"}
+                            {monthlyStatus.adminMessage ||
+                              "管理者からのメッセージはありません。"}
                           </p>
                         </div>
 
-                        <span className={`${styles.monthlyStatusBadge} ${styles[`monthlyStatusBadge_${variant}`]}`}>
-                          {formatMonthlyStatus(monthlyStatus.status)}
+                        <span
+                          className={`${styles.monthlyStatusBadge} ${
+                            styles[`monthlyStatusBadge_${variant}`]
+                          }`}
+                        >
+                          {formatMonthlyStatus(
+                            monthlyStatus.status,
+                          )}
                         </span>
                       </div>
                     </article>
                   );
                 })}
 
-                {monthlyStatuses.length === 0 && !isDashboardLoading && (
-                  <div className={styles.emptyBox}>
-                    <p className={styles.emptyTitle}>申請状況を取得できませんでした</p>
-                    <p className={styles.emptyText}>再読み込みを行うか、時間をおいて確認してください。</p>
-                  </div>
-                )}
+                {monthlyStatuses.length === 0 &&
+                  !isDashboardLoading && (
+                    <div className={styles.emptyBox}>
+                      <p className={styles.emptyTitle}>
+                        申請状況を取得できませんでした
+                      </p>
+                      <p className={styles.emptyText}>
+                        再読み込みを行うか、
+                        時間をおいて確認してください。
+                      </p>
+                    </div>
+                  )}
               </div>
             </section>
           </>

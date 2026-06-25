@@ -22,19 +22,22 @@ import (
  * 注意：
  * ・Webhook URLが未設定の場合は送信をスキップする
  * ・Slack通知失敗時の扱いは呼び出し元で決める
- * ・出勤/退勤/その他のDB保存自体をSlack失敗で失敗扱いにしない
+ * ・出勤/退勤のDB保存自体をSlack失敗で失敗扱いにしない
  */
 type SlackNotificationService interface {
-	SendAttendanceRealtimeEventNotification(req AttendanceRealtimeEventSlackNotificationRequest) error
+	SendAttendanceRealtimeEventNotification(
+		req AttendanceRealtimeEventSlackNotificationRequest,
+	) error
 }
 
 /*
  * 勤怠リアルタイムイベントSlack通知Request
+ *
+ * メールアドレスはSlackへ送信しない。
  */
 type AttendanceRealtimeEventSlackNotificationRequest struct {
 	EventType string
 	UserName  string
-	UserEmail string
 	EventAt   time.Time
 	Note      *string
 }
@@ -52,7 +55,9 @@ type slackNotificationService struct {
  */
 func NewSlackNotificationServiceFromEnv() SlackNotificationService {
 	return &slackNotificationService{
-		attendanceWebhookURL: strings.TrimSpace(os.Getenv("TIMEXEED_SLACK_ATTENDANCE_WEBHOOK_URL")),
+		attendanceWebhookURL: strings.TrimSpace(
+			os.Getenv("TIMEXEED_SLACK_ATTENDANCE_WEBHOOK_URL"),
+		),
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -110,19 +115,32 @@ func (service *slackNotificationService) SendAttendanceRealtimeEventNotification
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("slack returned non-2xx status: %d", resp.StatusCode)
+	if resp.StatusCode < http.StatusOK ||
+		resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf(
+			"slack returned non-2xx status: %d",
+			resp.StatusCode,
+		)
 	}
 
 	return nil
 }
 
-func buildAttendanceRealtimeEventSlackMessage(req AttendanceRealtimeEventSlackNotificationRequest) string {
+/*
+ * Slackへ送信する本文を作成する。
+ */
+func buildAttendanceRealtimeEventSlackMessage(
+	req AttendanceRealtimeEventSlackNotificationRequest,
+) string {
 	eventTypeLabel := attendanceRealtimeEventTypeLabel(req.EventType)
 	eventAtText := formatSlackEventAt(req.EventAt)
+
 	noteText := "なし"
-	if req.Note != nil && strings.TrimSpace(*req.Note) != "" {
-		noteText = strings.TrimSpace(*req.Note)
+	if req.Note != nil {
+		trimmedNote := strings.TrimSpace(*req.Note)
+		if trimmedNote != "" {
+			noteText = trimmedNote
+		}
 	}
 
 	userName := strings.TrimSpace(req.UserName)
@@ -130,42 +148,42 @@ func buildAttendanceRealtimeEventSlackMessage(req AttendanceRealtimeEventSlackNo
 		userName = "不明"
 	}
 
-	userEmail := strings.TrimSpace(req.UserEmail)
-	if userEmail == "" {
-		userEmail = "不明"
-	}
-
 	return fmt.Sprintf(
-		"【Timexeed 勤怠リアルタイム通知】\n\n種別：%s\n氏名：%s\nメール：%s\n押下日時：%s\nコメント：%s",
+		"【Timexeed 勤怠リアルタイム通知】\n\n種別：%s\n氏名：%s\n押下日時：%s\nコメント：%s",
 		eventTypeLabel,
 		userName,
-		userEmail,
 		eventAtText,
 		noteText,
 	)
 }
 
+/*
+ * イベント種別をSlack表示用の日本語へ変換する。
+ */
 func attendanceRealtimeEventTypeLabel(eventType string) string {
 	switch strings.ToUpper(strings.TrimSpace(eventType)) {
 	case constants.AttendanceRealtimeEventTypeClockIn:
 		return "出勤"
+
 	case constants.AttendanceRealtimeEventTypeClockOut:
 		return "退勤"
-	case constants.AttendanceRealtimeEventTypeOther:
-		return "その他"
+
 	default:
 		return eventType
 	}
 }
 
+/*
+ * イベント日時をJSTで表示する。
+ */
 func formatSlackEventAt(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+
 	location, err := time.LoadLocation("Asia/Tokyo")
 	if err != nil {
 		location = time.FixedZone("JST", 9*60*60)
-	}
-
-	if value.IsZero() {
-		return ""
 	}
 
 	return value.In(location).Format("2006-01-02 15:04:05")
