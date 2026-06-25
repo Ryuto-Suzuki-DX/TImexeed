@@ -1,4 +1,8 @@
-tmp
 .git
-Dockerfile
+.gitignore
+tmp
+*.log
 .env
+.env.*
+Dockerfile.dev
+secrets

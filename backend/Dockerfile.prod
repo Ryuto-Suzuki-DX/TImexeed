@@ -1,0 +1,38 @@
+# ==================================================
+# Build stage
+# ==================================================
+FROM golang:1.25.3-alpine AS builder
+
+WORKDIR /app
+
+RUN apk add --no-cache ca-certificates tzdata
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -trimpath \
+    -ldflags="-s -w" \
+    -o /out/timexeed-backend \
+    .
+
+# ==================================================
+# Runtime stage
+# ==================================================
+FROM alpine:3.23
+
+WORKDIR /app
+
+RUN apk add --no-cache ca-certificates tzdata \
+    && addgroup -S timexeed \
+    && adduser -S timexeed -G timexeed
+
+COPY --from=builder /out/timexeed-backend /app/timexeed-backend
+
+USER timexeed
+
+EXPOSE 8080
+
+CMD ["/app/timexeed-backend"]
