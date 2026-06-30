@@ -332,13 +332,14 @@ func (builder *userBuilder) BuildCreateUserModel(
 	}
 
 	user := models.User{
-		Name:         name,
-		Email:        email,
-		PasswordHash: passwordHash,
-		Role:         role,
-		DepartmentID: req.DepartmentID,
-		HireDate:     hireDate,
-		IsDeleted:    false,
+		Name:               name,
+		Email:              email,
+		PasswordHash:       passwordHash,
+		Role:               role,
+		DepartmentID:       req.DepartmentID,
+		HireDate:           hireDate,
+		MustChangePassword: true,
+		IsDeleted:          false,
 	}
 
 	return user, results.OK(
