@@ -3,7 +3,6 @@ package routes
 import (
 	"context"
 
-	"timexeed/backend/internal/mail"
 	"timexeed/backend/internal/middlewares"
 	"timexeed/backend/internal/slack"
 	"timexeed/backend/internal/storage"
@@ -34,14 +33,6 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	passwordService := services.NewPasswordService(passwordBuilder, passwordRepository)
 	passwordController := controllers.NewPasswordController(passwordService)
 
-	// メール送信
-	//
-	// 注意：
-	// ・環境変数が未設定でもアプリ起動自体は止めない
-	// ・未設定の場合、メール送信はスキップされる
-	// ・お知らせ作成後のメール送信で使用する
-	mailService, _ := mail.NewSMTPMailServiceFromEnv()
-
 	// Slack通知
 	//
 	// 注意：
@@ -56,23 +47,25 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	// ・月次勤怠申請Serviceでも通知作成に使うため、月次勤怠申請Serviceより先に生成する
 	// ・従業員側Controllerでは検索/既読/未読件数のみを公開する
 	// ・通知作成はフロントから直接呼ばず、バックエンド内部処理からService経由で行う
-	// ・通知作成後のメール送信でmailServiceを使用する
+	// ・お知らせ作成はアプリ内通知のDB保存だけを行う
 	notificationBuilder := builders.NewNotificationBuilder(db)
 	notificationRepository := repositories.NewNotificationRepository(db)
-	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository, mailService)
+	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository)
 	notificationController := controllers.NewNotificationController(notificationService)
 
 	// 月次勤怠申請
 	//
 	// 注意：
 	// ・申請/再申請/取り下げ成功後に、本人宛と管理者宛のお知らせを作成する
-	// ・通知作成は副処理のため、月次勤怠申請ServiceへnotificationServiceを注入する
+	// ・申請/再申請/取り下げ成功後に、月次勤怠申請用Slackチャンネルへ通知する
+	// ・お知らせ作成とSlack通知は副処理として扱う
 	monthlyAttendanceRequestBuilder := builders.NewMonthlyAttendanceRequestBuilder(db)
 	monthlyAttendanceRequestRepository := repositories.NewMonthlyAttendanceRequestRepository(db)
 	monthlyAttendanceRequestService := services.NewMonthlyAttendanceRequestService(
 		monthlyAttendanceRequestBuilder,
 		monthlyAttendanceRequestRepository,
 		notificationService,
+		slackNotificationService,
 	)
 	monthlyAttendanceRequestController := controllers.NewMonthlyAttendanceRequestController(monthlyAttendanceRequestService)
 

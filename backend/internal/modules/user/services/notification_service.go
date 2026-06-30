@@ -1,7 +1,6 @@
 package services
 
 import (
-	"timexeed/backend/internal/mail"
 	"timexeed/backend/internal/models"
 	"timexeed/backend/internal/modules/user/builders"
 	"timexeed/backend/internal/modules/user/repositories"
@@ -46,18 +45,18 @@ type NotificationService interface {
  * ・RepositoryでDB処理を実行する
  * ・Repositoryで発生したエラーはRepositoryから返されたResultをそのまま返す
  * ・成功時はResponse型に変換してControllerへ返す
- * ・お知らせ作成後、可能であれば対象者へメール送信する
+ * ・お知らせ作成はアプリ内通知のDB保存だけを行う
  *
  * 注意：
  * ・Controllerにはgin.Contextを渡さない
  * ・Serviceではc.JSONしない
  * ・DBへの直接アクセスはRepositoryに任せる
  * ・Builder/Repositoryのエラー文言をServiceで作り直さない
+ * ・メール送信は行わない
  */
 type notificationService struct {
 	notificationBuilder    builders.NotificationBuilder
 	notificationRepository repositories.NotificationRepository
-	mailService            mail.MailService
 }
 
 /*
@@ -66,12 +65,10 @@ type notificationService struct {
 func NewNotificationService(
 	notificationBuilder builders.NotificationBuilder,
 	notificationRepository repositories.NotificationRepository,
-	mailService mail.MailService,
 ) *notificationService {
 	return &notificationService{
 		notificationBuilder:    notificationBuilder,
 		notificationRepository: notificationRepository,
-		mailService:            mailService,
 	}
 }
 
@@ -87,29 +84,6 @@ func toNotificationResponse(notification models.Notification) types.Notification
 		ReadAt:    notification.ReadAt,
 		CreatedAt: notification.CreatedAt,
 	}
-}
-
-/*
- * お知らせメール送信
- *
- * 注意：
- * ・メール送信は副処理
- * ・メール送信に失敗しても、お知らせ作成自体は失敗にしない
- */
-func (service *notificationService) sendNotificationMail(
-	to string,
-	title string,
-	message string,
-) {
-	if service.mailService == nil {
-		return
-	}
-
-	if to == "" {
-		return
-	}
-
-	service.mailService.SendNotificationMail(to, title, message)
 }
 
 /*
@@ -162,25 +136,21 @@ func (service *notificationService) SearchNotifications(
 		)
 	}
 
-	// Builderでお知らせ検索件数取得用クエリを作成する
 	countQuery, buildCountResult := service.notificationBuilder.BuildCountSearchNotificationsQuery(userID, req)
 	if buildCountResult.Error {
 		return buildCountResult
 	}
 
-	// Repositoryで検索条件に一致する総件数を取得する
 	total, countResult := service.notificationRepository.CountNotifications(countQuery)
 	if countResult.Error {
 		return countResult
 	}
 
-	// Builderでお知らせ検索用クエリを作成する
 	query, buildSearchResult := service.notificationBuilder.BuildSearchNotificationsQuery(userID, req)
 	if buildSearchResult.Error {
 		return buildSearchResult
 	}
 
-	// Repositoryでお知らせ一覧を取得する
 	notifications, findResult := service.notificationRepository.FindNotifications(query)
 	if findResult.Error {
 		return findResult
@@ -188,7 +158,6 @@ func (service *notificationService) SearchNotifications(
 
 	hasMore := int64(req.Offset+len(notifications)) < total
 
-	// DBモデルをフロント返却用Responseへ変換する
 	notificationResponses := make([]types.NotificationResponse, 0, len(notifications))
 	for _, notification := range notifications {
 		notificationResponses = append(notificationResponses, toNotificationResponse(notification))
@@ -235,25 +204,21 @@ func (service *notificationService) ReadNotification(
 		)
 	}
 
-	// Builderで対象お知らせ取得用クエリを作成する
 	findQuery, buildFindResult := service.notificationBuilder.BuildFindNotificationByUserIDAndIDQuery(userID, req.NotificationID)
 	if buildFindResult.Error {
 		return buildFindResult
 	}
 
-	// Repositoryで対象お知らせを取得する
 	currentNotification, findResult := service.notificationRepository.FindNotification(findQuery)
 	if findResult.Error {
 		return findResult
 	}
 
-	// Builderで既読更新用Modelを作る
 	readNotification, buildReadResult := service.notificationBuilder.BuildReadNotificationModel(currentNotification)
 	if buildReadResult.Error {
 		return buildReadResult
 	}
 
-	// Repositoryでお知らせを保存する
 	savedNotification, saveResult := service.notificationRepository.SaveNotification(readNotification)
 	if saveResult.Error {
 		return saveResult
@@ -286,13 +251,11 @@ func (service *notificationService) CountUnreadNotifications(
 		)
 	}
 
-	// Builderで未読お知らせ件数取得用クエリを作成する
 	query, buildResult := service.notificationBuilder.BuildCountUnreadNotificationsQuery(userID)
 	if buildResult.Error {
 		return buildResult
 	}
 
-	// Repositoryで未読お知らせ件数を取得する
 	unreadCount, countResult := service.notificationRepository.CountNotifications(query)
 	if countResult.Error {
 		return countResult
@@ -328,7 +291,7 @@ func (service *notificationService) CreateNotificationForUser(
 		)
 	}
 
-	user, findUserResult := service.notificationRepository.FindUserByID(userID)
+	_, findUserResult := service.notificationRepository.FindUserByID(userID)
 	if findUserResult.Error {
 		return findUserResult
 	}
@@ -348,8 +311,6 @@ func (service *notificationService) CreateNotificationForUser(
 	if createResult.Error {
 		return createResult
 	}
-
-	service.sendNotificationMail(user.Email, title, message)
 
 	return results.Created(
 		map[string]any{
@@ -388,10 +349,6 @@ func (service *notificationService) CreateNotificationForAdmins(
 	createdNotifications, createResult := service.notificationRepository.CreateNotifications(notifications)
 	if createResult.Error {
 		return createResult
-	}
-
-	for _, admin := range admins {
-		service.sendNotificationMail(admin.Email, title, message)
 	}
 
 	return results.Created(

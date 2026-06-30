@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"timexeed/backend/internal/modules/user/repositories"
 	"timexeed/backend/internal/modules/user/types"
 	"timexeed/backend/internal/results"
+	"timexeed/backend/internal/slack"
 )
 
 /*
@@ -62,6 +64,7 @@ type monthlyAttendanceRequestService struct {
 	monthlyAttendanceRequestBuilder    builders.MonthlyAttendanceRequestBuilder
 	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository
 	notificationService                NotificationService
+	slackNotificationService           slack.SlackNotificationService
 }
 
 /*
@@ -71,11 +74,13 @@ func NewMonthlyAttendanceRequestService(
 	monthlyAttendanceRequestBuilder builders.MonthlyAttendanceRequestBuilder,
 	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository,
 	notificationService NotificationService,
+	slackNotificationService slack.SlackNotificationService,
 ) *monthlyAttendanceRequestService {
 	return &monthlyAttendanceRequestService{
 		monthlyAttendanceRequestBuilder:    monthlyAttendanceRequestBuilder,
 		monthlyAttendanceRequestRepository: monthlyAttendanceRequestRepository,
 		notificationService:                notificationService,
+		slackNotificationService:           slackNotificationService,
 	}
 }
 
@@ -385,6 +390,60 @@ func (service *monthlyAttendanceRequestService) createMonthlyAttendanceCanceledN
 }
 
 /*
+ * 月次勤怠申請Slack通知を送信する
+ *
+ * 注意：
+ * ・月次勤怠申請処理を主処理とする
+ * ・Slack通知失敗で月次勤怠申請処理自体を失敗扱いにしない
+ * ・月次勤怠申請用チャンネルは出退勤通知用チャンネルと分ける
+ */
+func (service *monthlyAttendanceRequestService) sendMonthlyAttendanceRequestSlackNotification(
+	userID uint,
+	monthlyAttendanceRequest models.MonthlyAttendanceRequest,
+	action string,
+) {
+	if service.slackNotificationService == nil {
+		return
+	}
+
+	user, findUserResult := service.notificationService.FindNotificationUserByID(userID)
+	if findUserResult.Error {
+		log.Printf(
+			"failed to find user for monthly attendance request slack notification: code=%s details=%v\n",
+			findUserResult.Code,
+			findUserResult.Details,
+		)
+		return
+	}
+
+	userDisplayName := buildMonthlyAttendanceRequestNotificationUserDisplayName(
+		user,
+		userID,
+	)
+
+	if err := service.slackNotificationService.
+		SendMonthlyAttendanceRequestNotification(
+			slack.MonthlyAttendanceRequestSlackNotificationRequest{
+				Action:         action,
+				UserName:       userDisplayName,
+				TargetYear:     monthlyAttendanceRequest.TargetYear,
+				TargetMonth:    monthlyAttendanceRequest.TargetMonth,
+				RequestMemo:    monthlyAttendanceRequest.RequestMemo,
+				CanceledReason: monthlyAttendanceRequest.CanceledReason,
+			},
+		); err != nil {
+		log.Printf(
+			"failed to send monthly attendance request slack notification: action=%s userId=%d targetYear=%d targetMonth=%d error=%v\n",
+			action,
+			userID,
+			monthlyAttendanceRequest.TargetYear,
+			monthlyAttendanceRequest.TargetMonth,
+			err,
+		)
+	}
+}
+
+/*
  * 月次勤怠申請状態取得
  *
  * 対象年月のログイン中ユーザー本人の月次勤怠申請状態を取得する。
@@ -532,6 +591,12 @@ func (service *monthlyAttendanceRequestService) SubmitMonthlyAttendanceRequest(
 			)
 		}
 
+		service.sendMonthlyAttendanceRequestSlackNotification(
+			userID,
+			createdMonthlyAttendanceRequest,
+			"SUBMITTED",
+		)
+
 		return results.Created(
 			types.SubmitMonthlyAttendanceRequestResponse{
 				MonthlyAttendanceRequest: toMonthlyAttendanceRequestResponse(createdMonthlyAttendanceRequest),
@@ -601,6 +666,12 @@ func (service *monthlyAttendanceRequestService) SubmitMonthlyAttendanceRequest(
 				notificationResult.Details,
 			)
 		}
+
+		service.sendMonthlyAttendanceRequestSlackNotification(
+			userID,
+			savedMonthlyAttendanceRequest,
+			"RESUBMITTED",
+		)
 
 		return results.OK(
 			types.SubmitMonthlyAttendanceRequestResponse{
@@ -721,6 +792,12 @@ func (service *monthlyAttendanceRequestService) CancelMonthlyAttendanceRequest(
 			notificationResult.Details,
 		)
 	}
+
+	service.sendMonthlyAttendanceRequestSlackNotification(
+		userID,
+		savedMonthlyAttendanceRequest,
+		"CANCELED",
+	)
 
 	return results.OK(
 		types.CancelMonthlyAttendanceRequestResponse{
