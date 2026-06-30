@@ -9,6 +9,7 @@ export type LoginResponse = {
     name: string;
     email: string;
     role: string;
+    mustChangePassword: boolean;
   };
 };
 
@@ -17,4 +18,5 @@ export type MeResponse = {
   name: string;
   email: string;
   role: string;
+  mustChangePassword: boolean;
 };

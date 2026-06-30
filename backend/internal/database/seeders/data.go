@@ -23,38 +23,42 @@ var departments = []SeedDepartment{
  * 〇 ユーザーSeed
  */
 type SeedUser struct {
-	Name           string
-	Email          string
-	Password       string
-	Role           string
-	DepartmentName string
-	HireDate       string
+	Name               string
+	Email              string
+	Password           string
+	Role               string
+	DepartmentName     string
+	HireDate           string
+	MustChangePassword bool
 }
 
 var users = []SeedUser{
 	{
-		Name:           "管理者ユーザー",
-		Email:          "admin@example.com",
-		Password:       "password123",
-		Role:           "ADMIN",
-		DepartmentName: "管理部",
-		HireDate:       "2025-05-01",
+		Name:               "管理者ユーザー",
+		Email:              "admin@example.com",
+		Password:           "password123",
+		Role:               "ADMIN",
+		DepartmentName:     "管理部",
+		HireDate:           "2025-05-01",
+		MustChangePassword: false,
 	},
 	{
-		Name:           "一般ユーザー1",
-		Email:          "user1@example.com",
-		Password:       "password123",
-		Role:           "USER",
-		DepartmentName: "開発部",
-		HireDate:       "2025-05-01",
+		Name:               "一般ユーザー1",
+		Email:              "user1@example.com",
+		Password:           "password123",
+		Role:               "USER",
+		DepartmentName:     "開発部",
+		HireDate:           "2025-05-01",
+		MustChangePassword: true,
 	},
 	{
-		Name:           "一般ユーザー2",
-		Email:          "user2@example.com",
-		Password:       "password123",
-		Role:           "USER",
-		DepartmentName: "営業部",
-		HireDate:       "2026-05-01",
+		Name:               "一般ユーザー2",
+		Email:              "user2@example.com",
+		Password:           "password123",
+		Role:               "USER",
+		DepartmentName:     "営業部",
+		HireDate:           "2026-05-01",
+		MustChangePassword: true,
 	},
 }
 

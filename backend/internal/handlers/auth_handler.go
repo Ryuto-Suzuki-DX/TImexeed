@@ -28,10 +28,11 @@ type LoginRequest struct {
 }
 
 type UserResponse struct {
-	ID    uint   `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Role  string `json:"role"`
+	ID                 uint   `json:"id"`
+	Name               string `json:"name"`
+	Email              string `json:"email"`
+	Role               string `json:"role"`
+	MustChangePassword bool   `json:"mustChangePassword"`
 }
 
 type LoginResponse struct {
@@ -40,10 +41,11 @@ type LoginResponse struct {
 }
 
 type MeResponse struct {
-	UserID uint   `json:"userId"`
-	Name   string `json:"name"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
+	UserID             uint   `json:"userId"`
+	Name               string `json:"name"`
+	Email              string `json:"email"`
+	Role               string `json:"role"`
+	MustChangePassword bool   `json:"mustChangePassword"`
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -112,10 +114,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"data": LoginResponse{
 			AccessToken: accessToken,
 			User: UserResponse{
-				ID:    user.ID,
-				Name:  user.Name,
-				Email: user.Email,
-				Role:  user.Role,
+				ID:                 user.ID,
+				Name:               user.Name,
+				Email:              user.Email,
+				Role:               user.Role,
+				MustChangePassword: user.MustChangePassword,
 			},
 		},
 		"error":   false,
@@ -184,10 +187,11 @@ func (h *AuthHandler) Me(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"data": MeResponse{
-			UserID: user.ID,
-			Name:   user.Name,
-			Email:  user.Email,
-			Role:   user.Role,
+			UserID:             user.ID,
+			Name:               user.Name,
+			Email:              user.Email,
+			Role:               user.Role,
+			MustChangePassword: user.MustChangePassword,
 		},
 		"error":   false,
 		"code":    "",

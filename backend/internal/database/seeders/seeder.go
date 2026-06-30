@@ -103,13 +103,14 @@ func createUserIfNotExists(db *gorm.DB, seed SeedUser) error {
 	}
 
 	user := models.User{
-		Name:         seed.Name,
-		Email:        seed.Email,
-		PasswordHash: passwordHash,
-		Role:         seed.Role,
-		DepartmentID: departmentID,
-		HireDate:     hireDate,
-		IsDeleted:    false,
+		Name:               seed.Name,
+		Email:              seed.Email,
+		PasswordHash:       passwordHash,
+		Role:               seed.Role,
+		DepartmentID:       departmentID,
+		HireDate:           hireDate,
+		MustChangePassword: seed.MustChangePassword,
+		IsDeleted:          false,
 	}
 
 	return db.Create(&user).Error

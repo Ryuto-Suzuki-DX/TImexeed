@@ -28,6 +28,12 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	attendanceTypeService := services.NewAttendanceTypeService(attendanceTypeBuilder, attendanceTypeRepository)
 	attendanceTypeController := controllers.NewAttendanceTypeController(attendanceTypeService)
 
+	// パスワード変更
+	passwordBuilder := builders.NewPasswordBuilder(db)
+	passwordRepository := repositories.NewPasswordRepository()
+	passwordService := services.NewPasswordService(passwordBuilder, passwordRepository)
+	passwordController := controllers.NewPasswordController(passwordService)
+
 	// メール送信
 	//
 	// 注意：
@@ -160,6 +166,9 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	)
 
 	{
+		// パスワード変更
+		user.POST("/password/change", passwordController.ChangePassword)
+
 		// 勤怠区分マスタ（検索のみ）
 		user.POST("/attendance-types/search", attendanceTypeController.SearchAttendanceTypes)
 
