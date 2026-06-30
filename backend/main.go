@@ -35,34 +35,29 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	if frontendOrigin != "" {
+	allowOrigins := []string{}
+
+	if appEnv == "production" {
+		if frontendOrigin != "" {
+			allowOrigins = append(allowOrigins, frontendOrigin)
+		}
+	} else {
+		allowOrigins = append(
+			allowOrigins,
+			"http://localhost:3000",
+			"http://127.0.0.1:3000",
+			"http://localhost:3001",
+			"http://127.0.0.1:3001",
+		)
+
+		if frontendOrigin != "" {
+			allowOrigins = append(allowOrigins, frontendOrigin)
+		}
+	}
+
+	if len(allowOrigins) > 0 {
 		r.Use(cors.New(cors.Config{
-			AllowOrigins: []string{
-				frontendOrigin,
-			},
-			AllowMethods: []string{
-				"GET",
-				"POST",
-				"PUT",
-				"PATCH",
-				"DELETE",
-				"OPTIONS",
-			},
-			AllowHeaders: []string{
-				"Origin",
-				"Content-Type",
-				"Authorization",
-			},
-			AllowCredentials: true,
-		}))
-	} else if appEnv != "production" {
-		r.Use(cors.New(cors.Config{
-			AllowOrigins: []string{
-				"http://localhost:3000",
-				"http://127.0.0.1:3000",
-				"http://localhost:3001",
-				"http://127.0.0.1:3001",
-			},
+			AllowOrigins: allowOrigins,
 			AllowMethods: []string{
 				"GET",
 				"POST",
