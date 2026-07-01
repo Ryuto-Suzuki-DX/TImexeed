@@ -3,7 +3,6 @@ package routes
 import (
 	"context"
 
-	"timexeed/backend/internal/mail"
 	"timexeed/backend/internal/modules/admin/builders"
 	"timexeed/backend/internal/modules/admin/controllers"
 	"timexeed/backend/internal/modules/admin/repositories"
@@ -38,14 +37,6 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	// ・未設定の場合、Drive連携系Service側でエラーを返す
 	googleDriveService, _ := storage.NewGoogleDriveServiceFromEnv(context.Background())
 
-	// メール送信
-	//
-	// 注意：
-	// ・環境変数が未設定でもアプリ起動自体は止めない
-	// ・未設定の場合、メール送信はスキップされる
-	// ・お知らせ作成後のメール送信で使用する
-	mailService, _ := mail.NewSMTPMailServiceFromEnv()
-
 	// 所属
 	departmentBuilder := builders.NewDepartmentBuilder(db)
 	departmentRepository := repositories.NewDepartmentRepository(db)
@@ -79,7 +70,7 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	// お知らせ
 	notificationBuilder := builders.NewNotificationBuilder(db)
 	notificationRepository := repositories.NewNotificationRepository(db)
-	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository, mailService)
+	notificationService := services.NewNotificationService(notificationBuilder, notificationRepository)
 	notificationController := controllers.NewNotificationController(notificationService)
 
 	// 月次勤怠申請

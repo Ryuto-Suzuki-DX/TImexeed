@@ -1,7 +1,6 @@
 package services
 
 import (
-	"timexeed/backend/internal/mail"
 	"timexeed/backend/internal/models"
 	"timexeed/backend/internal/modules/admin/builders"
 	"timexeed/backend/internal/modules/admin/repositories"
@@ -31,12 +30,11 @@ type NotificationService interface {
  * ・Controllerから受け取ったRequestをもとに処理を進める
  * ・ログイン中管理者本人のお知らせ検索、既読、未読件数取得を行う
  * ・管理者による全員宛お知らせ作成、削除を行う
- * ・お知らせ作成後、可能であれば対象者へメール送信する
+ * ・お知らせ作成はアプリ内通知のDB保存だけを行う
  */
 type notificationService struct {
 	notificationBuilder    builders.NotificationBuilder
 	notificationRepository repositories.NotificationRepository
-	mailService            mail.MailService
 }
 
 /*
@@ -45,12 +43,10 @@ type notificationService struct {
 func NewNotificationService(
 	notificationBuilder builders.NotificationBuilder,
 	notificationRepository repositories.NotificationRepository,
-	mailService mail.MailService,
 ) *notificationService {
 	return &notificationService{
 		notificationBuilder:    notificationBuilder,
 		notificationRepository: notificationRepository,
-		mailService:            mailService,
 	}
 }
 
@@ -74,29 +70,6 @@ func toNotificationResponse(notification models.Notification) types.Notification
 		UpdatedAt: notification.UpdatedAt,
 		DeletedAt: notification.DeletedAt,
 	}
-}
-
-/*
- * お知らせメール送信
- *
- * 注意：
- * ・メール送信は副処理
- * ・メール送信に失敗しても、お知らせ作成自体は失敗にしない
- */
-func (service *notificationService) sendNotificationMail(
-	to string,
-	title string,
-	message string,
-) {
-	if service.mailService == nil {
-		return
-	}
-
-	if to == "" {
-		return
-	}
-
-	service.mailService.SendNotificationMail(to, title, message)
 }
 
 /*
@@ -239,7 +212,7 @@ func (service *notificationService) CountUnreadNotifications(
  *
  * 注意：
  * ・USERだけでなくADMINも対象に含める
- * ・お知らせDB作成後、対象者のメールアドレスへメール送信する
+ * ・お知らせDB作成だけを行い、メール送信は行わない
  */
 func (service *notificationService) CreateNotificationForAllUsers(
 	req types.CreateNotificationForAllUsersRequest,
@@ -257,10 +230,6 @@ func (service *notificationService) CreateNotificationForAllUsers(
 	createdNotifications, createResult := service.notificationRepository.CreateNotifications(notifications)
 	if createResult.Error {
 		return createResult
-	}
-
-	for _, user := range users {
-		service.sendNotificationMail(user.Email, req.Title, req.Message)
 	}
 
 	return results.Created(
@@ -297,11 +266,6 @@ func (service *notificationService) CreateNotificationForUser(
 	)
 	if createResult.Error {
 		return createResult
-	}
-
-	user, findUserResult := service.notificationRepository.FindUserByID(userID)
-	if !findUserResult.Error {
-		service.sendNotificationMail(user.Email, title, message)
 	}
 
 	return results.Created(
