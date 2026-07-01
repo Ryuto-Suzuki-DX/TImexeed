@@ -36,11 +36,12 @@ export default function BaseSideMenu({ title, items }: BaseSideMenuProps) {
         top: 0,
         left: 0,
         width: isOpen ? "240px" : "16px",
-        height: "100vh",
+        height: "100dvh",
         backgroundColor: isOpen ? "#ffffff" : "#ea580c",
         borderRight: isOpen ? "1px solid #fed7aa" : "none",
         boxShadow: isOpen ? "4px 0 20px rgba(0, 0, 0, 0.08)" : "none",
-        transition: "width 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease",
+        transition:
+          "width 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease",
         zIndex: 1000,
         overflow: "hidden",
       }}
@@ -51,22 +52,35 @@ export default function BaseSideMenu({ title, items }: BaseSideMenuProps) {
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          padding: "24px 16px",
+          padding: "16px 12px",
           boxSizing: "border-box",
+          minHeight: 0,
         }}
       >
-        <div style={{ marginBottom: "32px" }}>
+        <div
+          style={{
+            marginBottom: "16px",
+            flexShrink: 0,
+          }}
+        >
           <p
             style={{
-              margin: "0 0 4px",
-              fontSize: "12px",
+              margin: "0 0 2px",
+              fontSize: "11px",
               fontWeight: "bold",
               color: "#9a3412",
             }}
           >
             Timexeed
           </p>
-          <h2 style={{ margin: 0, fontSize: "20px", color: "#ea580c" }}>
+
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "18px",
+              color: "#ea580c",
+            }}
+          >
             {title}
           </h2>
         </div>
@@ -75,12 +89,19 @@ export default function BaseSideMenu({ title, items }: BaseSideMenuProps) {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "8px",
+            gap: "4px",
             flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            overflowX: "hidden",
+            paddingRight: "4px",
+            paddingBottom: "8px",
           }}
         >
           {items.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              pathname === item.href ||
+              pathname.startsWith(`${item.href}/`);
 
             return (
               <Link
@@ -88,14 +109,20 @@ export default function BaseSideMenu({ title, items }: BaseSideMenuProps) {
                 href={item.href}
                 style={{
                   display: "block",
-                  padding: "12px 14px",
-                  borderRadius: "10px",
+                  padding: "8px 10px",
+                  borderRadius: "8px",
                   textDecoration: "none",
-                  fontSize: "14px",
+                  fontSize: "13px",
+                  lineHeight: 1.4,
                   fontWeight: isActive ? "bold" : "normal",
                   color: isActive ? "#ffffff" : "#374151",
                   backgroundColor: isActive ? "#ea580c" : "transparent",
-                  border: isActive ? "1px solid #ea580c" : "1px solid transparent",
+                  border: isActive
+                    ? "1px solid #ea580c"
+                    : "1px solid transparent",
+                  whiteSpace: "normal",
+                  wordBreak: "break-word",
+                  flexShrink: 0,
                 }}
               >
                 {item.label}
@@ -104,23 +131,30 @@ export default function BaseSideMenu({ title, items }: BaseSideMenuProps) {
           })}
         </nav>
 
-        <button
-          type="button"
-          onClick={handleLogout}
+        <div
           style={{
-            width: "100%",
-            padding: "12px 14px",
-            borderRadius: "10px",
-            border: "1px solid #fed7aa",
-            backgroundColor: "#fff7ed",
-            color: "#9a3412",
-            fontSize: "14px",
-            fontWeight: "bold",
-            cursor: "pointer",
+            paddingTop: "10px",
+            flexShrink: 0,
           }}
         >
-          ログアウト
-        </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            style={{
+              width: "100%",
+              padding: "9px 10px",
+              borderRadius: "8px",
+              border: "1px solid #fed7aa",
+              backgroundColor: "#fff7ed",
+              color: "#9a3412",
+              fontSize: "13px",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            ログアウト
+          </button>
+        </div>
       </div>
     </aside>
   );
