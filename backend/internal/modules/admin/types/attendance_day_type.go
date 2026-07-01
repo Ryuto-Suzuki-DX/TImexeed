@@ -31,6 +31,7 @@ type SearchAttendanceDaysResponse struct {
  * ・予定区分は attendance_types のIDを返す
  * ・実績状態は constants/attendance_status_constants.go の固定値を返す
  * ・実績状態は attendance_types のIDではない
+ * ・日別交通費は別テーブルで管理するため、このResponseには含めない
  */
 type AttendanceDayResponse struct {
 	ID     uint `json:"id"`
@@ -50,11 +51,6 @@ type AttendanceDayResponse struct {
 
 	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
 
-	TransportFrom   *string `json:"transportFrom"`
-	TransportTo     *string `json:"transportTo"`
-	TransportMethod *string `json:"transportMethod"`
-	TransportAmount *int    `json:"transportAmount"`
-
 	IsDeleted bool       `json:"isDeleted"`
 	CreatedAt time.Time  `json:"createdAt"`
 	UpdatedAt time.Time  `json:"updatedAt"`
@@ -70,6 +66,7 @@ type AttendanceDayResponse struct {
  * ・管理者APIでは targetUserId を request body で受け取る
  * ・予定区分は planAttendanceTypeId
  * ・実績状態は actualWorkStatus
+ * ・日別交通費は別テーブルで管理するため、このRequestには含めない
  */
 type UpdateAttendanceDayRequest struct {
 	TargetUserID uint   `json:"targetUserId"`
@@ -89,11 +86,6 @@ type UpdateAttendanceDayRequest struct {
 	ScheduledWorkMinutes *int `json:"scheduledWorkMinutes"`
 
 	RemoteWorkAllowanceFlag bool `json:"remoteWorkAllowanceFlag"`
-
-	TransportFrom   *string `json:"transportFrom"`
-	TransportTo     *string `json:"transportTo"`
-	TransportMethod *string `json:"transportMethod"`
-	TransportAmount *int    `json:"transportAmount"`
 }
 
 /*

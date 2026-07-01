@@ -5,7 +5,7 @@ import "time"
 /*
  * 〇 各日の勤怠
  *
- * 1日ごとの予定区分・予定時間・実績状態・実績時間・派遣先所定労働時間・日別交通費を管理するメインテーブル。
+ * 1日ごとの予定区分・予定時間・実績状態・実績時間・派遣先所定労働時間を管理するメインテーブル。
  *
  * このテーブルに入れるもの：
  * 	・予定区分
@@ -14,9 +14,9 @@ import "time"
  * 	・実績時間
  * 	・派遣先所定労働時間
  * 	・在宅勤務補助対象フラグ
- * 	・日別交通費
  *
  * このテーブルに入れないもの：
+ * 	・日別交通費
  * 	・月次申請状態
  * 	・月次承認状態
  * 	・申請メモ
@@ -30,6 +30,9 @@ import "time"
  * 	勤怠日別レコードは、あくまで「その日の勤怠データ」を持つ。
  * 	月次申請・承認の状態は MonthlyAttendanceRequest を見て判断する。
  *
+ * 	日別交通費は1日に複数件登録できるため、
+ * 	AttendanceDayには直接保存せず、日別交通費テーブルで管理する。
+ *
  * 	画面表示用システムメッセージや遅刻/早退などの表示は、
  * 	保存データではなく、予定・実績・所定労働時間・休憩・有給申請状態などから
  * 	画面表示時に計算して作る。
@@ -39,6 +42,7 @@ import "time"
  * 	実績状態は attendance_types ではなく constants/attendance_status_constants.go の固定値を保存する。
  *
  * 休憩は1日に複数回あるため、AttendanceBreak に分ける。
+ * 日別交通費は1日に複数件あるため、日別交通費用テーブルに分ける。
  * 月次通勤定期は月単位なので、MonthlyCommuterPass に分ける。
  */
 type AttendanceDay struct {
@@ -101,19 +105,6 @@ type AttendanceDay struct {
 	// 在宅勤務補助対象フラグ
 	// 他の派遣会社に勤めていて、且つ在宅勤務の場合に従業員が選択する。
 	RemoteWorkAllowanceFlag bool `gorm:"not null;default:false" json:"remoteWorkAllowanceFlag"`
-
-	// 日別交通費：出発地
-	TransportFrom *string `gorm:"type:varchar(100)" json:"transportFrom"`
-
-	// 日別交通費：目的地
-	TransportTo *string `gorm:"type:varchar(100)" json:"transportTo"`
-
-	// 日別交通費：手段
-	// 例：電車、バス、徒歩、車
-	TransportMethod *string `gorm:"type:varchar(50)" json:"transportMethod"`
-
-	// 日別交通費：金額
-	TransportAmount *int `json:"transportAmount"`
 
 	// 論理削除フラグ
 	IsDeleted bool `gorm:"not null;default:false" json:"isDeleted"`

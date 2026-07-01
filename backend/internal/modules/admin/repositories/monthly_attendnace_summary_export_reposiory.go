@@ -24,6 +24,7 @@ type MonthlyAttendanceSummaryExportRepository interface {
 	FindMonthlyAttendanceRequests(userIDs []uint, targetYear int, targetMonth int) (map[uint]models.MonthlyAttendanceRequest, results.Result)
 	FindAttendanceDays(userIDs []uint, fromDate time.Time, toDate time.Time) ([]models.AttendanceDay, results.Result)
 	FindAttendanceBreaks(attendanceDayIDs []uint) (map[uint][]models.AttendanceBreak, results.Result)
+	FindAttendanceTransportExpenses(attendanceDayIDs []uint) (map[uint][]models.AttendanceTransportExpense, results.Result)
 	FindMonthlyCommuterPasses(userIDs []uint, targetYear int, targetMonth int) (map[uint]models.MonthlyCommuterPass, results.Result)
 	FindUserSalaryDetails(userIDs []uint, targetMonthStart time.Time, targetMonthEnd time.Time) (map[uint]models.UserSalaryDetail, results.Result)
 	FindPaidLeaveUsages(userIDs []uint, targetMonthStart time.Time, targetMonthEnd time.Time) (map[uint][]models.PaidLeaveUsage, results.Result)
@@ -251,6 +252,59 @@ func (repository *monthlyAttendanceSummaryExportRepository) FindAttendanceBreaks
 	return attendanceBreakMap, results.OK(
 		nil,
 		"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_ATTENDANCE_BREAKS_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 日別交通費取得
+ *
+ * AttendanceDayIDごとに日別交通費明細をまとめて返す。
+ *
+ * 注意：
+ * ・論理削除済みの明細は対象外
+ * ・金額や件数の集計はServiceで行う
+ */
+func (repository *monthlyAttendanceSummaryExportRepository) FindAttendanceTransportExpenses(
+	attendanceDayIDs []uint,
+) (map[uint][]models.AttendanceTransportExpense, results.Result) {
+	attendanceTransportExpenseMap := map[uint][]models.AttendanceTransportExpense{}
+
+	if len(attendanceDayIDs) == 0 {
+		return attendanceTransportExpenseMap, results.OK(
+			nil,
+			"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_TRANSPORT_EXPENSES_EMPTY",
+			"",
+			nil,
+		)
+	}
+
+	var attendanceTransportExpenses []models.AttendanceTransportExpense
+	if err := repository.db.
+		Where("is_deleted = false").
+		Where("attendance_day_id IN ?", attendanceDayIDs).
+		Order("attendance_day_id ASC, sort_order ASC, id ASC").
+		Find(&attendanceTransportExpenses).Error; err != nil {
+		return nil, results.BadRequest(
+			"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_TRANSPORT_EXPENSES_FAILED",
+			"日別交通費の取得に失敗しました",
+			map[string]any{
+				"error": err.Error(),
+			},
+		)
+	}
+
+	for _, attendanceTransportExpense := range attendanceTransportExpenses {
+		attendanceTransportExpenseMap[attendanceTransportExpense.AttendanceDayID] = append(
+			attendanceTransportExpenseMap[attendanceTransportExpense.AttendanceDayID],
+			attendanceTransportExpense,
+		)
+	}
+
+	return attendanceTransportExpenseMap, results.OK(
+		nil,
+		"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_TRANSPORT_EXPENSES_SUCCESS",
 		"",
 		nil,
 	)

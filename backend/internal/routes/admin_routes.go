@@ -85,6 +85,17 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	attendanceDayService := services.NewAttendanceDayService(attendanceDayBuilder, attendanceDayRepository, attendanceTypeRepository, monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
 	attendanceDayController := controllers.NewAttendanceDayController(attendanceDayService)
 
+	// 日別交通費
+	attendanceTransportExpenseBuilder := builders.NewAttendanceTransportExpenseBuilder(db)
+	attendanceTransportExpenseRepository := repositories.NewAttendanceTransportExpenseRepository(db)
+	attendanceTransportExpenseService := services.NewAttendanceTransportExpenseService(
+		attendanceTransportExpenseBuilder,
+		attendanceTransportExpenseRepository,
+		attendanceDayBuilder,
+		attendanceDayRepository,
+	)
+	attendanceTransportExpenseController := controllers.NewAttendanceTransportExpenseController(attendanceTransportExpenseService)
+
 	// 休憩
 	attendanceBreakBuilder := builders.NewAttendanceBreakBuilder(db)
 	attendanceBreakRepository := repositories.NewAttendanceBreakRepository(db)
@@ -134,7 +145,14 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	notificationReminderController := controllers.NewNotificationReminderController(notificationReminderService)
 
 	// 月次勤怠全体保存
-	monthlyAttendanceSaveService := services.NewMonthlyAttendanceSaveService(attendanceDayService, attendanceBreakService, monthlyCommuterPassService, attendanceTypeService, paidLeaveUsageService)
+	monthlyAttendanceSaveService := services.NewMonthlyAttendanceSaveService(
+		attendanceDayService,
+		attendanceTransportExpenseService,
+		attendanceBreakService,
+		monthlyCommuterPassService,
+		attendanceTypeService,
+		paidLeaveUsageService,
+	)
 	monthlyAttendanceSaveController := controllers.NewMonthlyAttendanceSaveController(monthlyAttendanceSaveService)
 
 	// 月次勤怠集計CSV出力
@@ -204,6 +222,9 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 
 		// 勤怠
 		admin.POST("/attendance-days/search", attendanceDayController.SearchAttendanceDays)
+
+		// 日別交通費
+		admin.POST("/attendance-transport-expenses/search", attendanceTransportExpenseController.SearchAttendanceTransportExpenses)
 
 		// 休憩
 		admin.POST("/attendance-breaks/search", attendanceBreakController.SearchAttendanceBreaks)

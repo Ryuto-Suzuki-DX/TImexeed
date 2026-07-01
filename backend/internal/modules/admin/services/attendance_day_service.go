@@ -21,6 +21,7 @@ import (
  * ・管理者APIでは対象ユーザーIDを targetUserId としてRequestで受け取る
  * ・ControllerではJWTのuserIdを対象ユーザーIDとして使わない
  * ・AttendanceDay は申請状態を持たない
+ * ・AttendanceDay は日別交通費を持たない
  * ・管理者側では MonthlyAttendanceRequest の状態による編集ロックを行わない
  * ・予定区分は attendance_types を使う
  * ・実績状態は constants/attendance_status_constants.go の固定値を使う
@@ -49,6 +50,10 @@ type AttendanceDayService interface {
  * ・MonthlyAttendanceRequest が存在しない場合は未申請扱いにする
  * ・管理者側では月次申請状態を表示用として返す
  * ・管理者側では月次申請状態による編集ロックを行わない
+ *
+ * 日別交通費管理：
+ * ・AttendanceDayには日別交通費を保存しない
+ * ・日別交通費は専用テーブルと専用Service側で管理する
  *
  * 画面表示用メッセージ方針：
  * ・AttendanceDay には SystemMessage を保存しない
@@ -95,7 +100,9 @@ func NewAttendanceDayService(
  * 未指定の場合は NORMAL とする。
  * 指定された場合は constants.ActualWorkStatusLabels に存在する値だけ許可する。
  */
-func normalizeActualWorkStatus(actualWorkStatus *string) (string, results.Result) {
+func normalizeActualWorkStatus(
+	actualWorkStatus *string,
+) (string, results.Result) {
 	if actualWorkStatus == nil || *actualWorkStatus == "" {
 		return constants.ActualWorkStatusNormal, results.OK(
 			nil,
@@ -129,13 +136,18 @@ func normalizeActualWorkStatus(actualWorkStatus *string) (string, results.Result
  * AttendanceDay は申請状態を持たない。
  * 月次申請状態は SearchAttendanceDaysResponse の上位に載せる。
  *
+ * 日別交通費は別テーブルで管理するため、
+ * AttendanceDayResponseには含めない。
+ *
  * 注意：
  * ・AttendanceDay model から SystemMessage は削除済み
  * ・ここでは SystemMessage を詰めない
  * ・予定区分は PlanAttendanceTypeID
  * ・実績状態は ActualWorkStatus
  */
-func toAttendanceDayResponse(attendanceDay models.AttendanceDay) types.AttendanceDayResponse {
+func toAttendanceDayResponse(
+	attendanceDay models.AttendanceDay,
+) types.AttendanceDayResponse {
 	return types.AttendanceDayResponse{
 		ID:     attendanceDay.ID,
 		UserID: attendanceDay.UserID,
@@ -153,11 +165,6 @@ func toAttendanceDayResponse(attendanceDay models.AttendanceDay) types.Attendanc
 		ScheduledWorkMinutes: attendanceDay.ScheduledWorkMinutes,
 
 		RemoteWorkAllowanceFlag: attendanceDay.RemoteWorkAllowanceFlag,
-
-		TransportFrom:   attendanceDay.TransportFrom,
-		TransportTo:     attendanceDay.TransportTo,
-		TransportMethod: attendanceDay.TransportMethod,
-		TransportAmount: attendanceDay.TransportAmount,
 
 		IsDeleted: attendanceDay.IsDeleted,
 		CreatedAt: attendanceDay.CreatedAt,
@@ -180,36 +187,49 @@ func (service *attendanceDayService) getMonthlyAttendanceRequestResponse(
 	targetYear int,
 	targetMonth int,
 ) (types.MonthlyAttendanceRequestResponse, results.Result) {
-	query, buildResult := service.monthlyAttendanceRequestBuilder.BuildFindMonthlyAttendanceRequestByUserIDAndTargetYearMonthQuery(
-		targetUserID,
-		targetYear,
-		targetMonth,
-	)
+	query, buildResult :=
+		service.monthlyAttendanceRequestBuilder.
+			BuildFindMonthlyAttendanceRequestByUserIDAndTargetYearMonthQuery(
+				targetUserID,
+				targetYear,
+				targetMonth,
+			)
 	if buildResult.Error {
 		return types.MonthlyAttendanceRequestResponse{}, buildResult
 	}
 
-	monthlyAttendanceRequest, findResult := service.monthlyAttendanceRequestRepository.FindMonthlyAttendanceRequest(query)
+	monthlyAttendanceRequest, findResult :=
+		service.monthlyAttendanceRequestRepository.
+			FindMonthlyAttendanceRequest(query)
 
-	if findResult.Error && findResult.Code == "MONTHLY_ATTENDANCE_REQUEST_NOT_FOUND" {
-		return toNotSubmittedMonthlyAttendanceRequestResponse(targetUserID, targetYear, targetMonth), results.OK(
-			nil,
-			"GET_MONTHLY_ATTENDANCE_REQUEST_FOR_ATTENDANCE_DAY_NOT_SUBMITTED",
-			"",
-			nil,
-		)
+	if findResult.Error &&
+		findResult.Code == "MONTHLY_ATTENDANCE_REQUEST_NOT_FOUND" {
+		return toNotSubmittedMonthlyAttendanceRequestResponse(
+				targetUserID,
+				targetYear,
+				targetMonth,
+			),
+			results.OK(
+				nil,
+				"GET_MONTHLY_ATTENDANCE_REQUEST_FOR_ATTENDANCE_DAY_NOT_SUBMITTED",
+				"",
+				nil,
+			)
 	}
 
 	if findResult.Error {
 		return types.MonthlyAttendanceRequestResponse{}, findResult
 	}
 
-	return toMonthlyAttendanceRequestResponse(monthlyAttendanceRequest), results.OK(
-		nil,
-		"GET_MONTHLY_ATTENDANCE_REQUEST_FOR_ATTENDANCE_DAY_SUCCESS",
-		"",
-		nil,
-	)
+	return toMonthlyAttendanceRequestResponse(
+			monthlyAttendanceRequest,
+		),
+		results.OK(
+			nil,
+			"GET_MONTHLY_ATTENDANCE_REQUEST_FOR_ATTENDANCE_DAY_SUCCESS",
+			"",
+			nil,
+		)
 }
 
 /*
@@ -251,28 +271,39 @@ func (service *attendanceDayService) SearchAttendanceDays(
 		)
 	}
 
-	monthlyAttendanceRequestResponse, monthlyAttendanceRequestResult := service.getMonthlyAttendanceRequestResponse(
-		req.TargetUserID,
-		req.TargetYear,
-		req.TargetMonth,
-	)
+	monthlyAttendanceRequestResponse,
+		monthlyAttendanceRequestResult :=
+		service.getMonthlyAttendanceRequestResponse(
+			req.TargetUserID,
+			req.TargetYear,
+			req.TargetMonth,
+		)
 	if monthlyAttendanceRequestResult.Error {
 		return monthlyAttendanceRequestResult
 	}
 
-	query, buildResult := service.attendanceDayBuilder.BuildSearchAttendanceDaysQuery(req)
+	query, buildResult :=
+		service.attendanceDayBuilder.
+			BuildSearchAttendanceDaysQuery(req)
 	if buildResult.Error {
 		return buildResult
 	}
 
-	attendanceDays, findResult := service.attendanceDayRepository.FindAttendanceDays(query)
+	attendanceDays, findResult :=
+		service.attendanceDayRepository.
+			FindAttendanceDays(query)
 	if findResult.Error {
 		return findResult
 	}
 
-	attendanceDayResponses := make([]types.AttendanceDayResponse, 0, len(attendanceDays))
+	attendanceDayResponses :=
+		make([]types.AttendanceDayResponse, 0, len(attendanceDays))
+
 	for _, attendanceDay := range attendanceDays {
-		attendanceDayResponses = append(attendanceDayResponses, toAttendanceDayResponse(attendanceDay))
+		attendanceDayResponses = append(
+			attendanceDayResponses,
+			toAttendanceDayResponse(attendanceDay),
+		)
 	}
 
 	return results.OK(
@@ -300,7 +331,8 @@ func (service *attendanceDayService) SearchAttendanceDays(
  * ・存在しなければ新規作成する
  * ・存在すれば更新する
  * ・休日は予定にも実績にも時間を保存しない
- * ・休日は派遣先所定労働時間、日別交通費、在宅勤務補助も保存しない
+ * ・休日は派遣先所定労働時間、在宅勤務補助も保存しない
+ * ・日別交通費はAttendanceDayでは保存しない
  * ・syncPlanActual = true の予定区分は開始/終了ではなく派遣先所定労働時間で扱う
  * ・実績状態を選択できるのは通常勤務などの開始/終了を持てる予定区分だけとする
  * ・休日、syncPlanActual = true の予定区分では実績状態を NORMAL 固定で保存する
@@ -334,12 +366,15 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		)
 	}
 
-	attendanceType, findAttendanceTypeResult := service.attendanceTypeRepository.FindAttendanceTypeByID(req.PlanAttendanceTypeID)
+	attendanceType, findAttendanceTypeResult :=
+		service.attendanceTypeRepository.
+			FindAttendanceTypeByID(req.PlanAttendanceTypeID)
 	if findAttendanceTypeResult.Error {
 		return findAttendanceTypeResult
 	}
 
-	actualWorkStatus, actualWorkStatusResult := normalizeActualWorkStatus(req.ActualWorkStatus)
+	actualWorkStatus, actualWorkStatusResult :=
+		normalizeActualWorkStatus(req.ActualWorkStatus)
 	if actualWorkStatusResult.Error {
 		return actualWorkStatusResult
 	}
@@ -353,7 +388,10 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 	 * 休日の場合
 	 *
 	 * 休日だけは予定にも実績にも時間を保存しない。
-	 * 派遣先所定労働時間、日別交通費、在宅勤務補助も保存しない。
+	 * 派遣先所定労働時間、在宅勤務補助も保存しない。
+	 *
+	 * 日別交通費はAttendanceDayとは別管理のため、
+	 * ここでは操作しない。
 	 */
 	if attendanceType.Code == "HOLIDAY" {
 		actualWorkStatus = constants.ActualWorkStatusNormal
@@ -377,11 +415,6 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		req.ScheduledWorkMinutes = nil
 
 		req.RemoteWorkAllowanceFlag = false
-
-		req.TransportFrom = nil
-		req.TransportTo = nil
-		req.TransportMethod = nil
-		req.TransportAmount = nil
 	} else if attendanceType.SyncPlanActual {
 		/*
 		 * 予定・実績同期対象の場合
@@ -417,7 +450,8 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		 * 予定/実績時刻は任意。
 		 * 派遣先所定労働時間を残業・不足などの基準として扱う。
 		 */
-		parsedPlanStartAt, err := utils.ParseOptionalDateTime(req.PlanStartAt)
+		parsedPlanStartAt, err :=
+			utils.ParseOptionalDateTime(req.PlanStartAt)
 		if err != nil {
 			return results.BadRequest(
 				"UPDATE_ATTENDANCE_DAY_INVALID_PLAN_START_AT",
@@ -429,7 +463,8 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 			)
 		}
 
-		parsedPlanEndAt, err := utils.ParseOptionalDateTime(req.PlanEndAt)
+		parsedPlanEndAt, err :=
+			utils.ParseOptionalDateTime(req.PlanEndAt)
 		if err != nil {
 			return results.BadRequest(
 				"UPDATE_ATTENDANCE_DAY_INVALID_PLAN_END_AT",
@@ -441,7 +476,8 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 			)
 		}
 
-		parsedActualStartAt, err := utils.ParseOptionalDateTime(req.ActualStartAt)
+		parsedActualStartAt, err :=
+			utils.ParseOptionalDateTime(req.ActualStartAt)
 		if err != nil {
 			return results.BadRequest(
 				"UPDATE_ATTENDANCE_DAY_INVALID_ACTUAL_START_AT",
@@ -453,7 +489,8 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 			)
 		}
 
-		parsedActualEndAt, err := utils.ParseOptionalDateTime(req.ActualEndAt)
+		parsedActualEndAt, err :=
+			utils.ParseOptionalDateTime(req.ActualEndAt)
 		if err != nil {
 			return results.BadRequest(
 				"UPDATE_ATTENDANCE_DAY_INVALID_ACTUAL_END_AT",
@@ -471,35 +508,49 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		actualEndAt = parsedActualEndAt
 	}
 
-	findQuery, buildFindResult := service.attendanceDayBuilder.BuildFindAttendanceDayByUserIDAndWorkDateQuery(req.TargetUserID, workDate)
+	findQuery, buildFindResult :=
+		service.attendanceDayBuilder.
+			BuildFindAttendanceDayByUserIDAndWorkDateQuery(
+				req.TargetUserID,
+				workDate,
+			)
 	if buildFindResult.Error {
 		return buildFindResult
 	}
 
-	currentAttendanceDay, findResult := service.attendanceDayRepository.FindAttendanceDay(findQuery)
+	currentAttendanceDay, findResult :=
+		service.attendanceDayRepository.
+			FindAttendanceDay(findQuery)
 
-	if findResult.Error && findResult.Code == "ATTENDANCE_DAY_NOT_FOUND" {
-		attendanceDay, buildCreateResult := service.attendanceDayBuilder.BuildCreateAttendanceDayModel(
-			req,
-			workDate,
-			planStartAt,
-			planEndAt,
-			actualStartAt,
-			actualEndAt,
-			actualWorkStatus,
-		)
+	if findResult.Error &&
+		findResult.Code == "ATTENDANCE_DAY_NOT_FOUND" {
+		attendanceDay, buildCreateResult :=
+			service.attendanceDayBuilder.
+				BuildCreateAttendanceDayModel(
+					req,
+					workDate,
+					planStartAt,
+					planEndAt,
+					actualStartAt,
+					actualEndAt,
+					actualWorkStatus,
+				)
 		if buildCreateResult.Error {
 			return buildCreateResult
 		}
 
-		createdAttendanceDay, createResult := service.attendanceDayRepository.CreateAttendanceDay(attendanceDay)
+		createdAttendanceDay, createResult :=
+			service.attendanceDayRepository.
+				CreateAttendanceDay(attendanceDay)
 		if createResult.Error {
 			return createResult
 		}
 
 		return results.Created(
 			types.UpdateAttendanceDayResponse{
-				AttendanceDay: toAttendanceDayResponse(createdAttendanceDay),
+				AttendanceDay: toAttendanceDayResponse(
+					createdAttendanceDay,
+				),
 			},
 			"CREATE_ATTENDANCE_DAY_SUCCESS",
 			"勤怠を作成しました",
@@ -511,28 +562,34 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 		return findResult
 	}
 
-	attendanceDay, buildUpdateResult := service.attendanceDayBuilder.BuildUpdateAttendanceDayModel(
-		currentAttendanceDay,
-		req,
-		workDate,
-		planStartAt,
-		planEndAt,
-		actualStartAt,
-		actualEndAt,
-		actualWorkStatus,
-	)
+	attendanceDay, buildUpdateResult :=
+		service.attendanceDayBuilder.
+			BuildUpdateAttendanceDayModel(
+				currentAttendanceDay,
+				req,
+				workDate,
+				planStartAt,
+				planEndAt,
+				actualStartAt,
+				actualEndAt,
+				actualWorkStatus,
+			)
 	if buildUpdateResult.Error {
 		return buildUpdateResult
 	}
 
-	savedAttendanceDay, saveResult := service.attendanceDayRepository.SaveAttendanceDay(attendanceDay)
+	savedAttendanceDay, saveResult :=
+		service.attendanceDayRepository.
+			SaveAttendanceDay(attendanceDay)
 	if saveResult.Error {
 		return saveResult
 	}
 
 	return results.OK(
 		types.UpdateAttendanceDayResponse{
-			AttendanceDay: toAttendanceDayResponse(savedAttendanceDay),
+			AttendanceDay: toAttendanceDayResponse(
+				savedAttendanceDay,
+			),
 		},
 		"UPDATE_ATTENDANCE_DAY_SUCCESS",
 		"勤怠を更新しました",
@@ -574,22 +631,33 @@ func (service *attendanceDayService) DeleteAttendanceDay(
 		)
 	}
 
-	findQuery, buildFindResult := service.attendanceDayBuilder.BuildFindAttendanceDayByUserIDAndWorkDateQuery(req.TargetUserID, workDate)
+	findQuery, buildFindResult :=
+		service.attendanceDayBuilder.
+			BuildFindAttendanceDayByUserIDAndWorkDateQuery(
+				req.TargetUserID,
+				workDate,
+			)
 	if buildFindResult.Error {
 		return buildFindResult
 	}
 
-	currentAttendanceDay, findResult := service.attendanceDayRepository.FindAttendanceDay(findQuery)
+	currentAttendanceDay, findResult :=
+		service.attendanceDayRepository.
+			FindAttendanceDay(findQuery)
 	if findResult.Error {
 		return findResult
 	}
 
-	deletedAttendanceDay, buildDeleteResult := service.attendanceDayBuilder.BuildDeleteAttendanceDayModel(currentAttendanceDay)
+	deletedAttendanceDay, buildDeleteResult :=
+		service.attendanceDayBuilder.
+			BuildDeleteAttendanceDayModel(currentAttendanceDay)
 	if buildDeleteResult.Error {
 		return buildDeleteResult
 	}
 
-	_, saveResult := service.attendanceDayRepository.SaveAttendanceDay(deletedAttendanceDay)
+	_, saveResult :=
+		service.attendanceDayRepository.
+			SaveAttendanceDay(deletedAttendanceDay)
 	if saveResult.Error {
 		return saveResult
 	}

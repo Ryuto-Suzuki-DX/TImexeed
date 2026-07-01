@@ -19,7 +19,7 @@ type MonthlyAttendanceSaveService interface {
  *
  * 役割：
  * ・月次勤怠画面の全体保存をまとめて処理する
- * ・月次通勤定期、勤怠日、休憩を分解して既存Serviceへ渡す
+ * ・月次通勤定期、勤怠日、日別交通費、休憩を分解して既存Serviceへ渡す
  * ・Serviceで発生したエラーはServiceでcode/message/detailsを作る
  * ・既存Serviceから返されたエラーはそのまま返す
  *
@@ -39,11 +39,12 @@ type MonthlyAttendanceSaveService interface {
  * ・残業、深夜勤務、有給申請中、承認済みなどは表示時に組み立てる
  */
 type monthlyAttendanceSaveService struct {
-	attendanceDayService       AttendanceDayService
-	attendanceBreakService     AttendanceBreakService
-	monthlyCommuterPassService MonthlyCommuterPassService
-	attendanceTypeService      AttendanceTypeService
-	paidLeaveService           PaidLeaveService
+	attendanceDayService              AttendanceDayService
+	attendanceTransportExpenseService AttendanceTransportExpenseService
+	attendanceBreakService            AttendanceBreakService
+	monthlyCommuterPassService        MonthlyCommuterPassService
+	attendanceTypeService             AttendanceTypeService
+	paidLeaveService                  PaidLeaveService
 }
 
 /*
@@ -51,17 +52,19 @@ type monthlyAttendanceSaveService struct {
  */
 func NewMonthlyAttendanceSaveService(
 	attendanceDayService AttendanceDayService,
+	attendanceTransportExpenseService AttendanceTransportExpenseService,
 	attendanceBreakService AttendanceBreakService,
 	monthlyCommuterPassService MonthlyCommuterPassService,
 	attendanceTypeService AttendanceTypeService,
 	paidLeaveService PaidLeaveService,
 ) *monthlyAttendanceSaveService {
 	return &monthlyAttendanceSaveService{
-		attendanceDayService:       attendanceDayService,
-		attendanceBreakService:     attendanceBreakService,
-		monthlyCommuterPassService: monthlyCommuterPassService,
-		attendanceTypeService:      attendanceTypeService,
-		paidLeaveService:           paidLeaveService,
+		attendanceDayService:              attendanceDayService,
+		attendanceTransportExpenseService: attendanceTransportExpenseService,
+		attendanceBreakService:            attendanceBreakService,
+		monthlyCommuterPassService:        monthlyCommuterPassService,
+		attendanceTypeService:             attendanceTypeService,
+		paidLeaveService:                  paidLeaveService,
 	}
 }
 
@@ -71,8 +74,9 @@ func NewMonthlyAttendanceSaveService(
  * 保存順：
  * 1. 月次通勤定期
  * 2. 日別勤怠
- * 3. 既存休憩削除
- * 4. 休憩作成
+ * 3. 日別交通費
+ * 4. 既存休憩削除
+ * 5. 休憩作成
  *
  * 現時点の休憩方針：
  * ・画面に残っている休憩だけを正とする
@@ -138,6 +142,7 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 
 	savedMonthlyCommuterPass := false
 	savedAttendanceDayCount := 0
+	savedAttendanceTransportExpenseCount := 0
 	savedAttendanceBreakCount := 0
 
 	/*
@@ -189,11 +194,6 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 				ScheduledWorkMinutes: attendanceDayReq.ScheduledWorkMinutes,
 
 				RemoteWorkAllowanceFlag: attendanceDayReq.RemoteWorkAllowanceFlag,
-
-				TransportFrom:   attendanceDayReq.TransportFrom,
-				TransportTo:     attendanceDayReq.TransportTo,
-				TransportMethod: attendanceDayReq.TransportMethod,
-				TransportAmount: attendanceDayReq.TransportAmount,
 			},
 		)
 
@@ -204,7 +204,64 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 		savedAttendanceDayCount++
 
 		/*
-		 * 3. 既存休憩を検索して削除する
+		 * 3. 日別交通費を差分保存する
+		 */
+		transportExpenseRequests := make(
+			[]types.UpdateAttendanceTransportExpensesByWorkDateExpenseRequest,
+			0,
+			len(attendanceDayReq.TransportExpenses),
+		)
+
+		for index, transportExpenseReq := range attendanceDayReq.TransportExpenses {
+			sortOrder := transportExpenseReq.SortOrder
+			if sortOrder <= 0 {
+				sortOrder = index + 1
+			}
+
+			transportExpenseRequests = append(
+				transportExpenseRequests,
+				types.UpdateAttendanceTransportExpensesByWorkDateExpenseRequest{
+					AttendanceTransportExpenseID: transportExpenseReq.AttendanceTransportExpenseID,
+					SortOrder:                    sortOrder,
+					TransportFrom:                transportExpenseReq.TransportFrom,
+					TransportTo:                  transportExpenseReq.TransportTo,
+					TransportMethod:              transportExpenseReq.TransportMethod,
+					TransportAmount:              transportExpenseReq.TransportAmount,
+					TransportMemo:                transportExpenseReq.TransportMemo,
+				},
+			)
+		}
+
+		updateAttendanceTransportExpensesResult :=
+			service.attendanceTransportExpenseService.UpdateAttendanceTransportExpensesByWorkDate(
+				userID,
+				types.UpdateAttendanceTransportExpensesByWorkDateRequest{
+					WorkDate:          attendanceDayReq.WorkDate,
+					TransportExpenses: transportExpenseRequests,
+				},
+			)
+
+		if updateAttendanceTransportExpensesResult.Error {
+			return updateAttendanceTransportExpensesResult
+		}
+
+		updateAttendanceTransportExpensesResponse, ok :=
+			updateAttendanceTransportExpensesResult.Data.(types.UpdateAttendanceTransportExpensesByWorkDateResponse)
+		if !ok {
+			return results.InternalServerError(
+				"UPDATE_MONTHLY_ATTENDANCE_INVALID_TRANSPORT_EXPENSE_UPDATE_RESPONSE",
+				"日別交通費保存結果の形式が正しくありません",
+				map[string]any{
+					"workDate": attendanceDayReq.WorkDate,
+				},
+			)
+		}
+
+		savedAttendanceTransportExpenseCount +=
+			updateAttendanceTransportExpensesResponse.SavedAttendanceTransportExpenseCount
+
+		/*
+		 * 4. 既存休憩を検索して削除する
 		 *
 		 * 月次勤怠画面では、画面に残っている休憩だけを正とする。
 		 * そのため、対象日の休憩は一旦すべて削除し、後続で作り直す。
@@ -251,7 +308,7 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 		}
 
 		/*
-		 * 4. リクエストで送られた休憩を作成する
+		 * 5. リクエストで送られた休憩を作成する
 		 */
 		for _, attendanceBreakReq := range attendanceDayReq.Breaks {
 			createAttendanceBreakResult := service.attendanceBreakService.CreateAttendanceBreak(
@@ -274,11 +331,12 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 
 	return results.OK(
 		types.UpdateMonthlyAttendanceResponse{
-			TargetYear:                req.TargetYear,
-			TargetMonth:               req.TargetMonth,
-			SavedMonthlyCommuterPass:  savedMonthlyCommuterPass,
-			SavedAttendanceDayCount:   savedAttendanceDayCount,
-			SavedAttendanceBreakCount: savedAttendanceBreakCount,
+			TargetYear:                           req.TargetYear,
+			TargetMonth:                          req.TargetMonth,
+			SavedMonthlyCommuterPass:             savedMonthlyCommuterPass,
+			SavedAttendanceDayCount:              savedAttendanceDayCount,
+			SavedAttendanceTransportExpenseCount: savedAttendanceTransportExpenseCount,
+			SavedAttendanceBreakCount:            savedAttendanceBreakCount,
 		},
 		"UPDATE_MONTHLY_ATTENDANCE_SUCCESS",
 		"月次勤怠を全体保存しました",

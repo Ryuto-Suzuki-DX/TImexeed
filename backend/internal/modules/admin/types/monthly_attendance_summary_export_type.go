@@ -267,6 +267,7 @@ type MonthlyAttendanceSummaryWorkRow struct {
 	EarlyLeaveMinutes int
 
 	TransportAmount int
+	TransportCount  int
 
 	Warnings []string
 }

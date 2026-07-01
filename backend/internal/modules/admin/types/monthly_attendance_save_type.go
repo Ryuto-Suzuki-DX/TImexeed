@@ -8,6 +8,7 @@ package types
  * 保存対象：
  * ・月次通勤定期
  * ・日別勤怠
+ * ・日別交通費
  * ・日別休憩
  *
  * 重要：
@@ -19,6 +20,7 @@ package types
  * ・このRequestをControllerでbindする
  * ・Service側で既存のadmin用Serviceへ処理を振り分ける
  * ・日別勤怠は AttendanceDayService.UpdateAttendanceDay を使う
+ * ・日別交通費は AttendanceTransportExpenseService.UpdateAttendanceTransportExpensesByWorkDate を使う
  * ・休憩は AttendanceBreakService.UpdateAttendanceBreaksByWorkDate を使う
  * ・月次通勤定期は MonthlyCommuterPassService.UpdateMonthlyCommuterPass を使う
  *
@@ -75,6 +77,7 @@ type UpdateMonthlyAttendanceCommuterPassRequest struct {
  * ・予定区分は PlanAttendanceTypeID
  * ・実績状態は ActualWorkStatus
  * ・ActualAttendanceTypeID は使わない
+ * ・日別交通費はTransportExpensesで複数件受け取る
  */
 type UpdateMonthlyAttendanceDayRequest struct {
 	// 対象日
@@ -135,20 +138,58 @@ type UpdateMonthlyAttendanceDayRequest struct {
 	// ・Service側では使わない
 	RequestMemo *string `json:"requestMemo"`
 
-	// 日別交通費：出発地
-	TransportFrom *string `json:"transportFrom"`
-
-	// 日別交通費：目的地
-	TransportTo *string `json:"transportTo"`
-
-	// 日別交通費：手段
-	TransportMethod *string `json:"transportMethod"`
-
-	// 日別交通費：金額
-	TransportAmount *int `json:"transportAmount"`
+	// 日別交通費一覧
+	//
+	// 方針：
+	// ・画面に残っている交通費明細だけ送る
+	// ・保存時は差分保存する
+	// ・attendanceTransportExpenseId がある明細は更新する
+	// ・attendanceTransportExpenseId がない明細は新規作成する
+	// ・DBに存在するがRequestから消えた明細は論理削除する
+	TransportExpenses []UpdateMonthlyAttendanceTransportExpenseRequest `json:"transportExpenses"`
 
 	// 休憩一覧
 	Breaks []UpdateMonthlyAttendanceBreakRequest `json:"breaks"`
+}
+
+/*
+ * 〇 管理者 月次勤怠全体保存：日別交通費
+ *
+ * 方針：
+ * ・画面に残っている日別交通費だけ送る
+ * ・保存時は差分保存する
+ * ・attendanceTransportExpenseId がある明細は更新する
+ * ・attendanceTransportExpenseId がない明細は新規作成する
+ * ・DBに存在するがリクエストから消えた明細は論理削除する
+ *
+ * 注意：
+ * ・targetUserId / workDate は親の日別勤怠Requestから引き継ぐ
+ * ・Service側で UpdateAttendanceTransportExpensesByWorkDateExpenseRequest へ詰め替える
+ */
+type UpdateMonthlyAttendanceTransportExpenseRequest struct {
+	// 日別交通費ID
+	// 新規作成の場合は nil
+	AttendanceTransportExpenseID *uint `json:"attendanceTransportExpenseId"`
+
+	// 表示順
+	//
+	// 0以下の場合はService側で配列順から自動設定する。
+	SortOrder int `json:"sortOrder"`
+
+	// 出発地
+	TransportFrom string `json:"transportFrom" binding:"required"`
+
+	// 目的地
+	TransportTo string `json:"transportTo" binding:"required"`
+
+	// 交通手段
+	TransportMethod string `json:"transportMethod" binding:"required"`
+
+	// 金額
+	TransportAmount int `json:"transportAmount"`
+
+	// 備考
+	TransportMemo *string `json:"transportMemo"`
 }
 
 /*
@@ -190,7 +231,8 @@ type UpdateMonthlyAttendanceResponse struct {
 	TargetYear  int `json:"targetYear"`
 	TargetMonth int `json:"targetMonth"`
 
-	SavedMonthlyCommuterPass  bool `json:"savedMonthlyCommuterPass"`
-	SavedAttendanceDayCount   int  `json:"savedAttendanceDayCount"`
-	SavedAttendanceBreakCount int  `json:"savedAttendanceBreakCount"`
+	SavedMonthlyCommuterPass             bool `json:"savedMonthlyCommuterPass"`
+	SavedAttendanceDayCount              int  `json:"savedAttendanceDayCount"`
+	SavedAttendanceTransportExpenseCount int  `json:"savedAttendanceTransportExpenseCount"`
+	SavedAttendanceBreakCount            int  `json:"savedAttendanceBreakCount"`
 }

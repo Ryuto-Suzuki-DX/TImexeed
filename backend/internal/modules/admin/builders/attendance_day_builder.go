@@ -50,7 +50,9 @@ type AttendanceDayBuilder interface {
  * ・Builderでは変換済みの time.Time / *time.Time を受け取る
  * ・AttendanceDay は申請状態を持たない
  * ・AttendanceDay は画面表示用SystemMessageを持たない
+ * ・AttendanceDay は日別交通費を持たない
  * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
+ * ・日別交通費は専用テーブル側で管理する
  * ・管理者側では対象ユーザーIDを request body の targetUserId で受け取る
  * ・管理者側では月次申請状態による編集ロックを行わない
  * ・予定区分は attendance_types を参照する
@@ -111,7 +113,16 @@ func (builder *attendanceDayBuilder) BuildSearchAttendanceDaysQuery(
 		)
 	}
 
-	startDate := time.Date(req.TargetYear, time.Month(req.TargetMonth), 1, 0, 0, 0, 0, time.Local)
+	startDate := time.Date(
+		req.TargetYear,
+		time.Month(req.TargetMonth),
+		1,
+		0,
+		0,
+		0,
+		0,
+		time.Local,
+	)
 	endDate := startDate.AddDate(0, 1, 0)
 
 	query := builder.db.
@@ -187,6 +198,7 @@ func (builder *attendanceDayBuilder) BuildFindAttendanceDayByUserIDAndWorkDateQu
  *
  * 注意：
  * ・commonStartAt / commonEndAt はModelに持たせない
+ * ・日別交通費はAttendanceDayに持たせない
  * ・Service側で保存用の plan / actual 時刻へ変換済みの値を受け取る
  * ・AttendanceDay には申請状態を保存しない
  * ・AttendanceDay には画面表示用SystemMessageを保存しない
@@ -247,10 +259,6 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 		ActualEndAt:             actualEndAt,
 		ScheduledWorkMinutes:    req.ScheduledWorkMinutes,
 		RemoteWorkAllowanceFlag: req.RemoteWorkAllowanceFlag,
-		TransportFrom:           req.TransportFrom,
-		TransportTo:             req.TransportTo,
-		TransportMethod:         req.TransportMethod,
-		TransportAmount:         req.TransportAmount,
 		IsDeleted:               false,
 	}
 
@@ -269,6 +277,7 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
  *
  * 注意：
  * ・commonStartAt / commonEndAt はModelに持たせない
+ * ・日別交通費はAttendanceDayに持たせない
  * ・Service側で保存用の plan / actual 時刻へ変換済みの値を受け取る
  * ・AttendanceDay には申請状態を保存しない
  * ・AttendanceDay には画面表示用SystemMessageを保存しない
@@ -347,10 +356,6 @@ func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 	currentAttendanceDay.ActualEndAt = actualEndAt
 	currentAttendanceDay.ScheduledWorkMinutes = req.ScheduledWorkMinutes
 	currentAttendanceDay.RemoteWorkAllowanceFlag = req.RemoteWorkAllowanceFlag
-	currentAttendanceDay.TransportFrom = req.TransportFrom
-	currentAttendanceDay.TransportTo = req.TransportTo
-	currentAttendanceDay.TransportMethod = req.TransportMethod
-	currentAttendanceDay.TransportAmount = req.TransportAmount
 
 	return currentAttendanceDay, results.OK(
 		nil,

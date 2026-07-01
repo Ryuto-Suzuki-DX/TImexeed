@@ -26,6 +26,8 @@ func RunMigrations(db *gorm.DB) error {
 		&models.AttendanceType{},
 		// 勤怠/日
 		&models.AttendanceDay{},
+		// 勤怠/日別交通費
+		&models.AttendanceTransportExpense{},
 		// 休憩/日
 		&models.AttendanceBreak{},
 		// 通勤定期/月

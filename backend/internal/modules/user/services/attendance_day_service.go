@@ -150,11 +150,6 @@ func toAttendanceDayResponse(attendanceDay models.AttendanceDay) types.Attendanc
 
 		RemoteWorkAllowanceFlag: attendanceDay.RemoteWorkAllowanceFlag,
 
-		TransportFrom:   attendanceDay.TransportFrom,
-		TransportTo:     attendanceDay.TransportTo,
-		TransportMethod: attendanceDay.TransportMethod,
-		TransportAmount: attendanceDay.TransportAmount,
-
 		IsDeleted: attendanceDay.IsDeleted,
 		CreatedAt: attendanceDay.CreatedAt,
 		UpdatedAt: attendanceDay.UpdatedAt,
@@ -336,6 +331,7 @@ func (service *attendanceDayService) SearchAttendanceDays(
  * ・予定/実績の開始終了が未入力でも保存可能
  * ・実績状態が未指定の場合は NORMAL として保存する
  * ・夜勤は実績状態ではなく、actualStartAt / actualEndAt から集計時に深夜時間として計算する
+ * ・日別交通費は AttendanceTransportExpense の専用Serviceで保存する
  * ・更新可否は MonthlyAttendanceRequest を見て判断する
  */
 func (service *attendanceDayService) UpdateAttendanceDay(
@@ -392,7 +388,8 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 	 *
 	 * 休日だけは予定にも実績にも時間を保存しない。
 	 * 派遣先所定労働時間も保存しない。
-	 * 日別交通費、在宅勤務補助も保存しない。
+	 * 在宅勤務補助も保存しない。
+	 * 日別交通費は別Serviceで管理するため、この処理では扱わない。
 	 */
 	if attendanceType.Code == "HOLIDAY" {
 		actualWorkStatus = constants.ActualWorkStatusNormal
@@ -417,10 +414,6 @@ func (service *attendanceDayService) UpdateAttendanceDay(
 
 		req.RemoteWorkAllowanceFlag = false
 
-		req.TransportFrom = nil
-		req.TransportTo = nil
-		req.TransportMethod = nil
-		req.TransportAmount = nil
 	} else if attendanceType.SyncPlanActual {
 		/*
 		 * 予定・実績同期対象の場合

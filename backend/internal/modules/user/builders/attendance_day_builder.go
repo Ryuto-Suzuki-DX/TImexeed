@@ -55,6 +55,7 @@ type AttendanceDayBuilder interface {
  * ・画面表示用メッセージは、保存せずに表示時に組み立てる
  * ・予定区分は attendance_types を参照する
  * ・実績状態は constants の固定値を保存する
+ * ・日別交通費は AttendanceTransportExpense で管理し、AttendanceDayには保存しない
  */
 type attendanceDayBuilder struct {
 	db *gorm.DB
@@ -69,15 +70,6 @@ func NewAttendanceDayBuilder(db *gorm.DB) AttendanceDayBuilder {
 
 /*
  * 勤怠検索用クエリ作成
- *
- * 対象年月のログイン中ユーザー本人の勤怠を取得する。
- *
- * 注意：
- * ・userID はJWTから取得したログイン中ユーザーID
- * ・フロントから userId / targetUserId は受け取らない
- * ・論理削除済みの勤怠は対象外
- * ・予定区分だけ Preload する
- * ・実績状態はマスタではないため Preload しない
  */
 func (builder *attendanceDayBuilder) BuildSearchAttendanceDaysQuery(
 	userID uint,
@@ -87,9 +79,7 @@ func (builder *attendanceDayBuilder) BuildSearchAttendanceDaysQuery(
 		return nil, results.BadRequest(
 			"BUILD_SEARCH_ATTENDANCE_DAYS_QUERY_INVALID_USER_ID",
 			"勤怠検索条件の作成に失敗しました",
-			map[string]any{
-				"userId": userID,
-			},
+			map[string]any{"userId": userID},
 		)
 	}
 
@@ -97,9 +87,7 @@ func (builder *attendanceDayBuilder) BuildSearchAttendanceDaysQuery(
 		return nil, results.BadRequest(
 			"BUILD_SEARCH_ATTENDANCE_DAYS_QUERY_INVALID_TARGET_YEAR",
 			"勤怠検索条件の作成に失敗しました",
-			map[string]any{
-				"targetYear": req.TargetYear,
-			},
+			map[string]any{"targetYear": req.TargetYear},
 		)
 	}
 
@@ -107,9 +95,7 @@ func (builder *attendanceDayBuilder) BuildSearchAttendanceDaysQuery(
 		return nil, results.BadRequest(
 			"BUILD_SEARCH_ATTENDANCE_DAYS_QUERY_INVALID_TARGET_MONTH",
 			"勤怠検索条件の作成に失敗しました",
-			map[string]any{
-				"targetMonth": req.TargetMonth,
-			},
+			map[string]any{"targetMonth": req.TargetMonth},
 		)
 	}
 
@@ -136,14 +122,6 @@ func (builder *attendanceDayBuilder) BuildSearchAttendanceDaysQuery(
 
 /*
  * ユーザーID + 対象日で勤怠1件取得用クエリ作成
- *
- * 更新・削除時に使う。
- *
- * 注意：
- * ・userID はJWTから取得したログイン中ユーザーID
- * ・workDate はServiceで utils.ParseDate 済みの time.Time
- * ・論理削除済みの勤怠は対象外
- * ・予定区分だけ Preload する
  */
 func (builder *attendanceDayBuilder) BuildFindAttendanceDayByUserIDAndWorkDateQuery(
 	userID uint,
@@ -153,9 +131,7 @@ func (builder *attendanceDayBuilder) BuildFindAttendanceDayByUserIDAndWorkDateQu
 		return nil, results.BadRequest(
 			"BUILD_FIND_ATTENDANCE_DAY_QUERY_INVALID_USER_ID",
 			"勤怠取得条件の作成に失敗しました",
-			map[string]any{
-				"userId": userID,
-			},
+			map[string]any{"userId": userID},
 		)
 	}
 
@@ -184,16 +160,6 @@ func (builder *attendanceDayBuilder) BuildFindAttendanceDayByUserIDAndWorkDateQu
 
 /*
  * 勤怠作成用Model作成
- *
- * 画面上は「更新」操作だが、対象日の勤怠が未登録の場合は新規作成する。
- *
- * 注意：
- * ・commonStartAt / commonEndAt はModelに持たせない
- * ・Service側で保存用の plan / actual 時刻へ変換済みの値を受け取る
- * ・AttendanceDay には申請状態を保存しない
- * ・AttendanceDay には画面表示用SystemMessageを保存しない
- * ・予定区分は PlanAttendanceTypeID
- * ・実績状態は ActualWorkStatus
  */
 func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 	userID uint,
@@ -209,9 +175,7 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 		return models.AttendanceDay{}, results.BadRequest(
 			"BUILD_CREATE_ATTENDANCE_DAY_MODEL_INVALID_USER_ID",
 			"勤怠作成データの作成に失敗しました",
-			map[string]any{
-				"userId": userID,
-			},
+			map[string]any{"userId": userID},
 		)
 	}
 
@@ -250,10 +214,6 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 		ActualEndAt:             actualEndAt,
 		ScheduledWorkMinutes:    req.ScheduledWorkMinutes,
 		RemoteWorkAllowanceFlag: req.RemoteWorkAllowanceFlag,
-		TransportFrom:           req.TransportFrom,
-		TransportTo:             req.TransportTo,
-		TransportMethod:         req.TransportMethod,
-		TransportAmount:         req.TransportAmount,
 		IsDeleted:               false,
 	}
 
@@ -267,16 +227,6 @@ func (builder *attendanceDayBuilder) BuildCreateAttendanceDayModel(
 
 /*
  * 勤怠更新用Model作成
- *
- * 対象日の勤怠が登録済みの場合に更新する。
- *
- * 注意：
- * ・commonStartAt / commonEndAt はModelに持たせない
- * ・Service側で保存用の plan / actual 時刻へ変換済みの値を受け取る
- * ・AttendanceDay には申請状態を保存しない
- * ・AttendanceDay には画面表示用SystemMessageを保存しない
- * ・予定区分は PlanAttendanceTypeID
- * ・実績状態は ActualWorkStatus
  */
 func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 	currentAttendanceDay models.AttendanceDay,
@@ -329,10 +279,6 @@ func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 	currentAttendanceDay.ActualEndAt = actualEndAt
 	currentAttendanceDay.ScheduledWorkMinutes = req.ScheduledWorkMinutes
 	currentAttendanceDay.RemoteWorkAllowanceFlag = req.RemoteWorkAllowanceFlag
-	currentAttendanceDay.TransportFrom = req.TransportFrom
-	currentAttendanceDay.TransportTo = req.TransportTo
-	currentAttendanceDay.TransportMethod = req.TransportMethod
-	currentAttendanceDay.TransportAmount = req.TransportAmount
 
 	return currentAttendanceDay, results.OK(
 		nil,
@@ -344,9 +290,6 @@ func (builder *attendanceDayBuilder) BuildUpdateAttendanceDayModel(
 
 /*
  * 勤怠論理削除用Model作成
- *
- * 現時点ではAPIとして直接公開しない。
- * 必要になった場合の内部用として残す。
  */
 func (builder *attendanceDayBuilder) BuildDeleteAttendanceDayModel(
 	currentAttendanceDay models.AttendanceDay,
