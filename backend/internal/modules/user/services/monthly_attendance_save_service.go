@@ -88,10 +88,6 @@ func NewMonthlyAttendanceSaveService(
  * ・MonthlyCommuterPass も申請状態を持たない
  * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
  * ・SystemMessage は保存しない
- *
- * 今後の改善：
- * ・休憩も削除→新規作成ではなく、attendanceBreakId を使った update / create / delete に変える
- * ・その場合は AttendanceBreakService 側に更新用メソッドを用意してからこのServiceを差し替える
  */
 func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 	userID uint,
@@ -125,16 +121,6 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 		)
 	}
 
-	/*
-	 * 有給残数チェック
-	 *
-	 * フロントでも有給残数0以下の場合は止めているが、
-	 * バックエンドでも保存前に必ず止める。
-	 *
-	 * 注意：
-	 * ・有給判定は予定区分 PlanAttendanceTypeID で行う
-	 * ・ActualWorkStatus は 通常/欠勤/病欠/遅刻/早退 なので有給判定には使わない
-	 */
 	paidLeaveCheckResult := service.validatePaidLeaveBalanceBeforeMonthlySave(userID, req)
 	if paidLeaveCheckResult.Error {
 		return paidLeaveCheckResult
@@ -145,11 +131,6 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 	savedAttendanceTransportExpenseCount := 0
 	savedAttendanceBreakCount := 0
 
-	/*
-	 * 1. 月次通勤定期を保存する
-	 *
-	 * commuterPass が nil の場合は保存しない。
-	 */
 	if req.CommuterPass != nil {
 		updateMonthlyCommuterPassResult := service.monthlyCommuterPassService.UpdateMonthlyCommuterPass(
 			userID,
@@ -170,10 +151,105 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 		savedMonthlyCommuterPass = true
 	}
 
-	/*
-	 * 2. 日別勤怠と休憩を保存する
-	 */
 	for _, attendanceDayReq := range req.AttendanceDays {
+		/*
+		 * 初期値戻し
+		 *
+		 * planAttendanceTypeId = 0 は勤務区分マスタIDではなく、
+		 * 対象日の勤怠を初期値へ戻すための特別値として扱う。
+		 *
+		 * 処理順：
+		 * 1. 日別交通費を空配列で差分保存して既存明細を論理削除
+		 * 2. 既存休憩を検索して削除
+		 * 3. 勤怠日を論理削除
+		 */
+		if attendanceDayReq.PlanAttendanceTypeID == 0 {
+			resetTransportExpensesResult :=
+				service.attendanceTransportExpenseService.UpdateAttendanceTransportExpensesByWorkDate(
+					userID,
+					types.UpdateAttendanceTransportExpensesByWorkDateRequest{
+						WorkDate:          attendanceDayReq.WorkDate,
+						TransportExpenses: []types.UpdateAttendanceTransportExpensesByWorkDateExpenseRequest{},
+					},
+				)
+
+			if resetTransportExpensesResult.Error {
+				if resetTransportExpensesResult.Code == "ATTENDANCE_DAY_NOT_FOUND" {
+					continue
+				}
+
+				return resetTransportExpensesResult
+			}
+
+			resetTransportExpensesResponse, ok :=
+				resetTransportExpensesResult.Data.(types.UpdateAttendanceTransportExpensesByWorkDateResponse)
+			if !ok {
+				return results.InternalServerError(
+					"UPDATE_MONTHLY_ATTENDANCE_INVALID_TRANSPORT_EXPENSE_RESET_RESPONSE",
+					"日別交通費初期値戻し結果の形式が正しくありません",
+					map[string]any{
+						"workDate": attendanceDayReq.WorkDate,
+					},
+				)
+			}
+
+			savedAttendanceTransportExpenseCount +=
+				resetTransportExpensesResponse.SavedAttendanceTransportExpenseCount
+
+			searchAttendanceBreaksResult := service.attendanceBreakService.SearchAttendanceBreaks(
+				userID,
+				types.SearchAttendanceBreaksRequest{
+					WorkDate: attendanceDayReq.WorkDate,
+				},
+			)
+
+			if searchAttendanceBreaksResult.Error {
+				return searchAttendanceBreaksResult
+			}
+
+			searchAttendanceBreaksResponse, ok :=
+				searchAttendanceBreaksResult.Data.(types.SearchAttendanceBreaksResponse)
+			if !ok {
+				return results.InternalServerError(
+					"UPDATE_MONTHLY_ATTENDANCE_INVALID_BREAK_RESET_SEARCH_RESPONSE",
+					"休憩初期値戻し検索結果の形式が正しくありません",
+					map[string]any{
+						"workDate": attendanceDayReq.WorkDate,
+					},
+				)
+			}
+
+			for _, attendanceBreak := range searchAttendanceBreaksResponse.AttendanceBreaks {
+				deleteAttendanceBreakResult := service.attendanceBreakService.DeleteAttendanceBreak(
+					userID,
+					types.DeleteAttendanceBreakRequest{
+						WorkDate:          attendanceDayReq.WorkDate,
+						AttendanceBreakID: attendanceBreak.ID,
+					},
+				)
+
+				if deleteAttendanceBreakResult.Error {
+					return deleteAttendanceBreakResult
+				}
+
+				savedAttendanceBreakCount++
+			}
+
+			deleteAttendanceDayResult := service.attendanceDayService.DeleteAttendanceDay(
+				userID,
+				types.DeleteAttendanceDayRequest{
+					WorkDate: attendanceDayReq.WorkDate,
+				},
+			)
+
+			if deleteAttendanceDayResult.Error {
+				return deleteAttendanceDayResult
+			}
+
+			savedAttendanceDayCount++
+			continue
+		}
+
 		updateAttendanceDayResult := service.attendanceDayService.UpdateAttendanceDay(
 			userID,
 			types.UpdateAttendanceDayRequest{
@@ -203,9 +279,6 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 
 		savedAttendanceDayCount++
 
-		/*
-		 * 3. 日別交通費を差分保存する
-		 */
 		transportExpenseRequests := make(
 			[]types.UpdateAttendanceTransportExpensesByWorkDateExpenseRequest,
 			0,
@@ -260,17 +333,6 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 		savedAttendanceTransportExpenseCount +=
 			updateAttendanceTransportExpensesResponse.SavedAttendanceTransportExpenseCount
 
-		/*
-		 * 4. 既存休憩を検索して削除する
-		 *
-		 * 月次勤怠画面では、画面に残っている休憩だけを正とする。
-		 * そのため、対象日の休憩は一旦すべて削除し、後続で作り直す。
-		 *
-		 * 注意：
-		 * ・ここはまだ update 方式ではない
-		 * ・休憩を update 方式にするには、AttendanceBreak 側の Request にIDを持たせ、
-		 *   UpdateAttendanceBreak を実装してからこの処理を変更する
-		 */
 		searchAttendanceBreaksResult := service.attendanceBreakService.SearchAttendanceBreaks(
 			userID,
 			types.SearchAttendanceBreaksRequest{
@@ -307,9 +369,6 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 			}
 		}
 
-		/*
-		 * 5. リクエストで送られた休憩を作成する
-		 */
 		for _, attendanceBreakReq := range attendanceDayReq.Breaks {
 			createAttendanceBreakResult := service.attendanceBreakService.CreateAttendanceBreak(
 				userID,
@@ -344,14 +403,6 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 	)
 }
 
-/*
- * 月次勤怠保存前の有給残数チェック
- *
- * 保存対象に有給区分が含まれている場合だけ、有給残数を確認する。
- *
- * 注意：
- * ・有給判定は予定区分 PlanAttendanceTypeID だけを見る
- */
 func (service *monthlyAttendanceSaveService) validatePaidLeaveBalanceBeforeMonthlySave(
 	userID uint,
 	req types.UpdateMonthlyAttendanceRequest,
@@ -424,12 +475,6 @@ func (service *monthlyAttendanceSaveService) validatePaidLeaveBalanceBeforeMonth
 	)
 }
 
-/*
- * 有給区分IDマップ作成
- *
- * 基本は code = PAID_LEAVE をシステム判定に使う。
- * 念のため name = 有給 も対象にする。
- */
 func buildPaidLeaveAttendanceTypeIDMap(attendanceTypes []types.AttendanceTypeResponse) map[uint]bool {
 	paidLeaveAttendanceTypeIDs := make(map[uint]bool)
 
@@ -442,13 +487,6 @@ func buildPaidLeaveAttendanceTypeIDMap(attendanceTypes []types.AttendanceTypeRes
 	return paidLeaveAttendanceTypeIDs
 }
 
-/*
- * 月次保存対象に有給区分が含まれているか判定する
- *
- * 注意：
- * ・予定区分 PlanAttendanceTypeID だけを見る
- * ・ActualWorkStatus は 通常/欠勤/病欠/遅刻/早退 の固定値なので、有給判定には使わない
- */
 func hasPaidLeaveAttendanceDay(
 	req types.UpdateMonthlyAttendanceRequest,
 	paidLeaveAttendanceTypeIDs map[uint]bool,

@@ -171,9 +171,104 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 	}
 
 	/*
-	 * 2. 日別勤怠と休憩を保存する
+	 * 2. 日別勤怠・日別交通費・休憩を保存する
 	 */
 	for _, attendanceDayReq := range req.AttendanceDays {
+		/*
+		 * 初期値戻し
+		 *
+		 * planAttendanceTypeId = 0 は勤務区分マスタIDではなく、
+		 * 対象日の勤怠を初期値へ戻すための画面上の特別値として扱う。
+		 *
+		 * 処理順：
+		 * 1. 日別交通費を空配列で差分保存し、既存明細を論理削除する
+		 * 2. 休憩を空配列で差分保存し、既存明細を論理削除する
+		 * 3. 勤怠日を論理削除する
+		 *
+		 * 対象日の勤怠がまだDBに存在しない場合は、
+		 * 日別交通費差分保存が ATTENDANCE_DAY_NOT_FOUND を返すため、
+		 * 保存対象なしとしてそのまま次の日へ進む。
+		 */
+		if attendanceDayReq.PlanAttendanceTypeID == 0 {
+			resetTransportExpensesResult :=
+				service.attendanceTransportExpenseService.
+					UpdateAttendanceTransportExpensesByWorkDate(
+						types.UpdateAttendanceTransportExpensesByWorkDateRequest{
+							TargetUserID:      req.TargetUserID,
+							WorkDate:          attendanceDayReq.WorkDate,
+							TransportExpenses: []types.UpdateAttendanceTransportExpensesByWorkDateExpenseRequest{},
+						},
+					)
+
+			if resetTransportExpensesResult.Error {
+				if resetTransportExpensesResult.Code == "ATTENDANCE_DAY_NOT_FOUND" {
+					continue
+				}
+
+				return resetTransportExpensesResult
+			}
+
+			resetTransportExpensesResponse, ok :=
+				resetTransportExpensesResult.Data.(types.UpdateAttendanceTransportExpensesByWorkDateResponse)
+			if !ok {
+				return results.InternalServerError(
+					"UPDATE_MONTHLY_ATTENDANCE_INVALID_TRANSPORT_EXPENSE_RESET_RESPONSE",
+					"日別交通費初期値戻し結果の形式が正しくありません",
+					map[string]any{
+						"targetUserId": req.TargetUserID,
+						"workDate":     attendanceDayReq.WorkDate,
+					},
+				)
+			}
+
+			savedAttendanceTransportExpenseCount +=
+				resetTransportExpensesResponse.SavedAttendanceTransportExpenseCount
+
+			resetBreaksResult :=
+				service.attendanceBreakService.UpdateAttendanceBreaksByWorkDate(
+					types.UpdateAttendanceBreaksByWorkDateRequest{
+						TargetUserID: req.TargetUserID,
+						WorkDate:     attendanceDayReq.WorkDate,
+						Breaks:       []types.UpdateAttendanceBreaksByWorkDateBreakRequest{},
+					},
+				)
+
+			if resetBreaksResult.Error {
+				return resetBreaksResult
+			}
+
+			resetBreaksResponse, ok :=
+				resetBreaksResult.Data.(types.UpdateAttendanceBreaksByWorkDateResponse)
+			if !ok {
+				return results.InternalServerError(
+					"UPDATE_MONTHLY_ATTENDANCE_INVALID_BREAK_RESET_RESPONSE",
+					"休憩初期値戻し結果の形式が正しくありません",
+					map[string]any{
+						"targetUserId": req.TargetUserID,
+						"workDate":     attendanceDayReq.WorkDate,
+					},
+				)
+			}
+
+			savedAttendanceBreakCount +=
+				resetBreaksResponse.SavedAttendanceBreakCount
+
+			deleteAttendanceDayResult :=
+				service.attendanceDayService.DeleteAttendanceDay(
+					types.DeleteAttendanceDayRequest{
+						TargetUserID: req.TargetUserID,
+						WorkDate:     attendanceDayReq.WorkDate,
+					},
+				)
+
+			if deleteAttendanceDayResult.Error {
+				return deleteAttendanceDayResult
+			}
+
+			savedAttendanceDayCount++
+			continue
+		}
+
 		updateAttendanceDayResult := service.attendanceDayService.UpdateAttendanceDay(
 			types.UpdateAttendanceDayRequest{
 				TargetUserID: req.TargetUserID,

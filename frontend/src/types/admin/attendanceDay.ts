@@ -10,6 +10,7 @@
  * ・管理者側では月次申請状態による編集ロックを行わない
  * ・systemMessage は保存せず、画面側で計算して表示する
  * ・日別勤怠に申請メモは持たせない
+ * ・日別交通費は AttendanceTransportExpense 側で管理する
  * ・管理者APIでは対象ユーザーIDを targetUserId で送る
  * ・予定区分は planAttendanceTypeId
  * ・実績状態は actualWorkStatus
@@ -42,11 +43,6 @@ export type AttendanceDay = {
   scheduledWorkMinutes: number | null;
 
   remoteWorkAllowanceFlag: boolean;
-
-  transportFrom: string | null;
-  transportTo: string | null;
-  transportMethod: string | null;
-  transportAmount: number | null;
 
   isDeleted: boolean;
 

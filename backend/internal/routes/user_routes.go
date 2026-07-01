@@ -72,19 +72,52 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	// 勤怠
 	attendanceDayBuilder := builders.NewAttendanceDayBuilder(db)
 	attendanceDayRepository := repositories.NewAttendanceDayRepository(db)
-	attendanceDayService := services.NewAttendanceDayService(attendanceDayBuilder, attendanceDayRepository, attendanceTypeRepository, monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
+	attendanceDayService := services.NewAttendanceDayService(
+		attendanceDayBuilder,
+		attendanceDayRepository,
+		attendanceTypeRepository,
+		monthlyAttendanceRequestBuilder,
+		monthlyAttendanceRequestRepository,
+	)
 	attendanceDayController := controllers.NewAttendanceDayController(attendanceDayService)
+
+	// 日別交通費
+	attendanceTransportExpenseBuilder := builders.NewAttendanceTransportExpenseBuilder(db)
+	attendanceTransportExpenseRepository := repositories.NewAttendanceTransportExpenseRepository(db)
+	attendanceTransportExpenseService := services.NewAttendanceTransportExpenseService(
+		attendanceTransportExpenseBuilder,
+		attendanceTransportExpenseRepository,
+		attendanceDayBuilder,
+		attendanceDayRepository,
+		monthlyAttendanceRequestBuilder,
+		monthlyAttendanceRequestRepository,
+	)
+	attendanceTransportExpenseController := controllers.NewAttendanceTransportExpenseController(
+		attendanceTransportExpenseService,
+	)
 
 	// 休憩
 	attendanceBreakBuilder := builders.NewAttendanceBreakBuilder(db)
 	attendanceBreakRepository := repositories.NewAttendanceBreakRepository(db)
-	attendanceBreakService := services.NewAttendanceBreakService(attendanceBreakBuilder, attendanceBreakRepository, attendanceDayBuilder, attendanceDayRepository, monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
+	attendanceBreakService := services.NewAttendanceBreakService(
+		attendanceBreakBuilder,
+		attendanceBreakRepository,
+		attendanceDayBuilder,
+		attendanceDayRepository,
+		monthlyAttendanceRequestBuilder,
+		monthlyAttendanceRequestRepository,
+	)
 	attendanceBreakController := controllers.NewAttendanceBreakController(attendanceBreakService)
 
 	// 月次通勤定期
 	monthlyCommuterPassBuilder := builders.NewMonthlyCommuterPassBuilder(db)
 	monthlyCommuterPassRepository := repositories.NewMonthlyCommuterPassRepository(db)
-	monthlyCommuterPassService := services.NewMonthlyCommuterPassService(monthlyCommuterPassBuilder, monthlyCommuterPassRepository, monthlyAttendanceRequestBuilder, monthlyAttendanceRequestRepository)
+	monthlyCommuterPassService := services.NewMonthlyCommuterPassService(
+		monthlyCommuterPassBuilder,
+		monthlyCommuterPassRepository,
+		monthlyAttendanceRequestBuilder,
+		monthlyAttendanceRequestRepository,
+	)
 	monthlyCommuterPassController := controllers.NewMonthlyCommuterPassController(monthlyCommuterPassService)
 
 	// 祝日
@@ -100,7 +133,14 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	paidLeaveController := controllers.NewPaidLeaveController(paidLeaveService)
 
 	// 月次勤怠全体保存
-	monthlyAttendanceSaveService := services.NewMonthlyAttendanceSaveService(attendanceDayService, attendanceBreakService, monthlyCommuterPassService, attendanceTypeService, paidLeaveService)
+	monthlyAttendanceSaveService := services.NewMonthlyAttendanceSaveService(
+		attendanceDayService,
+		attendanceTransportExpenseService,
+		attendanceBreakService,
+		monthlyCommuterPassService,
+		attendanceTypeService,
+		paidLeaveService,
+	)
 	monthlyAttendanceSaveController := controllers.NewMonthlyAttendanceSaveController(monthlyAttendanceSaveService)
 
 	// Google Drive
@@ -113,8 +153,13 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	// 個人情報Driveフォルダ
 	personalInformationDriveFolderBuilder := builders.NewPersonalInformationDriveFolderBuilder(db)
 	personalInformationDriveFolderRepository := repositories.NewPersonalInformationDriveFolderRepository(db)
-	personalInformationDriveFolderService := services.NewPersonalInformationDriveFolderService(personalInformationDriveFolderBuilder, personalInformationDriveFolderRepository)
-	personalInformationDriveFolderController := controllers.NewPersonalInformationDriveFolderController(personalInformationDriveFolderService)
+	personalInformationDriveFolderService := services.NewPersonalInformationDriveFolderService(
+		personalInformationDriveFolderBuilder,
+		personalInformationDriveFolderRepository,
+	)
+	personalInformationDriveFolderController := controllers.NewPersonalInformationDriveFolderController(
+		personalInformationDriveFolderService,
+	)
 
 	// 共有資料Driveフォルダ
 	//
@@ -122,8 +167,13 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 	// Driveフォルダ作成・Drive権限同期・external_storage_links参照は管理者側APIで行う。
 	sharedDocumentDriveFolderBuilder := builders.NewSharedDocumentDriveFolderBuilder(db)
 	sharedDocumentDriveFolderRepository := repositories.NewSharedDocumentDriveFolderRepository(db)
-	sharedDocumentDriveFolderService := services.NewSharedDocumentDriveFolderService(sharedDocumentDriveFolderBuilder, sharedDocumentDriveFolderRepository)
-	sharedDocumentDriveFolderController := controllers.NewSharedDocumentDriveFolderController(sharedDocumentDriveFolderService)
+	sharedDocumentDriveFolderService := services.NewSharedDocumentDriveFolderService(
+		sharedDocumentDriveFolderBuilder,
+		sharedDocumentDriveFolderRepository,
+	)
+	sharedDocumentDriveFolderController := controllers.NewSharedDocumentDriveFolderController(
+		sharedDocumentDriveFolderService,
+	)
 
 	// 経費
 	expenseBuilder := builders.NewExpenseBuilder(db)
@@ -139,7 +189,9 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 		attendanceRealtimeEventRepository,
 		slackNotificationService,
 	)
-	attendanceRealtimeEventController := controllers.NewAttendanceRealtimeEventController(attendanceRealtimeEventService)
+	attendanceRealtimeEventController := controllers.NewAttendanceRealtimeEventController(
+		attendanceRealtimeEventService,
+	)
 
 	user := r.Group("/user")
 
@@ -173,6 +225,12 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 		// 勤怠
 		user.POST("/attendance-days/search", attendanceDayController.SearchAttendanceDays)
 
+		// 日別交通費
+		user.POST(
+			"/attendance-transport-expenses/search",
+			attendanceTransportExpenseController.SearchAttendanceTransportExpenses,
+		)
+
 		// 休憩
 		user.POST("/attendance-breaks/search", attendanceBreakController.SearchAttendanceBreaks)
 
@@ -185,7 +243,7 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 		// 有給（残数取得のみ）
 		user.GET("/paid-leave/balance", paidLeaveController.GetPaidLeaveBalance)
 
-		// 月次勤怠全体保存（勤怠・休憩・月次通勤定期）
+		// 月次勤怠全体保存（勤怠・日別交通費・休憩・月次通勤定期）
 		user.POST("/monthly-attendances/update", monthlyAttendanceSaveController.UpdateMonthlyAttendance)
 
 		// 勤怠リアルタイムイベント
@@ -198,11 +256,20 @@ func RegisterUserRoutes(r *gin.Engine, db *gorm.DB) {
 		user.POST("/notifications/unread-count", notificationController.CountUnreadNotifications)
 
 		// 個人情報Driveフォルダ
-		user.POST("/personal-information-drive-folders/get", personalInformationDriveFolderController.GetMyPersonalInformationDriveFolder)
+		user.POST(
+			"/personal-information-drive-folders/get",
+			personalInformationDriveFolderController.GetMyPersonalInformationDriveFolder,
+		)
 
 		// 共有資料Driveフォルダ
-		user.POST("/shared-document-drive-folders/search", sharedDocumentDriveFolderController.SearchSharedDocumentDriveFolders)
-		user.POST("/shared-document-drive-folders/detail", sharedDocumentDriveFolderController.DetailSharedDocumentDriveFolder)
+		user.POST(
+			"/shared-document-drive-folders/search",
+			sharedDocumentDriveFolderController.SearchSharedDocumentDriveFolders,
+		)
+		user.POST(
+			"/shared-document-drive-folders/detail",
+			sharedDocumentDriveFolderController.DetailSharedDocumentDriveFolder,
+		)
 
 		// 経費
 		user.POST("/expenses/search", expenseController.SearchExpenses)

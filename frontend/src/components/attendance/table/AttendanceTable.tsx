@@ -3,6 +3,7 @@
 import type { AttendanceType } from "@/types/user/attendanceType";
 import type {
   AttendanceBreakViewRow,
+  AttendanceTransportExpenseViewRow,
   AttendanceViewRow as UserAttendanceViewRow,
 } from "@/types/user/attendanceView";
 import AttendanceRowItem from "@/components/attendance/rowItem/AttendanceRowItem";
@@ -26,6 +27,17 @@ type AttendanceTableProps<TRow extends UserAttendanceViewRow> = {
     value: AttendanceBreakViewRow[K],
   ) => void;
   onDeleteBreak: (row: TRow, breakIndex: number) => void;
+  onAddTransportExpense: (workDate: string) => void;
+  onChangeTransportExpense: <K extends keyof AttendanceTransportExpenseViewRow>(
+    workDate: string,
+    transportExpenseIndex: number,
+    key: K,
+    value: AttendanceTransportExpenseViewRow[K],
+  ) => void;
+  onDeleteTransportExpense: (
+    row: TRow,
+    transportExpenseIndex: number,
+  ) => void;
 };
 
 export default function AttendanceTable<TRow extends UserAttendanceViewRow>({
@@ -37,6 +49,9 @@ export default function AttendanceTable<TRow extends UserAttendanceViewRow>({
   onAddBreak,
   onChangeBreak,
   onDeleteBreak,
+  onAddTransportExpense,
+  onChangeTransportExpense,
+  onDeleteTransportExpense,
 }: AttendanceTableProps<TRow>) {
   const handleChangeRow = <K extends keyof UserAttendanceViewRow>(
     workDate: string,
@@ -88,6 +103,11 @@ export default function AttendanceTable<TRow extends UserAttendanceViewRow>({
                 onAddBreak={onAddBreak}
                 onChangeBreak={onChangeBreak}
                 onDeleteBreak={(_, breakIndex) => onDeleteBreak(row, breakIndex)}
+                onAddTransportExpense={onAddTransportExpense}
+                onChangeTransportExpense={onChangeTransportExpense}
+                onDeleteTransportExpense={(_, transportExpenseIndex) =>
+                  onDeleteTransportExpense(row, transportExpenseIndex)
+                }
               />
             ))}
           </tbody>

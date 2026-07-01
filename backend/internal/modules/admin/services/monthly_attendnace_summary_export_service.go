@@ -39,6 +39,7 @@ const monthlyAttendanceSummaryExportContentTypeXLSX = "application/vnd.openxmlfo
  * ・変形労働制フラグは持たず、AttendanceDay.ScheduledWorkMinutes の値だけで判断する
  * ・予定区分は AttendanceDay.PlanAttendanceType を見る
  * ・実績状態は AttendanceDay.ActualWorkStatus を見る
+ * ・日別交通費は AttendanceTransportExpense を AttendanceDayID 単位で集計する
  * ・ActualAttendanceTypeID / ActualAttendanceType は使わない
  */
 type monthlyAttendanceSummaryExportService struct {
@@ -139,6 +140,12 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		return nil, "", "", attendanceBreakResult
 	}
 
+	attendanceTransportExpenseMap, attendanceTransportExpenseResult :=
+		service.monthlyAttendanceSummaryExportRepository.FindAttendanceTransportExpenses(attendanceDayIDs)
+	if attendanceTransportExpenseResult.Error {
+		return nil, "", "", attendanceTransportExpenseResult
+	}
+
 	monthlyCommuterPassMap, commuterPassResult := service.monthlyAttendanceSummaryExportRepository.FindMonthlyCommuterPasses(
 		userIDs,
 		request.TargetYear,
@@ -209,6 +216,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 			row,
 			attendanceDaysByUserID[user.ID],
 			attendanceBreakMap,
+			attendanceTransportExpenseMap,
 			monthlyCommuterPassMap[user.ID],
 			userSalaryDetailMap[user.ID],
 			paidLeaveUsageMap[user.ID],
@@ -351,6 +359,7 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 	row types.MonthlyAttendanceSummaryCsvRow,
 	attendanceDays []models.AttendanceDay,
 	attendanceBreakMap map[uint][]models.AttendanceBreak,
+	attendanceTransportExpenseMap map[uint][]models.AttendanceTransportExpense,
 	monthlyCommuterPass models.MonthlyCommuterPass,
 	userSalaryDetail models.UserSalaryDetail,
 	paidLeaveUsages []models.PaidLeaveUsage,
@@ -362,7 +371,11 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 	row.CalendarDays = targetMonthEnd.Day()
 	row.WorkingDayCount = countWeekdays(targetMonthStart, targetMonthEnd)
 
-	workRows := service.buildWorkRows(attendanceDays, attendanceBreakMap)
+	workRows := service.buildWorkRows(
+		attendanceDays,
+		attendanceBreakMap,
+		attendanceTransportExpenseMap,
+	)
 	service.applyHolidayWorkFlags(workRows)
 	service.applyDailyOvertime(workRows)
 	weeklyWorks := service.applyWeeklyOvertime(workRows, targetMonthStart, targetMonthEnd)
@@ -462,9 +475,7 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 		}
 
 		row.DailyTransportationAmount += workRow.TransportAmount
-		if workRow.TransportAmount > 0 {
-			row.DailyTransportationCount++
-		}
+		row.DailyTransportationCount += workRow.TransportCount
 
 		for _, warning := range workRow.Warnings {
 			warnings = append(warnings, warning)
@@ -523,12 +534,25 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 	attendanceDays []models.AttendanceDay,
 	attendanceBreakMap map[uint][]models.AttendanceBreak,
+	attendanceTransportExpenseMap map[uint][]models.AttendanceTransportExpense,
 ) []*types.MonthlyAttendanceSummaryWorkRow {
 	workRows := make([]*types.MonthlyAttendanceSummaryWorkRow, 0, len(attendanceDays))
 
 	for _, attendanceDay := range attendanceDays {
 		workDate := formatDate(attendanceDay.WorkDate)
 		scheduledWorkMinutes := intPtrValue(attendanceDay.ScheduledWorkMinutes)
+
+		transportAmount := 0
+		transportCount := 0
+
+		for _, attendanceTransportExpense := range attendanceTransportExpenseMap[attendanceDay.ID] {
+			if attendanceTransportExpense.IsDeleted {
+				continue
+			}
+
+			transportAmount += attendanceTransportExpense.TransportAmount
+			transportCount++
+		}
 
 		workRow := &types.MonthlyAttendanceSummaryWorkRow{
 			UserID:                     attendanceDay.UserID,
@@ -539,7 +563,8 @@ func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 			PlanAttendanceTypeCategory: attendanceDay.PlanAttendanceType.Category,
 			ActualWorkStatus:           attendanceDay.ActualWorkStatus,
 			ScheduledWorkMinutes:       scheduledWorkMinutes,
-			TransportAmount:            intPtrValue(attendanceDay.TransportAmount),
+			TransportAmount:            transportAmount,
+			TransportCount:             transportCount,
 			IsPlannedHoliday:           isHolidayAttendanceType(attendanceDay.PlanAttendanceType),
 			IsPaidLeaveDay:             isPaidLeaveAttendanceType(attendanceDay.PlanAttendanceType),
 			IsAbsenceDay:               attendanceDay.ActualWorkStatus == constants.ActualWorkStatusAbsence,

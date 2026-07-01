@@ -24,6 +24,24 @@ export type AttendanceBreakViewRow = {
 };
 
 /*
+ * 日別交通費1件分の画面用Row
+ *
+ * APIでは金額は number。
+ * 画面では input value として扱いやすいよう string で持つ。
+ */
+export type AttendanceTransportExpenseViewRow = {
+  id: number | null;
+  sortOrder: number;
+  transportFrom: string;
+  transportTo: string;
+  transportMethod: string;
+  transportAmount: string;
+  transportMemo: string;
+  isNew: boolean;
+  isDirty: boolean;
+};
+
+/*
  * 勤怠1日分の画面用Row
  *
  * APIでは日時は RFC3339 だが、
@@ -38,11 +56,6 @@ export type AttendanceBreakViewRow = {
  * ・予定区分は planAttendanceTypeId
  * ・実績状態は actualWorkStatus
  * ・actualAttendanceTypeId は使わない
- *
- * 互換メモ：
- * ・AttendanceTable / AttendanceRowItem が現時点で旧フラグを参照する可能性があるため、
- *   画面用Rowにだけ互換用として旧フラグ4項目は残す。
- * ・mapperでは常に false を入れ、月次保存Requestには含めない。
  */
 export type AttendanceViewRow = {
   workDate: string;
@@ -82,10 +95,7 @@ export type AttendanceViewRow = {
 
   remoteWorkAllowanceFlag: boolean;
 
-  transportFrom: string;
-  transportTo: string;
-  transportMethod: string;
-  transportAmount: string;
+  transportExpenses: AttendanceTransportExpenseViewRow[];
 
   breaks: AttendanceBreakViewRow[];
 

@@ -7,6 +7,7 @@
  * ・月次通勤定期
  * ・日別勤怠
  * ・日別休憩
+ * ・日別交通費
  *
  * 注意：
  * ・画面用stateではない
@@ -60,12 +61,19 @@ export type UpdateMonthlyAttendanceSaveDayRequest = {
 
   remoteWorkAllowanceFlag: boolean;
 
-  transportFrom: string | null;
-  transportTo: string | null;
-  transportMethod: string | null;
-  transportAmount: number | null;
+  transportExpenses: UpdateMonthlyAttendanceSaveTransportExpenseRequest[];
 
   breaks: UpdateMonthlyAttendanceSaveBreakRequest[];
+};
+
+export type UpdateMonthlyAttendanceSaveTransportExpenseRequest = {
+  attendanceTransportExpenseId: number | null;
+  sortOrder: number;
+  transportFrom: string;
+  transportTo: string;
+  transportMethod: string;
+  transportAmount: number;
+  transportMemo: string | null;
 };
 
 export type UpdateMonthlyAttendanceSaveBreakRequest = {
@@ -81,4 +89,5 @@ export type UpdateMonthlyAttendanceSaveResponse = {
   savedMonthlyCommuterPass: boolean;
   savedAttendanceDayCount: number;
   savedAttendanceBreakCount: number;
+  savedAttendanceTransportExpenseCount: number;
 };

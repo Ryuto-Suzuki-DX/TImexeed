@@ -39,11 +39,6 @@ export type AttendanceDay = {
 
   remoteWorkAllowanceFlag: boolean;
 
-  transportFrom: string | null;
-  transportTo: string | null;
-  transportMethod: string | null;
-  transportAmount: number | null;
-
   isDeleted: boolean;
 
   createdAt: string;

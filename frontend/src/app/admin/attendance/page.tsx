@@ -14,6 +14,7 @@ import AdminApprovalActions from "@/components/attendance/adminApprovalActions/A
 import { useRequireRole } from "@/hooks/useRequireRole";
 import { searchAttendanceTypes } from "@/api/admin/attendanceType";
 import { searchAttendanceDays } from "@/api/admin/attendanceDay";
+import { searchAttendanceTransportExpenses } from "@/api/admin/attendanceTransportExpense";
 import { searchAttendanceBreaks } from "@/api/admin/attendanceBreak";
 import { searchHolidayDates } from "@/api/admin/holidayDate";
 import { searchMonthlyCommuterPass } from "@/api/admin/monthlyCommuterPass";
@@ -33,6 +34,7 @@ import type { MonthlyAttendanceRequest } from "@/types/admin/monthlyAttendanceRe
 import type { PaidLeaveBalanceResponse } from "@/types/admin/paidLeaveUsage";
 import type {
   AttendanceBreakViewRow,
+  AttendanceTransportExpenseViewRow,
   AttendanceViewRow,
   CommuterPassViewForm,
   PageMessageVariant,
@@ -45,9 +47,11 @@ import {
 import { getStatusLabel } from "@/utils/attendance/attendanceStatus";
 import {
   attachBreaksToAttendanceViewRows,
+  attachTransportExpensesToAttendanceViewRows,
   buildAttendanceViewRows,
   buildCommuterPassViewForm,
   buildNewAttendanceBreakViewRow,
+  buildNewAttendanceTransportExpenseViewRow,
   buildUpdateMonthlyAttendanceSaveRequest,
   resetAttendanceViewRow,
   resetCommuterPassViewForm,
@@ -107,7 +111,10 @@ export default function AdminAttendancePage() {
     return (
       isCommuterPassDirty ||
       attendanceRows.some(
-        (row) => row.isDirty || row.breaks.some((breakRow) => breakRow.isDirty),
+        (row) =>
+          row.isDirty ||
+          row.breaks.some((breakRow) => breakRow.isDirty) ||
+          row.transportExpenses.some((transportExpense) => transportExpense.isDirty),
       )
     );
   }, [attendanceRows, isCommuterPassDirty]);
@@ -161,6 +168,28 @@ export default function AdminAttendancePage() {
         }
 
         const nextAttendanceDays = attendanceDaysResult.data.attendanceDays;
+
+        const attendanceTransportExpensesResult =
+          await searchAttendanceTransportExpenses({
+            targetUserId: targetUser.id,
+            targetYear: loadTargetYear,
+            targetMonth: loadTargetMonth,
+          });
+
+        if (
+          attendanceTransportExpensesResult.error ||
+          !attendanceTransportExpensesResult.data
+        ) {
+          setPageMessage(
+            attendanceTransportExpensesResult.message ||
+              "日別交通費一覧の取得に失敗しました。",
+          );
+          setPageMessageVariant("error");
+          return;
+        }
+
+        const nextAttendanceTransportExpenses =
+          attendanceTransportExpensesResult.data.attendanceTransportExpenses;
 
         const holidayDatesResult = await searchHolidayDates({
           targetYear: loadTargetYear,
@@ -242,7 +271,15 @@ export default function AdminAttendancePage() {
         setLoadedUser(targetUser);
         setPaidLeaveBalance(nextPaidLeaveBalance);
         setAttendanceTypes(nextAttendanceTypes);
-        setAttendanceRows(attachBreaksToAttendanceViewRows(rows, breakMap));
+        const rowsWithTransportExpenses =
+          attachTransportExpensesToAttendanceViewRows(
+            rows,
+            nextAttendanceTransportExpenses,
+          );
+
+        setAttendanceRows(
+          attachBreaksToAttendanceViewRows(rowsWithTransportExpenses, breakMap),
+        );
         setCommuterPass(buildCommuterPassViewForm(nextMonthlyCommuterPass));
         setMonthlyAttendanceRequest(nextMonthlyAttendanceRequest);
         setIsCommuterPassDirty(false);
@@ -490,7 +527,10 @@ export default function AdminAttendancePage() {
     }
 
     const saveTargetRows = attendanceRows.filter(
-      (row) => row.isDirty || row.breaks.some((breakRow) => breakRow.isDirty),
+      (row) =>
+        row.isDirty ||
+        row.breaks.some((breakRow) => breakRow.isDirty) ||
+        row.transportExpenses.some((transportExpense) => transportExpense.isDirty),
     );
 
     if (!isCommuterPassDirty && saveTargetRows.length === 0) {
@@ -515,6 +555,24 @@ export default function AdminAttendancePage() {
 
     for (const row of saveTargetRows) {
       if (row.planAttendanceTypeId === 0) {
+        const hasInput =
+          row.planStartTime !== "" ||
+          row.planEndTime !== "" ||
+          row.actualStartTime !== "" ||
+          row.actualEndTime !== "" ||
+          row.scheduledWorkMinutes !== "" ||
+          row.remoteWorkAllowanceFlag ||
+          row.breaks.length > 0 ||
+          row.transportExpenses.length > 0;
+
+        if (hasInput) {
+          setPageMessage(
+            `${row.dayLabel} は入力があります。先に予定区分を選択してください。`,
+          );
+          setPageMessageVariant("error");
+          return false;
+        }
+
         continue;
       }
 
@@ -531,6 +589,31 @@ export default function AdminAttendancePage() {
       for (const breakRow of row.breaks) {
         if (!breakRow.breakStartTime || !breakRow.breakEndTime) {
           setPageMessage(`${row.dayLabel} の休憩開始時刻と終了時刻を入力してください。`);
+          setPageMessageVariant("error");
+          return false;
+        }
+      }
+
+      for (const transportExpense of row.transportExpenses) {
+        if (
+          !transportExpense.transportFrom.trim() ||
+          !transportExpense.transportTo.trim() ||
+          !transportExpense.transportMethod.trim()
+        ) {
+          setPageMessage(
+            `${row.dayLabel} の交通費の出発地・目的地・手段を入力してください。`,
+          );
+          setPageMessageVariant("error");
+          return false;
+        }
+
+        const transportAmount = Number(transportExpense.transportAmount);
+        if (
+          transportExpense.transportAmount.trim() === "" ||
+          !Number.isFinite(transportAmount) ||
+          transportAmount < 0
+        ) {
+          setPageMessage(`${row.dayLabel} の交通費金額を正しく入力してください。`);
           setPageMessageVariant("error");
           return false;
         }
@@ -686,6 +769,81 @@ export default function AdminAttendancePage() {
           ? {
               ...currentRow,
               breaks: currentRow.breaks.filter((_, currentIndex) => currentIndex !== breakIndex),
+              isDirty: true,
+            }
+          : currentRow,
+      ),
+    );
+  };
+
+
+  const handleAddTransportExpense = (workDate: string) => {
+    setAttendanceRows((currentRows) =>
+      currentRows.map((row) =>
+        row.workDate === workDate
+          ? {
+              ...row,
+              transportExpenses: [
+                ...row.transportExpenses,
+                buildNewAttendanceTransportExpenseViewRow(
+                  row.transportExpenses.length + 1,
+                ),
+              ],
+              isDirty: true,
+            }
+          : row,
+      ),
+    );
+  };
+
+  const handleChangeTransportExpense = <
+    K extends keyof AttendanceTransportExpenseViewRow,
+  >(
+    workDate: string,
+    transportExpenseIndex: number,
+    key: K,
+    value: AttendanceTransportExpenseViewRow[K],
+  ) => {
+    setAttendanceRows((currentRows) =>
+      currentRows.map((row) => {
+        if (row.workDate !== workDate) {
+          return row;
+        }
+
+        return {
+          ...row,
+          isDirty: true,
+          transportExpenses: row.transportExpenses.map(
+            (transportExpense, currentIndex) =>
+              currentIndex === transportExpenseIndex
+                ? {
+                    ...transportExpense,
+                    [key]: value,
+                    isDirty: true,
+                  }
+                : transportExpense,
+          ),
+        };
+      }),
+    );
+  };
+
+  const handleDeleteTransportExpense = (
+    row: AttendanceViewRow,
+    transportExpenseIndex: number,
+  ) => {
+    setAttendanceRows((currentRows) =>
+      currentRows.map((currentRow) =>
+        currentRow.workDate === row.workDate
+          ? {
+              ...currentRow,
+              transportExpenses: currentRow.transportExpenses
+                .filter((_, currentIndex) => currentIndex !== transportExpenseIndex)
+                .map((transportExpense, currentIndex) => ({
+                  ...transportExpense,
+                  sortOrder: currentIndex + 1,
+                  isDirty: true,
+                })),
               isDirty: true,
             }
           : currentRow,
@@ -993,6 +1151,9 @@ export default function AdminAttendancePage() {
             onAddBreak={handleAddBreak}
             onChangeBreak={handleChangeBreak}
             onDeleteBreak={handleDeleteBreak}
+            onAddTransportExpense={handleAddTransportExpense}
+            onChangeTransportExpense={handleChangeTransportExpense}
+            onDeleteTransportExpense={handleDeleteTransportExpense}
           />
         </section>
       </div>

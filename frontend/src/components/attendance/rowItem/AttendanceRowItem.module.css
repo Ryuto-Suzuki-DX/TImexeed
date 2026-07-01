@@ -48,10 +48,6 @@
   background-color: #fee2e2;
 }
 
-/*
- * ロック中でも土日祝の色を潰さない。
- * ロック感は input/select の無効表示で出す。
- */
 .rowLocked {
   background-color: inherit;
 }
@@ -181,24 +177,6 @@
   white-space: nowrap;
 }
 
-.timeGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.commonTimeGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.flagGrid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 6px;
-}
-
 .checkLabel {
   display: flex;
   align-items: center;
@@ -237,23 +215,6 @@
   align-items: center;
 }
 
-.breakList {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.breakItem {
-  width: fit-content;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  font-size: 11px;
-  color: #374151;
-  white-space: nowrap;
-}
-
 .noBreakText {
   margin: 0;
   font-size: 12px;
@@ -261,21 +222,52 @@
   white-space: nowrap;
 }
 
-.transportCompactGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 8px;
-  align-items: end;
-}
-
-.transportInputGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.transportArea {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
-.transportInputGrid + .transportInputGrid {
-  margin-top: 6px;
+.transportSummaryButton {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  border: 1px solid #fed7aa;
+  background-color: #fff7ed;
+  font-size: 11px;
+  font-weight: bold;
+  color: #9a3412;
+  cursor: pointer;
+  text-align: left;
+}
+
+.transportDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.transportExpenseRow {
+  display: grid;
+  grid-template-columns: 82px 82px 82px 74px minmax(92px, 1fr) 58px;
+  gap: 5px;
+  align-items: end;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid #fed7aa;
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+.transportExpenseRow input,
+.transportExpenseRow .select {
+  height: 32px;
+  padding: 6px 7px;
+  font-size: 11px;
 }
 
 .miniField {
@@ -292,6 +284,10 @@
   line-height: 1;
 }
 
+.transportMemoField {
+  min-width: 92px;
+}
+
 .statusBadge {
   display: inline-block;
   margin-bottom: 6px;
@@ -301,26 +297,6 @@
   font-weight: bold;
   border: 1px solid #e5e7eb;
   white-space: nowrap;
-}
-
-.statusDraft {
-  color: #6b7280;
-  background-color: #f9fafb;
-}
-
-.statusPending {
-  color: #1d4ed8;
-  background-color: #eff6ff;
-}
-
-.statusApproved {
-  color: #15803d;
-  background-color: #f0fdf4;
-}
-
-.statusRejected {
-  color: #b91c1c;
-  background-color: #fef2f2;
 }
 
 .statusRequiresRequest {
@@ -338,17 +314,6 @@
   font-size: 12px;
   color: #374151;
   line-height: 1.4;
-}
-
-.rejectedReason {
-  margin: 6px 0 0;
-  font-size: 11px;
-  color: #b91c1c;
-  line-height: 1.4;
-}
-
-.requestMemo {
-  margin-top: 6px;
 }
 
 .actionList {
@@ -374,12 +339,5 @@
   margin: 6px 0 0;
   font-size: 11px;
   color: #b45309;
-  line-height: 1.4;
-}
-
-.errorText {
-  margin: 0;
-  font-size: 11px;
-  color: #b91c1c;
   line-height: 1.4;
 }

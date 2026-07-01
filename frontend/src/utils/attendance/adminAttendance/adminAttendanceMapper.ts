@@ -1,10 +1,12 @@
 import type { AttendanceType } from "@/types/admin/attendanceType";
 import type { AttendanceDay } from "@/types/admin/attendanceDay";
 import type { AttendanceBreak } from "@/types/admin/attendanceBreak";
+import type { AttendanceTransportExpense } from "@/types/admin/attendanceTransportExpense";
 import type { HolidayDate } from "@/types/admin/holidayDate";
 import type { MonthlyCommuterPass } from "@/types/admin/monthlyCommuterPass";
 import type {
   AttendanceBreakViewRow,
+  AttendanceTransportExpenseViewRow,
   AttendanceViewRow,
   CommuterPassViewForm,
 } from "@/types/admin/attendanceView";
@@ -13,6 +15,7 @@ import type {
   UpdateMonthlyAttendanceSaveCommuterPassRequest,
   UpdateMonthlyAttendanceSaveDayRequest,
   UpdateMonthlyAttendanceSaveRequest,
+  UpdateMonthlyAttendanceSaveTransportExpenseRequest,
 } from "@/types/admin/monthlyAttendanceSave";
 import {
   buildDayLabel,
@@ -104,10 +107,7 @@ export function buildBlankAttendanceViewRows(
 
       remoteWorkAllowanceFlag: false,
 
-      transportFrom: "",
-      transportTo: "",
-      transportMethod: "",
-      transportAmount: "",
+      transportExpenses: [],
 
       breaks: [],
 
@@ -154,10 +154,7 @@ export function resetAttendanceViewRow(row: AttendanceViewRow): AttendanceViewRo
 
     remoteWorkAllowanceFlag: false,
 
-    transportFrom: "",
-    transportTo: "",
-    transportMethod: "",
-    transportAmount: "",
+    transportExpenses: [],
 
     breaks: [],
 
@@ -198,11 +195,6 @@ export function applyAttendanceDayToViewRow(
     sickLeaveFlag: false,
 
     remoteWorkAllowanceFlag: attendanceDay.remoteWorkAllowanceFlag,
-
-    transportFrom: attendanceDay.transportFrom ?? "",
-    transportTo: attendanceDay.transportTo ?? "",
-    transportMethod: attendanceDay.transportMethod ?? "",
-    transportAmount: attendanceDay.transportAmount === null ? "" : String(attendanceDay.transportAmount),
 
     isDirty: false,
   };
@@ -276,6 +268,75 @@ export function attachBreaksToAttendanceViewRows(
   }));
 }
 
+
+/*
+ * APIの日別交通費を画面用Rowへ変換する
+ */
+export function toAttendanceTransportExpenseViewRow(
+  attendanceTransportExpense: AttendanceTransportExpense,
+): AttendanceTransportExpenseViewRow {
+  return {
+    id: attendanceTransportExpense.id,
+    sortOrder: attendanceTransportExpense.sortOrder,
+    transportFrom: attendanceTransportExpense.transportFrom,
+    transportTo: attendanceTransportExpense.transportTo,
+    transportMethod: attendanceTransportExpense.transportMethod,
+    transportAmount: String(attendanceTransportExpense.transportAmount),
+    transportMemo: attendanceTransportExpense.transportMemo ?? "",
+    isNew: false,
+    isDirty: false,
+  };
+}
+
+/*
+ * 新規日別交通費Rowを作る
+ */
+export function buildNewAttendanceTransportExpenseViewRow(
+  sortOrder: number,
+): AttendanceTransportExpenseViewRow {
+  return {
+    id: null,
+    sortOrder,
+    transportFrom: "",
+    transportTo: "",
+    transportMethod: "",
+    transportAmount: "",
+    transportMemo: "",
+    isNew: true,
+    isDirty: true,
+  };
+}
+
+/*
+ * Row一覧に日別交通費一覧を反映する
+ */
+export function attachTransportExpensesToAttendanceViewRows(
+  rows: AttendanceViewRow[],
+  attendanceTransportExpenses: AttendanceTransportExpense[],
+): AttendanceViewRow[] {
+  const transportExpenseMap = new Map<string, AttendanceTransportExpense[]>();
+
+  attendanceTransportExpenses.forEach((attendanceTransportExpense) => {
+    const workDate = toDateOnly(attendanceTransportExpense.workDate);
+    const currentItems = transportExpenseMap.get(workDate) ?? [];
+
+    transportExpenseMap.set(workDate, [...currentItems, attendanceTransportExpense]);
+  });
+
+  return rows.map((row) => ({
+    ...row,
+    transportExpenses: (transportExpenseMap.get(row.workDate) ?? [])
+      .sort((left, right) => {
+        if (left.sortOrder !== right.sortOrder) {
+          return left.sortOrder - right.sortOrder;
+        }
+
+        return left.id - right.id;
+      })
+      .map(toAttendanceTransportExpenseViewRow),
+  }));
+}
+
 /*
  * 月次通勤定期APIレスポンスを画面Formへ変換する
  */
@@ -340,6 +401,31 @@ export function buildUpdateMonthlyAttendanceSaveBreakRequest(
   };
 }
 
+
+/*
+ * 画面用日別交通費Rowから月次勤怠全体保存API用Requestを作る
+ */
+export function buildUpdateMonthlyAttendanceSaveTransportExpenseRequest(
+  transportExpenseRow: AttendanceTransportExpenseViewRow,
+  index: number,
+): UpdateMonthlyAttendanceSaveTransportExpenseRequest {
+  const transportAmount = Number(transportExpenseRow.transportAmount);
+
+  if (!Number.isFinite(transportAmount) || transportAmount < 0) {
+    throw new Error("日別交通費の金額が正しくありません。");
+  }
+
+  return {
+    attendanceTransportExpenseId: transportExpenseRow.id,
+    sortOrder: index + 1,
+    transportFrom: transportExpenseRow.transportFrom.trim(),
+    transportTo: transportExpenseRow.transportTo.trim(),
+    transportMethod: transportExpenseRow.transportMethod.trim(),
+    transportAmount: Math.trunc(transportAmount),
+    transportMemo: toNullableString(transportExpenseRow.transportMemo),
+  };
+}
+
 /*
  * 画面用の派遣先所定労働時間をAPI送信用のnumber|nullへ変換する
  */
@@ -366,7 +452,12 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
   row: AttendanceViewRow,
   selectedPlanType: AttendanceType | null,
 ): UpdateMonthlyAttendanceSaveDayRequest {
-  const breaks = row.breaks.map((breakRow) => buildUpdateMonthlyAttendanceSaveBreakRequest(row.workDate, breakRow));
+  const breaks = row.breaks.map((breakRow) =>
+    buildUpdateMonthlyAttendanceSaveBreakRequest(row.workDate, breakRow),
+  );
+  const transportExpenses = row.transportExpenses.map((transportExpenseRow, index) =>
+    buildUpdateMonthlyAttendanceSaveTransportExpenseRequest(transportExpenseRow, index),
+  );
 
   /*
    * リセット行
@@ -396,10 +487,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
       remoteWorkAllowanceFlag: false,
 
-      transportFrom: null,
-      transportTo: null,
-      transportMethod: null,
-      transportAmount: null,
+      transportExpenses: [],
 
       breaks: [],
     };
@@ -433,10 +521,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
       remoteWorkAllowanceFlag: false,
 
-      transportFrom: null,
-      transportTo: null,
-      transportMethod: null,
-      transportAmount: null,
+      transportExpenses: [],
 
       breaks: [],
     };
@@ -468,10 +553,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
       remoteWorkAllowanceFlag: row.remoteWorkAllowanceFlag,
 
-      transportFrom: toNullableString(row.transportFrom),
-      transportTo: toNullableString(row.transportTo),
-      transportMethod: toNullableString(row.transportMethod),
-      transportAmount: toNullableNumber(row.transportAmount),
+      transportExpenses,
 
       breaks,
     };
@@ -505,10 +587,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
     remoteWorkAllowanceFlag: row.remoteWorkAllowanceFlag,
 
-    transportFrom: toNullableString(row.transportFrom),
-    transportTo: toNullableString(row.transportTo),
-    transportMethod: toNullableString(row.transportMethod),
-    transportAmount: toNullableNumber(row.transportAmount),
+    transportExpenses,
 
     breaks,
   };
