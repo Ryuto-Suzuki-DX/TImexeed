@@ -2,12 +2,18 @@
   width: 100%;
   height: 38px;
   padding: 8px 10px;
-  border-radius: 10px;
   border: 1px solid #d1d5db;
-  font-size: 12px;
-  color: #111827;
+  border-radius: 10px;
   background-color: #ffffff;
+  color: #111827;
   box-sizing: border-box;
+  font-size: 12px;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #fb923c;
+  box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.18);
 }
 
 .select:disabled {
@@ -50,6 +56,7 @@
 
 .rowLocked {
   background-color: inherit;
+  opacity: 0.9;
 }
 
 .saturdayRow.rowLocked {
@@ -82,17 +89,21 @@
   font-size: 12px;
 }
 
+.row > .td:first-child {
+  background-color: inherit;
+}
+
 .dayLabel {
   margin: 0 0 3px;
+  color: #111827;
   font-size: 13px;
   font-weight: bold;
-  color: #111827;
 }
 
 .weekday {
   margin: 0;
-  font-size: 11px;
   color: #666666;
+  font-size: 11px;
 }
 
 .holidayName {
@@ -100,26 +111,26 @@
   max-width: 100%;
   margin-top: 4px;
   padding: 2px 6px;
+  border: 1px solid #fecaca;
   border-radius: 999px;
   background-color: #fee2e2;
-  border: 1px solid #fecaca;
+  color: #b91c1c;
   font-size: 10px;
   font-weight: bold;
-  color: #b91c1c;
   line-height: 1.3;
   white-space: nowrap;
 }
 
 .unsavedText {
-  margin: 6px 0 0;
   width: fit-content;
+  margin: 6px 0 0;
   padding: 3px 6px;
+  border: 1px solid #f59e0b;
   border-radius: 999px;
   background-color: #fffbeb;
-  border: 1px solid #f59e0b;
+  color: #92400e;
   font-size: 10px;
   font-weight: bold;
-  color: #92400e;
 }
 
 .horizontalBlock {
@@ -144,8 +155,8 @@
 
 .syncText {
   margin: 0;
-  font-size: 12px;
   color: #374151;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -171,8 +182,8 @@
 }
 
 .scheduledHelp {
-  font-size: 10px;
   color: #6b7280;
+  font-size: 10px;
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -184,12 +195,12 @@
   gap: 4px;
   min-height: 34px;
   padding: 0 8px;
-  border-radius: 10px;
   border: 1px solid #d1d5db;
-  font-size: 12px;
-  color: #374151;
+  border-radius: 10px;
   background-color: #ffffff;
+  color: #374151;
   box-sizing: border-box;
+  font-size: 12px;
 }
 
 .checkLabelDisabled {
@@ -217,8 +228,8 @@
 
 .noBreakText {
   margin: 0;
-  font-size: 12px;
   color: #9ca3af;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -231,19 +242,19 @@
 .transportSummaryButton {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 8px;
   align-items: center;
+  gap: 8px;
   width: 100%;
   min-height: 34px;
   padding: 7px 9px;
-  border-radius: 10px;
   border: 1px solid #fed7aa;
+  border-radius: 10px;
   background-color: #fff7ed;
+  color: #9a3412;
   font-size: 11px;
   font-weight: bold;
-  color: #9a3412;
-  cursor: pointer;
   text-align: left;
+  cursor: pointer;
 }
 
 .transportDetails {
@@ -258,8 +269,8 @@
   gap: 5px;
   align-items: end;
   padding: 6px;
-  border-radius: 10px;
   border: 1px solid #fed7aa;
+  border-radius: 10px;
   background-color: rgba(255, 255, 255, 0.8);
 }
 
@@ -278,9 +289,9 @@
 }
 
 .miniLabel {
+  color: #9a3412;
   font-size: 10px;
   font-weight: bold;
-  color: #9a3412;
   line-height: 1;
 }
 
@@ -292,10 +303,10 @@
   display: inline-block;
   margin-bottom: 6px;
   padding: 5px 8px;
+  border: 1px solid #e5e7eb;
   border-radius: 999px;
   font-size: 11px;
   font-weight: bold;
-  border: 1px solid #e5e7eb;
   white-space: nowrap;
 }
 
@@ -311,8 +322,8 @@
 
 .rowMessage {
   margin: 0;
-  font-size: 12px;
   color: #374151;
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -324,20 +335,201 @@
 }
 
 .actionList button {
-  white-space: nowrap;
   min-width: 78px;
+  white-space: nowrap;
 }
 
 .subText {
   margin: 4px 0 0;
-  font-size: 11px;
   color: #6b7280;
+  font-size: 11px;
   line-height: 1.4;
 }
 
 .warningText {
   margin: 6px 0 0;
-  font-size: 11px;
   color: #b45309;
+  font-size: 11px;
   line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .select {
+    height: 30px;
+    padding: 4px 6px;
+    border-radius: 7px;
+    font-size: 9px;
+  }
+
+  .td {
+    padding: 5px;
+    font-size: 9px;
+  }
+
+  .dayLabel {
+    margin-bottom: 2px;
+    font-size: 10px;
+  }
+
+  .weekday {
+    font-size: 8px;
+  }
+
+  .holidayName,
+  .unsavedText {
+    margin-top: 3px;
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .horizontalBlock {
+    gap: 4px;
+  }
+
+  .horizontalBlock .select,
+  .horizontalBlock input {
+    width: 68px;
+    min-width: 68px;
+    height: 30px;
+  }
+
+  .horizontalBlock .actualStatusSelect {
+    width: 78px;
+    min-width: 78px;
+  }
+
+  .syncText {
+    font-size: 8px;
+  }
+
+  .inputBlock {
+    gap: 5px;
+  }
+
+  .scheduledField {
+    gap: 3px;
+    width: 76px;
+    min-width: 76px;
+  }
+
+  .scheduledField input {
+    width: 76px;
+    min-width: 76px;
+    height: 30px;
+  }
+
+  .scheduledHelp {
+    font-size: 7px;
+  }
+
+  .checkLabel {
+    min-height: 28px;
+    padding: 0 5px;
+    border-radius: 7px;
+    font-size: 8px;
+  }
+
+  .breakEditArea,
+  .transportArea,
+  .transportDetails {
+    gap: 4px;
+  }
+
+  .breakEditRow {
+    grid-template-columns: 76px 76px minmax(76px, 1fr) 44px;
+    gap: 4px;
+  }
+
+  .noBreakText {
+    font-size: 8px;
+  }
+
+  .transportSummaryButton {
+    min-height: 28px;
+    padding: 4px 6px;
+    border-radius: 7px;
+    font-size: 8px;
+  }
+
+  .transportExpenseRow {
+    grid-template-columns: 66px 66px 66px 58px minmax(76px, 1fr) 42px;
+    gap: 3px;
+    padding: 4px;
+    border-radius: 7px;
+  }
+
+  .transportExpenseRow input,
+  .transportExpenseRow .select {
+    height: 28px;
+    padding: 3px 5px;
+    font-size: 8px;
+  }
+
+  .miniField {
+    gap: 3px;
+  }
+
+  .miniLabel {
+    font-size: 7px;
+  }
+
+  .transportMemoField {
+    min-width: 76px;
+  }
+
+  .statusBadge {
+    margin-bottom: 4px;
+    padding: 3px 5px;
+    font-size: 8px;
+  }
+
+  .rowMessage,
+  .subText,
+  .warningText {
+    font-size: 8px;
+    line-height: 1.3;
+  }
+
+  .subText {
+    margin-top: 3px;
+  }
+
+  .warningText {
+    margin-top: 4px;
+  }
+
+  .actionList {
+    gap: 4px;
+    min-width: 62px;
+  }
+
+  .actionList button {
+    min-width: 56px;
+  }
+}
+
+@media (max-width: 480px) {
+  .td {
+    padding: 4px;
+  }
+
+  .horizontalBlock .select,
+  .horizontalBlock input {
+    width: 64px;
+    min-width: 64px;
+    height: 28px;
+  }
+
+  .horizontalBlock .actualStatusSelect {
+    width: 72px;
+    min-width: 72px;
+  }
+
+  .breakEditRow {
+    grid-template-columns: 72px 72px minmax(70px, 1fr) 40px;
+  }
+
+  .transportExpenseRow {
+    grid-template-columns: 62px 62px 62px 54px minmax(70px, 1fr) 38px;
+  }
 }

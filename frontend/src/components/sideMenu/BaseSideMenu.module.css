@@ -1,0 +1,292 @@
+.sideMenu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 8px;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: transparent;
+  border-right: none;
+  box-shadow: none;
+  transition:
+    width 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.sideMenu::after {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 4px;
+  height: 44px;
+  border-radius: 0 4px 4px 0;
+  background-color: rgba(234, 88, 12, 0.45);
+  content: "";
+  transform: translateY(-50%);
+  transition:
+    width 0.2s ease,
+    height 0.2s ease,
+    opacity 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.sideMenuOpen {
+  width: 240px;
+  background-color: #ffffff;
+  border-right: 1px solid #fed7aa;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
+}
+
+.sideMenuOpen::after {
+  opacity: 0;
+}
+
+.sideMenuInner {
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  height: 100%;
+  min-height: 0;
+  padding: 16px 12px;
+  box-sizing: border-box;
+}
+
+.header {
+  flex-shrink: 0;
+  margin-bottom: 16px;
+}
+
+.brand {
+  margin: 0 0 2px;
+  color: #9a3412;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.title {
+  margin: 0;
+  color: #ea580c;
+  font-size: 18px;
+}
+
+.navigation {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
+  padding-bottom: 8px;
+}
+
+.menuLink {
+  display: block;
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #374151;
+  background-color: transparent;
+  font-size: 13px;
+  font-weight: normal;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.menuLinkActive {
+  border-color: #ea580c;
+  color: #ffffff;
+  background-color: #ea580c;
+  font-weight: bold;
+}
+
+.logoutArea {
+  flex-shrink: 0;
+  padding-top: 10px;
+}
+
+.logoutButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background-color: #fff7ed;
+  color: #9a3412;
+  box-sizing: border-box;
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1;
+  text-align: center;
+  cursor: pointer;
+}
+
+.toggleButton {
+  position: fixed;
+  right: 8px;
+  bottom: 10px;
+  z-index: 1002;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #fed7aa;
+  border-radius: 9px;
+  background-color: #ffffff;
+  color: #ea580c;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+  box-sizing: border-box;
+  font-size: 17px;
+  font-weight: bold;
+  line-height: 1;
+  text-align: center;
+  cursor: pointer;
+}
+
+.toggleButtonOpen {
+  right: 8px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  padding: 0;
+  border: none;
+  background-color: rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sideMenu:hover {
+    width: 240px;
+    background-color: #ffffff;
+    border-right: 1px solid #fed7aa;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .sideMenu:hover::after {
+    opacity: 0;
+  }
+
+  .sideMenu:not(:hover)::after {
+    opacity: 1;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .sideMenu {
+    width: 240px;
+    background-color: #ffffff;
+    border-right: 1px solid #fed7aa;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
+    transform: translateX(-100%);
+  }
+
+  .sideMenu::after {
+    display: none;
+  }
+
+  .sideMenuOpen {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .sideMenu,
+  .sideMenuOpen,
+  .sideMenuInner {
+    width: 220px;
+  }
+
+  .sideMenuInner {
+    padding: 12px 10px;
+  }
+
+  .header {
+    margin-bottom: 10px;
+  }
+
+  .brand {
+    font-size: 9px;
+  }
+
+  .title {
+    font-size: 15px;
+  }
+
+  .navigation {
+    gap: 3px;
+    padding-right: 2px;
+  }
+
+  .menuLink {
+    padding: 6px 8px;
+    border-radius: 7px;
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .logoutArea {
+    padding-top: 7px;
+  }
+
+  .logoutButton {
+    min-height: 28px;
+    padding: 4px 7px;
+    border-radius: 7px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sideMenu,
+  .sideMenuOpen,
+  .sideMenuInner {
+    width: 205px;
+  }
+
+  .sideMenuInner {
+    padding: 10px 8px;
+  }
+
+  .toggleButton {
+    right: 6px;
+    bottom: 8px;
+    width: 29px;
+    height: 29px;
+    border-radius: 8px;
+    font-size: 15px;
+  }
+
+  .toggleButtonOpen {
+    right: 6px;
+  }
+
+  .title {
+    font-size: 14px;
+  }
+
+  .menuLink {
+    padding: 5px 7px;
+    font-size: 9px;
+  }
+
+  .logoutButton {
+    min-height: 26px;
+    padding: 3px 6px;
+    font-size: 8px;
+  }
+}

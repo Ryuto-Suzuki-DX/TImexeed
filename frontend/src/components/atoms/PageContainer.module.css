@@ -1,0 +1,20 @@
+.container {
+  width: 100%;
+  min-height: 100vh;
+  padding: 40px;
+  box-sizing: border-box;
+  background-color: #fff7ed;
+  font-family: sans-serif;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 4px;
+  }
+}

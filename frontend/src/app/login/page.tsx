@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login, removeAccessToken, saveAccessToken } from "@/api/auth";
 import Button from "@/components/atoms/Button";
+import styles from "./page.module.css";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -63,37 +64,44 @@ export default function LoginPage() {
   };
 
   return (
-    <main style={{ minHeight: "100vh", padding: "40px", fontFamily: "sans-serif", backgroundColor: "#fff7ed" }}>
-      <section style={{ width: "360px", margin: "80px auto", padding: "32px", borderRadius: "16px", backgroundColor: "#ffffff", boxShadow: "0 8px 24px rgba(0, 0, 0, 0.08)" }}>
-        <h1 style={{ fontSize: "32px", marginBottom: "24px", color: "#ea580c", textAlign: "center" }}>ログイン</h1>
+    <main className={styles.page}>
+      <section className={styles.loginCard}>
+        <h1 className={styles.title}>ログイン</h1>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", fontWeight: "bold", color: "#333333" }}>
-            メールアドレス
+        <div className={styles.form}>
+          <label className={styles.fieldLabel}>
+            <span className={styles.labelText}>メールアドレス</span>
+
             <input
+              type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(event) => setEmail(event.target.value)}
               disabled={isLoading}
-              style={{ padding: "12px", fontSize: "16px", border: "1px solid #fed7aa", borderRadius: "8px", outline: "none", backgroundColor: isLoading ? "#f5f5f5" : "#ffffff" }}
+              className={styles.input}
+              autoComplete="email"
             />
           </label>
 
-          <label style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", fontWeight: "bold", color: "#333333" }}>
-            パスワード
+          <label className={styles.fieldLabel}>
+            <span className={styles.labelText}>パスワード</span>
+
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               disabled={isLoading}
-              style={{ padding: "12px", fontSize: "16px", border: "1px solid #fed7aa", borderRadius: "8px", outline: "none", backgroundColor: isLoading ? "#f5f5f5" : "#ffffff" }}
+              className={styles.input}
+              autoComplete="current-password"
             />
           </label>
 
-          <Button type="button" fullWidth disabled={isLoading} onClick={handleLogin}>
-            {isLoading ? "ログイン中..." : "ログイン"}
-          </Button>
+          <div className={styles.actionArea}>
+            <Button type="button" fullWidth disabled={isLoading} onClick={handleLogin}>
+              {isLoading ? "ログイン中..." : "ログイン"}
+            </Button>
+          </div>
 
-          {message && <p style={{ color: "#dc2626", fontSize: "14px", margin: "0", textAlign: "center" }}>{message}</p>}
+          {message && <p className={styles.errorMessage}>{message}</p>}
         </div>
       </section>
     </main>

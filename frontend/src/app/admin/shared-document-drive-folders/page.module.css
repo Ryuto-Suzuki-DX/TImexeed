@@ -31,6 +31,10 @@
   margin-bottom: 20px;
 }
 
+.header > div:first-child {
+  min-width: 0;
+}
+
 .headerActionArea {
   display: flex;
   justify-content: flex-end;
@@ -76,6 +80,7 @@
 .searchCard,
 .folderListCard,
 .detailCard {
+  min-width: 0;
   padding: 18px;
   border-radius: 14px;
   border: 1px solid #e5e7eb;
@@ -95,6 +100,10 @@
   margin-bottom: 16px;
 }
 
+.sectionHeader > div {
+  min-width: 0;
+}
+
 .sectionTitle {
   margin: 0;
   font-size: 16px;
@@ -108,6 +117,7 @@
   font-size: 12px;
   color: #6b7280;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .searchGrid {
@@ -134,6 +144,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .labelText {
@@ -145,6 +156,7 @@
 .textInput,
 .textArea {
   width: 100%;
+  min-width: 0;
   border: 1px solid #d1d5db;
   border-radius: 10px;
   background-color: #ffffff;
@@ -221,6 +233,7 @@
 
 .folderTitleArea {
   min-width: 0;
+  flex: 1;
 }
 
 .folderTitle {
@@ -361,49 +374,404 @@
 }
 
 @media (max-width: 720px) {
+  .loadingCard {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 10px;
+    border-radius: 0;
+    box-sizing: border-box;
+    box-shadow: none;
+  }
+
+  .pageWrap {
+    width: 100%;
+    overflow-x: visible;
+  }
+
   .pageCard {
-    padding: 22px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 6px;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .header {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .header > div:first-child {
+    flex: 1;
+    min-width: 0;
   }
 
   .headerActionArea {
-    width: 100%;
-    justify-content: flex-start;
+    width: auto;
+    justify-content: flex-end;
+  }
+
+  .headerActionArea :global(button),
+  .sectionHeader > :global(button),
+  .searchActionArea :global(button),
+  .folderActionArea :global(button),
+  .formActionArea :global(button),
+  .moreArea :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 54px;
+    min-height: 28px;
+    padding: 3px 6px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .headerActionArea :global(button) {
+    min-width: 92px;
   }
 
   .summaryArea {
     width: 100%;
-    justify-content: flex-start;
+    gap: 4px;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    margin-bottom: 8px;
   }
 
   .summaryBox {
-    width: 100%;
+    width: auto;
+    min-width: 72px;
+    padding: 6px 8px;
+    border-radius: 8px;
   }
 
-  .sectionHeader {
-    flex-direction: column;
+  .summaryLabel {
+    margin-bottom: 2px;
+    font-size: 8px;
   }
 
-  .formActionArea {
-    justify-content: flex-start;
+  .summaryValue {
+    font-size: 13px;
   }
-}
 
-@media (max-width: 480px) {
-  .pageCard {
-    padding: 18px;
+  .messageArea {
+    margin-bottom: 8px;
   }
 
   .searchCard,
   .folderListCard,
   .detailCard {
-    padding: 14px;
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .searchCard {
+    margin-bottom: 8px;
+  }
+
+  .sectionHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .sectionHeader > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sectionTitle {
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    margin-top: 2px;
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .searchGrid {
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+  }
+
+  .searchGrid > .formLabel {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .labelText {
+    font-size: 9px;
+  }
+
+  .textInput {
+    height: 30px;
+    padding: 0 6px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+
+  .textArea {
+    min-height: 62px;
+    padding: 6px;
+    border-radius: 7px;
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
+  .searchActionArea {
+    justify-content: flex-end;
+    flex-shrink: 0;
+  }
+
+  .searchActionArea :global(button) {
+    width: 58px;
+    min-width: 58px;
+    height: 30px;
+    min-height: 30px;
+  }
+
+  .editorGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .folderList {
+    gap: 5px;
+  }
+
+  .folderCard {
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .folderCardHeader {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .folderTitle {
+    font-size: 11px;
+  }
+
+  .folderDescription {
+    margin-top: 3px;
+    font-size: 8px;
+    line-height: 1.4;
+  }
+
+  .scopeBadge,
+  .selectedBadge {
+    min-width: 44px;
+    padding: 3px 5px;
+    font-size: 8px;
+  }
+
+  .folderMetaGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    margin-bottom: 6px;
+  }
+
+  .metaLabel {
+    font-size: 8px;
+  }
+
+  .metaValue {
+    font-size: 8px;
+  }
+
+  .folderActionArea :global(button) {
+    min-width: 48px;
+    min-height: 26px;
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+
+  .formGrid {
+    gap: 8px;
+  }
+
+  .formActionArea {
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  .formActionArea :global(button) {
+    min-width: 48px;
+    min-height: 26px;
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+
+  .readOnlyInfoBox,
+  .policySection {
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  .policySection {
+    margin-top: 8px;
+  }
+
+  .readOnlyInfoTitle {
+    margin-bottom: 3px;
+    font-size: 10px;
+  }
+
+  .readOnlyInfoText,
+  .policyText {
+    margin-top: 3px;
+    font-size: 8px;
+    line-height: 1.4;
   }
 
   .emptyBox {
-    padding: 22px;
+    padding: 12px 8px;
+    border-radius: 9px;
+  }
+
+  .emptyTitle {
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+
+  .emptyText {
+    font-size: 9px;
+  }
+
+  .moreArea {
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageCard {
+    padding: 4px;
+  }
+
+  .header {
+    gap: 5px;
+  }
+
+  .headerActionArea :global(button) {
+    min-width: 82px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .summaryBox {
+    min-width: 64px;
+    padding: 5px 6px;
+  }
+
+  .summaryLabel {
+    font-size: 7px;
+  }
+
+  .summaryValue {
+    font-size: 11px;
+  }
+
+  .searchCard,
+  .folderListCard,
+  .detailCard {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .sectionTitle {
+    font-size: 12px;
+  }
+
+  .sectionDescription,
+  .labelText {
+    font-size: 8px;
+  }
+
+  .searchGrid {
+    gap: 3px;
+  }
+
+  .textInput {
+    height: 28px;
+    font-size: 9px;
+  }
+
+  .textArea {
+    min-height: 54px;
+    font-size: 9px;
+  }
+
+  .searchActionArea :global(button) {
+    width: 52px;
+    min-width: 52px;
+    height: 28px;
+    min-height: 28px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .sectionHeader > :global(button),
+  .folderActionArea :global(button),
+  .formActionArea :global(button),
+  .moreArea :global(button) {
+    min-width: 44px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .folderCard {
+    padding: 6px;
+  }
+
+  .folderTitle {
+    font-size: 10px;
+  }
+
+  .folderDescription,
+  .metaLabel,
+  .metaValue {
+    font-size: 7px;
+  }
+
+  .scopeBadge,
+  .selectedBadge {
+    min-width: 40px;
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .folderMetaGrid {
+    gap: 3px;
+  }
+
+  .readOnlyInfoBox,
+  .policySection {
+    padding: 6px;
+  }
+
+  .readOnlyInfoTitle {
+    font-size: 9px;
+  }
+
+  .readOnlyInfoText,
+  .policyText {
+    font-size: 7px;
   }
 }

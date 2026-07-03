@@ -1,26 +1,31 @@
 .loadingCard {
-  max-width: 720px;
-  margin: 60px auto;
+  width: min(720px, calc(100% - 48px));
+  margin: 48px auto;
   padding: 32px;
+  border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #ffffff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.08);
 }
 
 .pageWrap {
   width: 100%;
-  overflow-x: auto;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .pageCard {
   width: 100%;
   max-width: 1200px;
+  min-width: 0;
   margin: 0 auto;
   padding: 28px;
+  border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #ffffff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.08);
 }
 
 .header {
@@ -31,34 +36,40 @@
   margin-bottom: 20px;
 }
 
+.header > :first-child {
+  min-width: 0;
+  flex: 1;
+}
+
 .summaryArea {
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
 .summaryBox {
   min-width: 150px;
   padding: 12px 14px;
+  border: 1px solid #fed7aa;
   border-radius: 12px;
   background-color: #fff7ed;
-  border: 1px solid #fed7aa;
   box-sizing: border-box;
 }
 
 .summaryLabel {
   margin: 0 0 4px;
+  color: #9a3412;
   font-size: 11px;
   font-weight: bold;
-  color: #9a3412;
 }
 
 .summaryValue {
   margin: 0;
+  color: #ea580c;
   font-size: 24px;
   font-weight: bold;
-  color: #ea580c;
 }
 
 .messageArea {
@@ -68,10 +79,11 @@
 .searchCard,
 .folderListCard,
 .detailCard {
+  min-width: 0;
   padding: 18px;
+  border: 1px solid #fed7aa;
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background-color: #f9fafb;
+  background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%);
   box-sizing: border-box;
 }
 
@@ -87,19 +99,25 @@
   margin-bottom: 16px;
 }
 
+.sectionHeader > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
 .sectionTitle {
   margin: 0;
+  color: #9a3412;
   font-size: 16px;
   font-weight: bold;
-  color: #111827;
   line-height: 1.4;
 }
 
 .sectionDescription {
   margin: 4px 0 0;
-  font-size: 12px;
   color: #6b7280;
+  font-size: 12px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .searchGrid {
@@ -120,24 +138,26 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .labelText {
+  color: #9a3412;
   font-size: 12px;
   font-weight: bold;
-  color: #374151;
 }
 
 .textInput {
   width: 100%;
+  min-width: 0;
   height: 42px;
   padding: 0 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #fdba74;
   border-radius: 10px;
   background-color: #ffffff;
   color: #111827;
-  font-size: 14px;
   box-sizing: border-box;
+  font-size: 14px;
 }
 
 .textInput:focus {
@@ -153,10 +173,10 @@
 
 .formActionArea {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
   margin-top: 16px;
 }
 
@@ -167,9 +187,10 @@
 }
 
 .folderCard {
+  min-width: 0;
   padding: 14px;
+  border: 1px solid #fed7aa;
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
   background-color: #ffffff;
   box-sizing: border-box;
 }
@@ -189,23 +210,24 @@
 
 .folderTitleArea {
   min-width: 0;
+  flex: 1;
 }
 
 .folderTitle {
   margin: 0;
+  color: #111827;
   font-size: 15px;
   font-weight: bold;
-  color: #111827;
   line-height: 1.4;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .folderDescription {
   margin: 4px 0 0;
-  font-size: 12px;
   color: #6b7280;
+  font-size: 12px;
   line-height: 1.5;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .scopeBadge,
@@ -222,6 +244,7 @@
   font-size: 11px;
   font-weight: bold;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .selectedBadge {
@@ -231,30 +254,30 @@
 
 .folderMetaGrid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
 }
 
 .metaLabel {
   margin: 0 0 2px;
+  color: #9a3412;
   font-size: 11px;
   font-weight: bold;
-  color: #6b7280;
 }
 
 .metaValue {
   margin: 0;
-  font-size: 12px;
   color: #374151;
-  word-break: break-word;
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .folderActionArea {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 .detailBody {
@@ -264,70 +287,72 @@
 }
 
 .detailItem {
+  min-width: 0;
   padding: 14px;
+  border: 1px solid #fed7aa;
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
   background-color: #ffffff;
   box-sizing: border-box;
 }
 
 .detailLabel {
   margin: 0 0 4px;
+  color: #9a3412;
   font-size: 11px;
   font-weight: bold;
-  color: #6b7280;
 }
 
 .detailValue {
   margin: 0;
-  font-size: 14px;
   color: #111827;
+  font-size: 14px;
   line-height: 1.6;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .noticeBox {
   margin-top: 14px;
   padding: 14px;
-  border-radius: 14px;
   border: 1px solid #fed7aa;
+  border-radius: 14px;
   background-color: #fff7ed;
   box-sizing: border-box;
 }
 
 .noticeTitle {
   margin: 0 0 6px;
+  color: #9a3412;
   font-size: 13px;
   font-weight: bold;
-  color: #9a3412;
 }
 
 .noticeText {
   margin: 0;
-  font-size: 12px;
   color: #7c2d12;
+  font-size: 12px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .emptyBox {
   padding: 28px;
+  border: 1px dashed #fdba74;
   border-radius: 14px;
-  border: 1px dashed #d1d5db;
-  background-color: #f9fafb;
+  background-color: #fffaf5;
   text-align: center;
 }
 
 .emptyTitle {
   margin: 0 0 6px;
+  color: #9a3412;
   font-size: 15px;
   font-weight: bold;
-  color: #374151;
 }
 
 .emptyText {
   margin: 0;
-  font-size: 12px;
   color: #6b7280;
+  font-size: 12px;
   line-height: 1.6;
 }
 
@@ -343,56 +368,287 @@
   }
 }
 
-@media (max-width: 900px) {
-  .searchGrid {
-    grid-template-columns: 1fr;
+@media (max-width: 768px) {
+  .loadingCard {
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
-  .searchActionArea {
-    justify-content: flex-start;
+  .pageWrap {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
   }
-}
 
-@media (max-width: 720px) {
   .pageCard {
-    padding: 22px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 6px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .header {
-    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 
   .summaryArea {
-    width: 100%;
-    justify-content: flex-start;
+    gap: 4px;
   }
 
   .summaryBox {
-    width: 100%;
+    min-width: 92px;
+    padding: 6px 7px;
+    border-radius: 8px;
   }
 
-  .sectionHeader {
-    flex-direction: column;
+  .summaryLabel {
+    margin-bottom: 2px;
+    font-size: 8px;
   }
 
-  .formActionArea,
-  .folderActionArea {
-    justify-content: flex-start;
+  .summaryValue {
+    font-size: 15px;
   }
-}
 
-@media (max-width: 480px) {
-  .pageCard {
-    padding: 18px;
+  .messageArea {
+    margin-bottom: 8px;
   }
 
   .searchCard,
   .folderListCard,
   .detailCard {
-    padding: 14px;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .searchCard {
+    margin-bottom: 8px;
+  }
+
+  .sectionHeader {
+    flex-direction: row;
+    gap: 6px;
+    margin-bottom: 7px;
+  }
+
+  .sectionTitle {
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    margin-top: 2px;
+    font-size: 8px;
+    line-height: 1.35;
+  }
+
+  .searchGrid {
+    grid-template-columns: minmax(0, 1fr) 56px;
+    gap: 5px;
+  }
+
+  .formLabel {
+    gap: 3px;
+  }
+
+  .labelText {
+    font-size: 9px;
+  }
+
+  .textInput {
+    height: 30px;
+    padding: 0 6px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+
+  .contentGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .formActionArea {
+    gap: 4px;
+    margin-top: 7px;
+  }
+
+  .folderList {
+    gap: 6px;
+  }
+
+  .folderCard {
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .folderCardHeader {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .folderTitle {
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .folderDescription {
+    margin-top: 2px;
+    font-size: 8px;
+    line-height: 1.35;
+  }
+
+  .scopeBadge,
+  .selectedBadge {
+    min-width: 36px;
+    padding: 3px 5px;
+    font-size: 7px;
+  }
+
+  .folderMetaGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+
+  .metaLabel {
+    font-size: 7px;
+  }
+
+  .metaValue {
+    font-size: 8px;
+  }
+
+  .folderActionArea {
+    gap: 4px;
+  }
+
+  .detailBody {
+    gap: 6px;
+  }
+
+  .detailItem {
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .detailLabel {
+    margin-bottom: 2px;
+    font-size: 8px;
+  }
+
+  .detailValue {
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .noticeBox {
+    margin-top: 7px;
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .noticeTitle {
+    margin-bottom: 3px;
+    font-size: 9px;
+  }
+
+  .noticeText {
+    font-size: 8px;
+    line-height: 1.4;
   }
 
   .emptyBox {
-    padding: 22px;
+    padding: 12px 8px;
+    border-radius: 9px;
+  }
+
+  .emptyTitle {
+    margin-bottom: 3px;
+    font-size: 10px;
+  }
+
+  .emptyText {
+    font-size: 8px;
+    line-height: 1.4;
+  }
+
+  .moreArea {
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 560px) {
+  .header {
+    flex-direction: row;
+  }
+
+  .summaryArea {
+    flex-wrap: nowrap;
+  }
+
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .pageCard {
+    padding: 4px;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .summaryArea {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .summaryBox {
+    min-width: 78px;
+    padding: 5px 6px;
+  }
+
+  .summaryValue {
+    font-size: 14px;
+  }
+
+  .searchCard,
+  .folderListCard,
+  .detailCard {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .searchGrid {
+    grid-template-columns: minmax(0, 1fr) 50px;
+    gap: 4px;
+  }
+
+  .textInput {
+    height: 28px;
+    padding: 0 5px;
+    font-size: 9px;
+  }
+
+  .folderCard {
+    padding: 6px;
+  }
+
+  .detailItem {
+    padding: 6px;
+  }
+
+  .noticeBox {
+    padding: 6px;
   }
 }

@@ -58,6 +58,10 @@
   gap: 14px;
 }
 
+.salaryCardHeader > div {
+  min-width: 0;
+}
+
 .salaryCardTitle {
   margin: 0;
   color: #111827;
@@ -70,6 +74,7 @@
   color: #4b5563;
   font-size: 14px;
   line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 .statusBadge {
@@ -95,31 +100,125 @@
 
 @media (max-width: 768px) {
   .pageWrap {
-    padding: 16px;
+    width: 100%;
+    min-height: auto;
+    padding: 0;
   }
 
   .pageCard {
-    min-height: calc(100vh - 32px);
-    padding: 18px;
-    border-radius: 14px;
+    width: 100%;
+    min-height: auto;
+    padding: 6px;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .loadingCard {
-    width: calc(100% - 32px);
-    margin: 24px auto;
-    padding: 18px;
-    border-radius: 14px;
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .headerArea {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 2px;
   }
 
   .salaryGrid {
-    grid-template-columns: 1fr;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .salaryCard {
+    min-height: auto;
+    padding: 8px;
+    border-radius: 10px;
   }
 
   .salaryCardHeader {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .salaryCardTitle {
+    font-size: 13px;
+  }
+
+  .salaryCardDescription {
+    margin-top: 4px;
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .statusBadge {
+    min-width: 52px;
+    padding: 3px 6px;
+    font-size: 8px;
   }
 
   .salaryCardFooter {
-    justify-content: stretch;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+
+  .salaryCardFooter :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 52px;
+    min-height: 28px;
+    padding: 3px 6px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageCard {
+    padding: 4px;
+  }
+
+  .salaryGrid {
+    gap: 4px;
+  }
+
+  .salaryCard {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .salaryCardTitle {
+    font-size: 12px;
+  }
+
+  .salaryCardDescription {
+    font-size: 8px;
+  }
+
+  .statusBadge {
+    min-width: 46px;
+    padding: 2px 5px;
+    font-size: 7px;
+  }
+
+  .salaryCardFooter {
+    margin-top: 6px;
+  }
+
+  .salaryCardFooter :global(button) {
+    min-width: 46px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 8px;
   }
 }

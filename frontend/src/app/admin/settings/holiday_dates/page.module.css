@@ -41,6 +41,7 @@
 
 .importPanel,
 .searchPanel {
+  min-width: 0;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
@@ -57,6 +58,10 @@
   margin-bottom: 16px;
 }
 
+.sectionHeader > div {
+  min-width: 0;
+}
+
 .sectionTitle {
   margin: 0;
   color: #111827;
@@ -69,6 +74,7 @@
   color: #6b7280;
   font-size: 13px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .noticeBox {
@@ -139,6 +145,7 @@
   font-size: 13px;
   font-weight: 800;
   text-decoration: none;
+  text-align: center;
 }
 
 .officialLink:hover {
@@ -165,6 +172,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .fieldLabel {
@@ -176,6 +184,7 @@
 .input,
 .fileInput {
   width: 100%;
+  min-width: 0;
   min-height: 40px;
   border: 1px solid #d1d5db;
   border-radius: 10px;
@@ -302,6 +311,10 @@
   margin-bottom: 14px;
 }
 
+.tableHeader > div {
+  min-width: 0;
+}
+
 .tableTitle {
   margin: 0;
   color: #111827;
@@ -313,11 +326,13 @@
   margin: 6px 0 0;
   color: #6b7280;
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .tableScroll {
   width: 100%;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table {
@@ -381,32 +396,363 @@
 
 @media (max-width: 768px) {
   .pageWrap {
-    padding: 16px;
+    width: 100%;
+    min-height: auto;
+    padding: 0;
   }
 
   .pageCard {
-    min-height: calc(100vh - 32px);
-    padding: 18px;
-    border-radius: 14px;
+    width: 100%;
+    min-height: auto;
+    padding: 6px;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .loadingCard {
-    width: calc(100% - 32px);
-    margin: 24px auto;
-    padding: 18px;
-    border-radius: 14px;
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .headerArea {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 2px;
+  }
+
+  .contentGrid {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .importPanel,
+  .searchPanel {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .sectionHeader {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .sectionTitle {
+    font-size: 14px;
+  }
+
+  .sectionDescription {
+    margin-top: 3px;
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .noticeBox,
+  .linkCard,
+  .guideCard,
+  .searchHelpBox {
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .noticeTitle,
+  .linkTitle,
+  .guideTitle,
+  .searchHelpTitle {
+    font-size: 10px;
+  }
+
+  .noticeText,
+  .linkDescription,
+  .searchHelpText,
+  .guideNote {
+    margin-top: 4px;
+    font-size: 9px;
+    line-height: 1.45;
+  }
+
+  .linkDescription {
+    margin-bottom: 6px;
+  }
+
+  .officialLink {
+    min-height: 28px;
+    padding: 3px 7px;
+    border-radius: 7px;
+    font-size: 9px;
+    line-height: 1;
+  }
+
+  .guideList {
+    margin-top: 5px;
+    padding-left: 16px;
+    font-size: 9px;
+    line-height: 1.5;
+  }
+
+  .guideNote {
+    margin-top: 6px;
+  }
+
+  .field {
+    gap: 3px;
+  }
+
+  .fieldLabel {
+    font-size: 8px;
+  }
+
+  .input,
+  .fileInput {
+    min-height: 30px;
+    padding: 4px 6px;
+    border-radius: 7px;
+    font-size: 9px;
+  }
+
+  .fileInfo {
+    gap: 3px;
+    margin-top: 7px;
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .fileInfoLabel {
+    font-size: 8px;
+  }
+
+  .fileInfoValue {
+    font-size: 9px;
+  }
+
+  .previewCard {
+    margin-top: 8px;
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .previewHeader {
+    margin-bottom: 5px;
+  }
+
+  .previewTitle {
+    font-size: 10px;
+  }
+
+  .previewDescription {
+    margin-top: 3px;
+    font-size: 8px;
+  }
+
+  .csvPreview {
+    min-height: 86px;
+    max-height: 150px;
+    padding: 7px;
+    border-radius: 7px;
+    font-size: 8px;
+    line-height: 1.4;
+  }
+
+  .actionArea {
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+
+  .actionArea :global(button),
+  .searchButtonArea :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 54px;
+    min-height: 28px;
+    padding: 3px 6px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
   }
 
   .searchForm {
-    grid-template-columns: 1fr;
+    grid-template-columns: 92px 78px 58px;
+    gap: 5px;
+    margin-bottom: 8px;
   }
 
-  .searchButtonArea,
-  .actionArea {
-    justify-content: stretch;
+  .searchButtonArea {
+    justify-content: flex-end;
+  }
+
+  .searchButtonArea :global(button) {
+    width: 58px;
+    min-width: 58px;
+    height: 30px;
+    min-height: 30px;
+  }
+
+  .tableArea {
+    padding: 6px;
+    border-radius: 9px;
   }
 
   .tableHeader {
-    flex-direction: column;
+    margin-bottom: 7px;
+  }
+
+  .tableTitle {
+    font-size: 12px;
+  }
+
+  .tableDescription {
+    margin-top: 3px;
+    font-size: 8px;
+    line-height: 1.4;
+  }
+
+  .table {
+    min-width: 560px;
+  }
+
+  .table th,
+  .table td {
+    padding: 7px;
+    font-size: 9px;
+  }
+
+  .table th {
+    font-size: 8px;
+  }
+
+  .holidayName {
+    min-width: 56px;
+    padding: 3px 6px;
+    font-size: 8px;
+  }
+
+  .emptyCell {
+    padding: 14px 8px !important;
+    font-size: 9px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageCard {
+    padding: 4px;
+  }
+
+  .importPanel,
+  .searchPanel {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .sectionTitle {
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    font-size: 8px;
+  }
+
+  .noticeBox,
+  .linkCard,
+  .guideCard,
+  .searchHelpBox {
+    padding: 6px;
+  }
+
+  .noticeTitle,
+  .linkTitle,
+  .guideTitle,
+  .searchHelpTitle {
+    font-size: 9px;
+  }
+
+  .noticeText,
+  .linkDescription,
+  .searchHelpText,
+  .guideList,
+  .guideNote {
+    font-size: 8px;
+  }
+
+  .officialLink {
+    min-height: 26px;
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+
+  .fieldLabel,
+  .fileInfoLabel,
+  .previewDescription {
+    font-size: 7px;
+  }
+
+  .input,
+  .fileInput {
+    min-height: 28px;
+    padding: 3px 5px;
+    font-size: 8px;
+  }
+
+  .fileInfoValue,
+  .previewTitle {
+    font-size: 8px;
+  }
+
+  .csvPreview {
+    min-height: 72px;
+    max-height: 130px;
+    padding: 6px;
+    font-size: 7px;
+  }
+
+  .actionArea :global(button) {
+    min-width: 48px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .searchForm {
+    grid-template-columns: 84px 70px 52px;
+    gap: 3px;
+  }
+
+  .searchButtonArea :global(button) {
+    width: 52px;
+    min-width: 52px;
+    height: 28px;
+    min-height: 28px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .table {
+    min-width: 500px;
+  }
+
+  .table th,
+  .table td {
+    padding: 6px;
+    font-size: 8px;
+  }
+
+  .table th {
+    font-size: 7px;
+  }
+
+  .holidayName {
+    min-width: 50px;
+    font-size: 7px;
   }
 }

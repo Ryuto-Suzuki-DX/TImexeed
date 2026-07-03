@@ -41,6 +41,7 @@
 
 .searchPanel,
 .detailPanel {
+  min-width: 0;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
@@ -57,6 +58,10 @@
   margin-bottom: 16px;
 }
 
+.sectionHeader > div {
+  min-width: 0;
+}
+
 .sectionTitle {
   margin: 0;
   color: #111827;
@@ -69,6 +74,7 @@
   color: #6b7280;
   font-size: 13px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .searchForm {
@@ -79,6 +85,7 @@
 
 .searchInput {
   width: 100%;
+  min-width: 0;
   min-height: 40px;
   border: 1px solid #d1d5db;
   border-radius: 10px;
@@ -352,6 +359,7 @@
 .tableScroll {
   width: 100%;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table {
@@ -429,44 +437,429 @@
 
 @media (max-width: 768px) {
   .pageWrap {
-    padding: 16px;
+    width: 100%;
+    min-height: auto;
+    padding: 0;
   }
 
   .pageCard {
-    min-height: calc(100vh - 32px);
-    padding: 18px;
-    border-radius: 14px;
+    width: 100%;
+    min-height: auto;
+    padding: 6px;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .loadingCard {
-    width: calc(100% - 32px);
-    margin: 24px auto;
-    padding: 18px;
-    border-radius: 14px;
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    border-radius: 0;
+    box-shadow: none;
   }
 
-  .sectionHeader,
-  .legalCardHeader,
-  .modalHeader {
-    flex-direction: column;
+  .headerArea {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 2px;
+  }
+
+  .contentGrid {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .searchPanel,
+  .detailPanel {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .sectionHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .sectionHeader > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sectionHeader > :global(button),
+  .moreButtonArea :global(button),
+  .modalHeader :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 64px;
+    min-height: 28px;
+    padding: 3px 6px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .sectionTitle {
+    font-size: 14px;
+  }
+
+  .sectionDescription {
+    margin-top: 3px;
+    font-size: 9px;
+    line-height: 1.4;
   }
 
   .searchForm {
-    flex-direction: column;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .searchInput {
+    flex: 1;
+    min-width: 0;
+    min-height: 30px;
+    height: 30px;
+    padding: 4px 6px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+
+  .searchForm > :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    min-width: 58px;
+    height: 30px;
+    min-height: 30px;
+    padding: 2px 5px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .userList {
+    gap: 5px;
+    max-height: 260px;
+    padding-right: 2px;
+  }
+
+  .userRow {
+    gap: 2px;
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .userName {
+    font-size: 11px;
+  }
+
+  .userEmail {
+    font-size: 9px;
+  }
+
+  .userMeta {
+    font-size: 8px;
+  }
+
+  .emptyText {
+    padding: 10px;
+    font-size: 9px;
+  }
+
+  .moreButtonArea {
+    margin-top: 8px;
+  }
+
+  .balanceGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .balanceCard,
+  .balanceCardStrong {
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .balanceLabel {
+    font-size: 8px;
+  }
+
+  .balanceValue {
+    margin-top: 3px;
+    font-size: 13px;
+  }
+
+  .balanceSubValue {
+    margin-top: 3px;
+    font-size: 9px;
+    line-height: 1.35;
+  }
+
+  .legalCard {
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .legalCardHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .legalCardHeader > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .legalTitle {
+    font-size: 12px;
+  }
+
+  .legalDescription {
+    margin-top: 3px;
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .legalBadge {
+    min-width: 52px;
+    padding: 3px 6px;
+    font-size: 8px;
+  }
+
+  .legalGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    margin-top: 8px;
+  }
+
+  .legalItem,
+  .legalItemStrong {
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .legalLabel {
+    font-size: 8px;
+  }
+
+  .legalValue {
+    margin-top: 3px;
+    font-size: 11px;
+  }
+
+  .emptyDetail {
+    padding: 18px 8px;
+    border-radius: 9px;
+    font-size: 9px;
+  }
+
+  .modalOverlay {
+    padding: 6px;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: calc(100vh - 12px);
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .modalHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .modalHeader > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .modalTitle {
+    font-size: 14px;
+  }
+
+  .modalDescription {
+    margin-top: 3px;
+    font-size: 9px;
+  }
+
+  .table {
+    min-width: 620px;
+  }
+
+  .table th,
+  .table td {
+    padding: 7px;
+    font-size: 9px;
+  }
+
+  .table th {
+    font-size: 8px;
+  }
+
+  .manualBadge,
+  .systemBadge {
+    min-width: 58px;
+    padding: 3px 6px;
+    font-size: 8px;
+  }
+
+  .emptyCell {
+    padding: 14px 8px !important;
+    font-size: 9px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageCard {
+    padding: 4px;
+  }
+
+  .searchPanel,
+  .detailPanel {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .sectionTitle {
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    font-size: 8px;
+  }
+
+  .searchInput {
+    height: 28px;
+    min-height: 28px;
+    font-size: 9px;
+  }
+
+  .searchForm > :global(button) {
+    width: 52px;
+    min-width: 52px;
+    height: 28px;
+    min-height: 28px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .sectionHeader > :global(button),
+  .moreButtonArea :global(button),
+  .modalHeader :global(button) {
+    min-width: 56px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .userRow {
+    padding: 6px;
+  }
+
+  .userName {
+    font-size: 10px;
+  }
+
+  .userEmail,
+  .userMeta {
+    font-size: 7px;
   }
 
   .balanceGrid,
   .legalGrid {
-    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .balanceCard,
+  .balanceCardStrong,
+  .legalItem,
+  .legalItemStrong {
+    padding: 5px;
+  }
+
+  .balanceLabel,
+  .legalLabel {
+    font-size: 7px;
+  }
+
+  .balanceValue {
+    font-size: 11px;
+  }
+
+  .balanceSubValue,
+  .legalValue {
+    font-size: 8px;
+  }
+
+  .legalCard {
+    padding: 6px;
+  }
+
+  .legalTitle {
+    font-size: 11px;
+  }
+
+  .legalDescription {
+    font-size: 8px;
+  }
+
+  .legalBadge {
+    min-width: 46px;
+    padding: 2px 5px;
+    font-size: 7px;
   }
 
   .modalOverlay {
-    padding: 12px;
+    padding: 3px;
   }
 
   .modal {
-    max-height: calc(100vh - 24px);
-    padding: 16px;
-    border-radius: 14px;
+    max-height: calc(100vh - 6px);
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .table {
+    min-width: 560px;
+  }
+
+  .table th,
+  .table td {
+    padding: 6px;
+    font-size: 8px;
+  }
+
+  .table th {
+    font-size: 7px;
+  }
+
+  .manualBadge,
+  .systemBadge {
+    min-width: 52px;
+    font-size: 7px;
   }
 }

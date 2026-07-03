@@ -1,19 +1,22 @@
-.rowLocked {
-  background: #f8fafc;
-  opacity: 0.9;
-}
-
 .lockedText {
   margin: 0;
+  color: #64748b;
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
-  white-space: nowrap;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
-.actionList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
+@media (max-width: 768px) {
+  .lockedText {
+    font-size: 8px;
+    line-height: 1.3;
+  }
+}
+
+@media (max-width: 480px) {
+  .lockedText {
+    font-size: 7px;
+  }
 }

@@ -2,14 +2,17 @@
   max-width: 720px;
   margin: 60px auto;
   padding: 32px;
+  border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #ffffff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.08);
 }
 
 .pageWrap {
   width: 100%;
-  overflow-x: auto;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .pageCard {
@@ -17,10 +20,11 @@
   max-width: 1040px;
   margin: 0 auto;
   padding: 28px;
+  border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #ffffff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.08);
 }
 
 .header {
@@ -31,34 +35,40 @@
   margin-bottom: 20px;
 }
 
+.header > :first-child {
+  min-width: 0;
+  flex: 1;
+}
+
 .summaryArea {
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
 .summaryBox {
   min-width: 140px;
   padding: 12px 14px;
+  border: 1px solid #fed7aa;
   border-radius: 12px;
   background-color: #fff7ed;
-  border: 1px solid #fed7aa;
   box-sizing: border-box;
 }
 
 .summaryLabel {
   margin: 0 0 4px;
+  color: #9a3412;
   font-size: 11px;
   font-weight: bold;
-  color: #9a3412;
 }
 
 .summaryValue {
   margin: 0;
+  color: #ea580c;
   font-size: 24px;
   font-weight: bold;
-  color: #ea580c;
 }
 
 .messageArea {
@@ -68,9 +78,9 @@
 .searchCard {
   margin-bottom: 24px;
   padding: 18px;
+  border: 1px solid #fed7aa;
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background-color: #f9fafb;
+  background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%);
   box-sizing: border-box;
 }
 
@@ -82,19 +92,25 @@
   margin-bottom: 16px;
 }
 
+.sectionHeader > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
 .sectionTitle {
   margin: 0;
+  color: #9a3412;
   font-size: 16px;
   font-weight: bold;
-  color: #111827;
   line-height: 1.4;
 }
 
 .sectionDescription {
   margin: 4px 0 0;
-  font-size: 12px;
   color: #6b7280;
+  font-size: 12px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .searchGrid {
@@ -108,24 +124,26 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .labelText {
+  color: #9a3412;
   font-size: 12px;
   font-weight: bold;
-  color: #374151;
 }
 
 .textInput {
   width: 100%;
+  min-width: 0;
   height: 42px;
   padding: 0 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #fdba74;
   border-radius: 10px;
   background-color: #ffffff;
   color: #111827;
-  font-size: 14px;
   box-sizing: border-box;
+  font-size: 14px;
 }
 
 .textInput:focus {
@@ -151,14 +169,15 @@
 
 .notificationCard {
   padding: 16px;
+  border: 1px solid #fed7aa;
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
   background-color: #ffffff;
   box-sizing: border-box;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.05);
 }
 
 .unreadCard {
-  border-color: #fed7aa;
+  border-color: #fb923c;
   background-color: #fff7ed;
 }
 
@@ -193,30 +212,33 @@
   font-size: 10px;
   font-weight: bold;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .notificationTitle {
   margin: 0;
+  color: #111827;
   font-size: 16px;
   font-weight: bold;
-  color: #111827;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .createdAt {
-  margin: 0;
   flex-shrink: 0;
-  font-size: 12px;
+  margin: 0;
   color: #6b7280;
+  font-size: 12px;
   white-space: nowrap;
 }
 
 .notificationMessage {
   margin: 0;
-  font-size: 13px;
   color: #374151;
+  font-size: 13px;
   line-height: 1.7;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .notificationFooter {
@@ -229,36 +251,36 @@
 
 .readStatus {
   margin: 0;
-  font-size: 12px;
   color: #6b7280;
+  font-size: 12px;
 }
 
 .actionArea {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 .emptyBox {
   padding: 32px;
+  border: 1px dashed #fdba74;
   border-radius: 14px;
-  border: 1px dashed #d1d5db;
-  background-color: #f9fafb;
+  background-color: #fffaf5;
   text-align: center;
 }
 
 .emptyTitle {
   margin: 0 0 6px;
+  color: #9a3412;
   font-size: 16px;
   font-weight: bold;
-  color: #374151;
 }
 
 .emptyText {
   margin: 0;
-  font-size: 13px;
   color: #6b7280;
+  font-size: 13px;
 }
 
 .moreArea {
@@ -268,71 +290,267 @@
 }
 
 @media (max-width: 900px) {
-  .searchGrid {
-    grid-template-columns: 1fr;
+  .pageCard {
+    max-width: none;
   }
 
-  .searchActionArea {
-    justify-content: flex-start;
+  .searchGrid {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
+  .loadingCard {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 10px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .pageWrap {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
   .pageCard {
-    padding: 22px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 6px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .header {
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .summaryArea {
+    gap: 4px;
+  }
+
+  .summaryBox {
+    min-width: 92px;
+    padding: 6px 7px;
+    border-radius: 8px;
+  }
+
+  .summaryLabel {
+    margin-bottom: 2px;
+    font-size: 8px;
+  }
+
+  .summaryValue {
+    font-size: 15px;
+  }
+
+  .messageArea {
+    margin-bottom: 8px;
+  }
+
+  .searchCard {
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .sectionHeader {
+    flex-direction: row;
+    gap: 6px;
+    margin-bottom: 7px;
+  }
+
+  .sectionTitle {
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    margin-top: 2px;
+    font-size: 8px;
+    line-height: 1.35;
+  }
+
+  .searchGrid {
+    grid-template-columns: minmax(0, 1fr) 56px;
+    gap: 5px;
+  }
+
+  .formLabel {
+    gap: 3px;
+  }
+
+  .labelText {
+    font-size: 9px;
+  }
+
+  .textInput {
+    height: 30px;
+    padding: 0 6px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+
+  .searchActionArea {
+    justify-content: flex-end;
+  }
+
+  .notificationList {
+    gap: 6px;
+  }
+
+  .notificationCard {
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .notificationHeader {
+    flex-direction: row;
+    gap: 6px;
+    margin-bottom: 5px;
+  }
+
+  .notificationTitleArea {
+    gap: 4px;
+  }
+
+  .newBadge {
+    min-width: 32px;
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .notificationTitle {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  .createdAt {
+    font-size: 8px;
+  }
+
+  .notificationMessage {
+    font-size: 9px;
+    line-height: 1.45;
+  }
+
+  .notificationFooter {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin-top: 7px;
+  }
+
+  .readStatus {
+    flex: 1;
+    min-width: 0;
+    font-size: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  .actionArea {
+    gap: 4px;
+  }
+
+  .emptyBox {
+    padding: 14px 8px;
+    border-radius: 9px;
+  }
+
+  .emptyTitle {
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+
+  .emptyText {
+    font-size: 8px;
+  }
+
+  .moreArea {
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 560px) {
+  .header {
+    flex-direction: row;
+  }
+
+  .summaryArea {
+    flex-wrap: nowrap;
+  }
+
+  .summaryBox {
+    min-width: 82px;
+  }
+}
+
+@media (max-width: 420px) {
+  .pageCard {
+    padding: 4px;
   }
 
   .header {
     flex-direction: column;
+    gap: 4px;
   }
 
   .summaryArea {
     width: 100%;
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 
   .summaryBox {
-    width: 100%;
+    min-width: 78px;
+    padding: 5px 6px;
   }
 
-  .sectionHeader {
-    flex-direction: column;
-  }
-
-  .notificationHeader {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .createdAt {
-    white-space: normal;
-  }
-
-  .notificationFooter {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .actionArea {
-    width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .pageCard {
-    padding: 18px;
+  .summaryValue {
+    font-size: 14px;
   }
 
   .searchCard {
-    padding: 14px;
+    padding: 6px;
+  }
+
+  .searchGrid {
+    grid-template-columns: minmax(0, 1fr) 50px;
+    gap: 4px;
+  }
+
+  .textInput {
+    height: 28px;
+    padding: 0 5px;
+    font-size: 9px;
   }
 
   .notificationCard {
-    padding: 14px;
+    padding: 6px;
   }
 
-  .notificationTitleArea {
-    flex-direction: column;
-    align-items: flex-start;
+  .notificationHeader {
+    gap: 4px;
+  }
+
+  .notificationTitle {
+    font-size: 10px;
+  }
+
+  .createdAt {
+    font-size: 7px;
+  }
+
+  .notificationMessage {
+    font-size: 8px;
+  }
+
+  .readStatus {
+    font-size: 7px;
   }
 }

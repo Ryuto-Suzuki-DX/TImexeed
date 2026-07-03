@@ -41,6 +41,7 @@
 
 .searchPanel,
 .formPanel {
+  min-width: 0;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
@@ -57,6 +58,10 @@
   margin-bottom: 16px;
 }
 
+.sectionHeader > div {
+  min-width: 0;
+}
+
 .sectionTitle {
   margin: 0;
   color: #111827;
@@ -69,6 +74,7 @@
   color: #6b7280;
   font-size: 13px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .searchForm {
@@ -80,6 +86,7 @@
 .searchInput,
 .input {
   width: 100%;
+  min-width: 0;
   min-height: 40px;
   border: 1px solid #d1d5db;
   border-radius: 10px;
@@ -99,6 +106,7 @@
 
 .textarea {
   width: 100%;
+  min-width: 0;
   min-height: 78px;
   resize: vertical;
   border: 1px solid #d1d5db;
@@ -196,12 +204,19 @@
   gap: 14px;
 }
 
+.userRowMain > div:first-child,
+.salaryDetailRowMain > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
 .userName,
 .salaryDetailTitle {
   margin: 0;
   color: #111827;
   font-size: 15px;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .userMeta,
@@ -210,6 +225,7 @@
   color: #6b7280;
   font-size: 12px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .salaryDetailNameLine {
@@ -297,6 +313,7 @@
   margin: 6px 0 0;
   color: #6b7280;
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .formGrid {
@@ -309,6 +326,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .fieldLabel {
@@ -340,35 +358,409 @@
 
 @media (max-width: 768px) {
   .pageWrap {
-    padding: 16px;
+    width: 100%;
+    min-height: auto;
+    padding: 0;
   }
 
   .pageCard {
-    min-height: calc(100vh - 32px);
-    padding: 18px;
-    border-radius: 14px;
+    width: 100%;
+    min-height: auto;
+    padding: 6px;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .loadingCard {
-    width: calc(100% - 32px);
-    margin: 24px auto;
-    padding: 18px;
-    border-radius: 14px;
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    border-radius: 0;
+    box-shadow: none;
   }
 
-  .sectionHeader,
-  .userRowMain,
-  .salaryDetailRowMain {
-    flex-direction: column;
+  .headerArea {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 2px;
+  }
+
+  .contentGrid {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .searchPanel,
+  .formPanel {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .sectionHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .sectionHeader > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sectionHeader > :global(button),
+  .rowActions :global(button),
+  .moreButtonArea :global(button),
+  .formActions :global(button),
+  .userRowMain > :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 54px;
+    min-height: 28px;
+    padding: 3px 6px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .sectionTitle {
+    font-size: 14px;
+  }
+
+  .sectionDescription {
+    margin-top: 3px;
+    font-size: 9px;
+    line-height: 1.4;
   }
 
   .searchForm {
-    flex-direction: column;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 8px;
   }
 
-  .rowActions,
+  .searchInput {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    min-height: 30px;
+    padding: 4px 6px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+
+  .searchForm > :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    min-width: 58px;
+    height: 30px;
+    min-height: 30px;
+    padding: 2px 5px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .switchRow {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .switch {
+    width: 34px;
+    height: 18px;
+  }
+
+  .switchThumb {
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .switchOn .switchThumb {
+    transform: translateX(16px);
+  }
+
+  .switchText {
+    font-size: 9px;
+  }
+
+  .userList,
+  .salaryDetailList {
+    gap: 5px;
+  }
+
+  .userRow,
+  .salaryDetailRow {
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .userRowMain,
+  .salaryDetailRowMain {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .userName,
+  .salaryDetailTitle {
+    font-size: 11px;
+  }
+
+  .userMeta,
+  .salaryDetailMeta {
+    margin-top: 3px;
+    font-size: 8px;
+    line-height: 1.4;
+  }
+
+  .salaryDetailNameLine {
+    gap: 4px;
+  }
+
+  .deletedBadge,
+  .warningBadge {
+    min-width: 48px;
+    padding: 3px 5px;
+    font-size: 8px;
+  }
+
+  .rowActions {
+    width: auto;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .rowActions :global(button) {
+    min-width: 46px;
+    min-height: 26px;
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+
+  .emptyText {
+    padding: 12px 8px;
+    font-size: 9px;
+  }
+
+  .moreButtonArea {
+    margin-top: 8px;
+  }
+
+  .salarySectionDivider {
+    margin: 10px 0;
+  }
+
+  .selectedUserBox {
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+  }
+
+  .selectedUserLabel {
+    font-size: 8px;
+  }
+
+  .selectedUserName {
+    margin-top: 3px;
+    font-size: 11px;
+  }
+
+  .selectedUserMeta {
+    margin-top: 3px;
+    font-size: 8px;
+  }
+
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .fieldWide {
+    gap: 3px;
+  }
+
+  .fieldWide:nth-child(4),
+  .fieldWide:nth-child(6),
+  .fieldWide:nth-child(10),
+  .checkboxRow {
+    grid-column: 1 / -1;
+  }
+
+  .fieldLabel {
+    font-size: 9px;
+  }
+
+  .input {
+    min-height: 30px;
+    padding: 4px 6px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+
+  .textarea {
+    min-height: 54px;
+    padding: 6px;
+    border-radius: 7px;
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  .checkboxRow {
+    gap: 5px;
+    font-size: 9px;
+  }
+
+  .checkboxRow input {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+  }
+
   .formActions {
     width: 100%;
-    justify-content: stretch;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageCard {
+    padding: 4px;
+  }
+
+  .searchPanel,
+  .formPanel {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .sectionTitle {
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    font-size: 8px;
+  }
+
+  .searchInput {
+    height: 28px;
+    min-height: 28px;
+    font-size: 9px;
+  }
+
+  .searchForm > :global(button) {
+    width: 52px;
+    min-width: 52px;
+    height: 28px;
+    min-height: 28px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .sectionHeader > :global(button),
+  .moreButtonArea :global(button),
+  .formActions :global(button),
+  .userRowMain > :global(button) {
+    min-width: 48px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .userRow,
+  .salaryDetailRow {
+    padding: 6px;
+  }
+
+  .userName,
+  .salaryDetailTitle {
+    font-size: 10px;
+  }
+
+  .userMeta,
+  .salaryDetailMeta,
+  .selectedUserLabel,
+  .selectedUserMeta {
+    font-size: 7px;
+  }
+
+  .deletedBadge,
+  .warningBadge {
+    min-width: 44px;
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .rowActions :global(button) {
+    min-width: 42px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .switch {
+    width: 30px;
+    height: 16px;
+  }
+
+  .switchThumb {
+    width: 12px;
+    height: 12px;
+  }
+
+  .switchOn .switchThumb {
+    transform: translateX(14px);
+  }
+
+  .switchText {
+    font-size: 8px;
+  }
+
+  .selectedUserBox {
+    padding: 6px;
+  }
+
+  .selectedUserName {
+    font-size: 10px;
+  }
+
+  .formGrid {
+    gap: 4px;
+  }
+
+  .fieldLabel,
+  .checkboxRow {
+    font-size: 8px;
+  }
+
+  .input {
+    min-height: 28px;
+    padding: 3px 5px;
+    font-size: 9px;
+  }
+
+  .textarea {
+    min-height: 48px;
+    padding: 5px;
+    font-size: 9px;
   }
 }

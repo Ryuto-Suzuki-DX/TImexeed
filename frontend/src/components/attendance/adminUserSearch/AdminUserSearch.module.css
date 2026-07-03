@@ -1,9 +1,9 @@
 .searchSection {
   margin-bottom: 20px;
   padding: 18px;
+  border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #fff7ed;
-  border: 1px solid #fed7aa;
   box-sizing: border-box;
 }
 
@@ -17,14 +17,14 @@
 
 .sectionTitle {
   margin: 0 0 4px;
-  font-size: 18px;
   color: #ea580c;
+  font-size: 18px;
 }
 
 .sectionDescription {
   margin: 0;
-  font-size: 12px;
   color: #666666;
+  font-size: 12px;
 }
 
 .searchControl {
@@ -50,25 +50,25 @@
 
 .searchMessage {
   margin: 10px 0 0;
-  font-size: 12px;
   color: #6b7280;
+  font-size: 12px;
   line-height: 1.4;
 }
 
 .selectedUserBox {
   margin-top: 14px;
   padding: 12px 14px;
+  border: 1px solid #fed7aa;
   border-radius: 12px;
   background-color: #ffffff;
-  border: 1px solid #fed7aa;
   box-sizing: border-box;
 }
 
 .selectedUserLabel {
   margin: 0 0 4px;
+  color: #9a3412;
   font-size: 11px;
   font-weight: bold;
-  color: #9a3412;
 }
 
 .selectedUserName {
@@ -76,21 +76,22 @@
   align-items: baseline;
   gap: 8px;
   margin: 0;
+  color: #111827;
   font-size: 16px;
   font-weight: bold;
-  color: #111827;
 }
 
 .selectedUserSubText {
+  color: #6b7280;
   font-size: 11px;
   font-weight: bold;
-  color: #6b7280;
 }
 
 .selectedUserEmail {
   margin: 4px 0 0;
-  font-size: 12px;
   color: #6b7280;
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .resultList {
@@ -107,12 +108,12 @@
   align-items: center;
   width: 100%;
   padding: 10px 12px;
-  border-radius: 12px;
   border: 1px solid #fed7aa;
+  border-radius: 12px;
   background-color: #ffffff;
+  box-sizing: border-box;
   text-align: left;
   cursor: pointer;
-  box-sizing: border-box;
 }
 
 .resultItem:hover {
@@ -139,25 +140,25 @@
 }
 
 .resultName {
+  overflow: hidden;
+  color: #111827;
   font-size: 13px;
   font-weight: bold;
-  color: #111827;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .resultMeta {
+  color: #6b7280;
   font-size: 11px;
   font-weight: bold;
-  color: #6b7280;
   white-space: nowrap;
 }
 
 .resultEmail {
-  font-size: 12px;
-  color: #374151;
   overflow: hidden;
+  color: #374151;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -165,12 +166,12 @@
 .resultRole {
   justify-self: end;
   padding: 3px 7px;
-  border-radius: 999px;
   border: 1px solid #fed7aa;
+  border-radius: 999px;
   background-color: #fff7ed;
+  color: #9a3412;
   font-size: 10px;
   font-weight: bold;
-  color: #9a3412;
   white-space: nowrap;
 }
 
@@ -190,8 +191,144 @@
   }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 768px) {
+  .searchSection {
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .sectionHeader {
+    gap: 6px;
+    margin-bottom: 7px;
+  }
+
+  .sectionTitle {
+    margin-bottom: 2px;
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    font-size: 8px;
+    line-height: 1.35;
+  }
+
   .searchControl {
-    grid-template-columns: minmax(220px, 1fr) 90px;
+    grid-template-columns: minmax(0, 1fr) 56px;
+    gap: 5px;
+  }
+
+  .searchControl :global(input[type="text"]),
+  .searchControl :global(input[type="search"]) {
+    width: 100%;
+    max-width: none;
+  }
+
+  .searchControl :global(button) {
+    width: 56px;
+    min-width: 56px;
+  }
+
+  .searchMessage {
+    margin-top: 6px;
+    font-size: 8px;
+  }
+
+  .selectedUserBox {
+    margin-top: 7px;
+    padding: 7px 8px;
+    border-radius: 8px;
+  }
+
+  .selectedUserLabel {
+    margin-bottom: 2px;
+    font-size: 8px;
+  }
+
+  .selectedUserName {
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .selectedUserSubText {
+    font-size: 8px;
+  }
+
+  .selectedUserEmail {
+    margin-top: 2px;
+    font-size: 8px;
+  }
+
+  .resultList {
+    gap: 4px;
+    margin-top: 7px;
+  }
+
+  .resultItem {
+    grid-template-columns: minmax(90px, 1fr) minmax(110px, 1.2fr) auto;
+    gap: 5px;
+    padding: 6px 7px;
+    border-radius: 8px;
+  }
+
+  .resultMain {
+    gap: 4px;
+  }
+
+  .resultName {
+    font-size: 9px;
+  }
+
+  .resultMeta {
+    font-size: 7px;
+  }
+
+  .resultEmail {
+    font-size: 8px;
+  }
+
+  .resultRole {
+    justify-self: end;
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .loadMoreArea {
+    margin-top: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .searchSection {
+    padding: 6px;
+  }
+
+  .searchControl {
+    grid-template-columns: minmax(0, 1fr) 50px;
+    gap: 4px;
+  }
+
+  .searchControl :global(button) {
+    width: 50px;
+    min-width: 50px;
+  }
+
+  .resultItem {
+    grid-template-columns: minmax(82px, 1fr) minmax(100px, 1.2fr) auto;
+    gap: 4px;
+    padding: 5px 6px;
+  }
+
+  .resultName {
+    font-size: 8px;
+  }
+
+  .resultMeta,
+  .resultRole {
+    font-size: 6px;
+  }
+
+  .resultEmail {
+    font-size: 7px;
   }
 }

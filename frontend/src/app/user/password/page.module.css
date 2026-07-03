@@ -1,26 +1,31 @@
 .loadingCard {
-  flex: 1;
-  margin: 40px;
+  width: min(720px, calc(100% - 48px));
+  margin: 48px auto;
   padding: 32px;
+  border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #ffffff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.08);
 }
 
 .pageWrap {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   padding: 40px;
   box-sizing: border-box;
 }
 
 .pageCard {
+  width: 100%;
   max-width: 980px;
   margin: 0 auto;
   padding: 32px;
+  border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #ffffff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.08);
 }
 
 .header {
@@ -44,8 +49,9 @@
 .formSection {
   padding: 24px;
   border: 1px solid #fed7aa;
-  border-radius: 12px;
-  background-color: #fffaf5;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%);
+  box-sizing: border-box;
 }
 
 .sectionHeader {
@@ -56,17 +62,23 @@
   margin-bottom: 24px;
 }
 
+.sectionHeader > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
 .sectionTitle {
   margin: 0 0 6px;
-  font-size: 20px;
   color: #ea580c;
+  font-size: 20px;
 }
 
 .sectionDescription {
   margin: 0;
+  color: #666666;
   font-size: 14px;
   line-height: 1.7;
-  color: #666666;
+  overflow-wrap: anywhere;
 }
 
 .formGrid {
@@ -79,24 +91,26 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .labelText {
+  color: #9a3412;
   font-size: 14px;
   font-weight: 700;
-  color: #333333;
 }
 
 .textInput {
   width: 100%;
+  min-width: 0;
   height: 46px;
   padding: 0 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 15px;
-  color: #333333;
+  border: 1px solid #fdba74;
+  border-radius: 10px;
   background-color: #ffffff;
+  color: #333333;
   box-sizing: border-box;
+  font-size: 15px;
   outline: none;
 }
 
@@ -106,9 +120,9 @@
 }
 
 .textInput:disabled {
+  cursor: not-allowed;
   color: #777777;
   background-color: #f3f4f6;
-  cursor: not-allowed;
 }
 
 .actionArea {
@@ -118,28 +132,117 @@
 
 @media (max-width: 768px) {
   .loadingCard {
-    margin: 20px 16px;
-    padding: 24px 20px;
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .pageWrap {
-    padding: 20px 16px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
   }
 
   .pageCard {
-    padding: 24px 20px;
-    border-radius: 12px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 6px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .header {
+    margin-bottom: 8px;
+  }
+
+  .messageArea {
+    margin-bottom: 8px;
+  }
+
+  .form {
+    gap: 8px;
   }
 
   .formSection {
-    padding: 20px 16px;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .sectionHeader {
+    margin-bottom: 8px;
+  }
+
+  .sectionTitle {
+    margin-bottom: 3px;
+    font-size: 14px;
+  }
+
+  .sectionDescription {
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .formGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .formLabel {
+    gap: 3px;
+  }
+
+  .labelText {
+    font-size: 9px;
+  }
+
+  .textInput {
+    height: 30px;
+    padding: 0 6px;
+    border-radius: 7px;
+    font-size: 10px;
   }
 
   .actionArea {
-    justify-content: stretch;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 560px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .pageCard {
+    padding: 4px;
   }
 
-  .actionArea > * {
-    width: 100%;
+  .formSection {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .sectionTitle {
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    font-size: 8px;
+  }
+
+  .labelText {
+    font-size: 8px;
+  }
+
+  .textInput {
+    height: 28px;
+    padding: 0 5px;
+    font-size: 9px;
   }
 }

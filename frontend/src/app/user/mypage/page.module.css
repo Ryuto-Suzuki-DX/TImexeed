@@ -1,18 +1,21 @@
 .page {
   min-height: 100vh;
   padding: 40px;
-  font-family: sans-serif;
   background-color: #fff7ed;
   box-sizing: border-box;
+  font-family: sans-serif;
 }
 
 .card {
+  width: 100%;
   max-width: 980px;
   margin: 60px auto;
   padding: 32px;
+  border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #ffffff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.08);
 }
 
 .header {
@@ -23,17 +26,25 @@
   margin-bottom: 24px;
 }
 
+.header > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
 .headerActionArea {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .title {
   margin: 0 0 8px;
-  font-size: 32px;
   color: #ea580c;
+  font-size: 32px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .description,
@@ -42,19 +53,23 @@
 .dashboardDescription,
 .emptyText {
   margin: 0;
-  font-size: 14px;
   color: #666666;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .pageMessage {
   margin-bottom: 20px;
   padding: 12px 14px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 700;
   border: 1px solid #fed7aa;
+  border-radius: 12px;
   background-color: #fff7ed;
   color: #9a3412;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .pageMessage_info {
@@ -84,9 +99,10 @@
 .attendanceRealtimeSection {
   margin-bottom: 24px;
   padding: 20px;
-  border-radius: 18px;
   border: 1px solid #fed7aa;
+  border-radius: 18px;
   background: linear-gradient(180deg, #ffffff 0%, #fff7ed 100%);
+  box-sizing: border-box;
 }
 
 .attendancePunchGrid {
@@ -101,9 +117,10 @@
   gap: 16px;
   min-width: 0;
   padding: 18px;
+  border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #ffffff;
-  border: 1px solid #fed7aa;
+  box-sizing: border-box;
   box-shadow: 0 4px 14px rgba(234, 88, 12, 0.08);
 }
 
@@ -114,19 +131,24 @@
   gap: 14px;
 }
 
+.attendancePunchHeader > div:first-child {
+  min-width: 0;
+}
+
 .attendancePunchLabel,
 .attendanceCommentLabel {
   margin: 0 0 6px;
+  color: #9a3412;
   font-size: 13px;
   font-weight: 800;
-  color: #9a3412;
 }
 
 .attendancePunchTime {
   margin: 0;
+  color: #ea580c;
   font-size: 26px;
   font-weight: 900;
-  color: #ea580c;
+  line-height: 1.1;
 }
 
 .attendanceRecordedBadge,
@@ -134,11 +156,15 @@
 .successBadge,
 .warningBadge,
 .monthlyStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   padding: 5px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .attendanceRecordedBadge,
@@ -165,26 +191,27 @@
   width: 100%;
   min-height: 88px;
   padding: 12px;
-  border-radius: 12px;
   border: 1px solid #fed7aa;
+  border-radius: 12px;
   background-color: #ffffff;
+  color: #111827;
+  box-sizing: border-box;
   font: inherit;
   font-size: 14px;
   line-height: 1.6;
-  color: #111827;
   resize: vertical;
-  box-sizing: border-box;
 }
 
 .attendancePunchTextarea:focus {
+  outline: none;
   border-color: #fb923c;
-  outline: 3px solid rgba(251, 146, 60, 0.18);
+  box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.18);
 }
 
 .attendancePunchTextarea:disabled {
+  cursor: not-allowed;
   color: #9ca3af;
   background-color: #f9fafb;
-  cursor: not-allowed;
 }
 
 .attendanceActionArea {
@@ -196,16 +223,17 @@
 .attendanceRecordedInfo {
   min-height: 88px;
   padding: 12px;
-  border-radius: 12px;
   border: 1px solid #bbf7d0;
+  border-radius: 12px;
   background-color: #f0fdf4;
+  box-sizing: border-box;
 }
 
 .attendanceCommentValue {
   margin: 8px 0 0;
+  color: #374151;
   font-size: 14px;
   line-height: 1.7;
-  color: #374151;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -218,24 +246,26 @@
 }
 
 .infoBox {
+  min-width: 0;
   padding: 16px;
+  border: 1px solid #fed7aa;
   border-radius: 12px;
   background-color: #fff7ed;
-  border: 1px solid #fed7aa;
+  box-sizing: border-box;
 }
 
 .infoLabel,
 .monthlyStatusLabel {
   margin: 0 0 6px;
+  color: #9a3412;
   font-size: 13px;
   font-weight: bold;
-  color: #9a3412;
 }
 
 .infoValue {
   margin: 0;
-  font-size: 18px;
   color: #111827;
+  font-size: 18px;
   overflow-wrap: anywhere;
 }
 
@@ -247,10 +277,12 @@
 }
 
 .dashboardCard {
+  min-width: 0;
   padding: 18px;
-  border-radius: 16px;
   border: 1px solid #fed7aa;
+  border-radius: 16px;
   background: linear-gradient(180deg, #ffffff 0%, #fff7ed 100%);
+  box-sizing: border-box;
 }
 
 .dashboardCardHeader,
@@ -258,31 +290,41 @@
 .statusItemHeader {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
   align-items: flex-start;
+  gap: 12px;
   margin-bottom: 14px;
+}
+
+.dashboardCardHeader > div:first-child,
+.sectionHeader > div:first-child,
+.statusItemHeader > div:first-child {
+  min-width: 0;
+  flex: 1;
 }
 
 .dashboardTitle,
 .sectionTitle {
   margin: 0 0 6px;
-  font-size: 20px;
   color: #111827;
+  font-size: 20px;
+  line-height: 1.3;
 }
 
 .dashboardValue {
   margin: 0 0 8px;
+  color: #ea580c;
   font-size: 34px;
   font-weight: 800;
-  color: #ea580c;
+  line-height: 1.1;
 }
 
 .dashboardText {
   min-height: 42px;
   margin: 0;
+  color: #374151;
   font-size: 14px;
   line-height: 1.6;
-  color: #374151;
+  overflow-wrap: anywhere;
 }
 
 .cardActionArea {
@@ -306,19 +348,24 @@
 .monthlyStatusItem {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
   align-items: center;
+  gap: 12px;
   padding: 12px;
+  border: 1px solid #fed7aa;
   border-radius: 12px;
   background-color: #ffffff;
-  border: 1px solid #fed7aa;
+  box-sizing: border-box;
+}
+
+.monthlyStatusItem > div:first-child {
+  min-width: 0;
 }
 
 .monthlyStatusMonth {
   margin: 0;
+  color: #111827;
   font-size: 15px;
   font-weight: 800;
-  color: #111827;
 }
 
 .monthlyStatusBadge_info {
@@ -333,38 +380,42 @@
 
 .statusItem {
   padding: 16px;
+  border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #ffffff;
-  border: 1px solid #fed7aa;
+  box-sizing: border-box;
   box-shadow: 0 4px 14px rgba(234, 88, 12, 0.08);
 }
 
 .statusTitle {
   margin: 0 0 5px;
-  font-size: 17px;
   color: #111827;
+  font-size: 17px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .statusDescription {
   margin: 0;
-  font-size: 13px;
   color: #6b7280;
+  font-size: 13px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .emptyBox {
   padding: 22px;
+  border: 1px dashed #fdba74;
   border-radius: 16px;
-  background-color: #f9fafb;
-  border: 1px dashed #d1d5db;
+  background-color: #fffaf5;
   text-align: center;
 }
 
 .emptyTitle {
   margin: 0 0 6px;
+  color: #9a3412;
   font-size: 16px;
   font-weight: 800;
-  color: #374151;
 }
 
 @media (max-width: 900px) {
@@ -372,20 +423,439 @@
     max-width: none;
     margin: 40px auto;
   }
+}
 
-  .infoList,
-  .dashboardGrid,
-  .attendancePunchGrid {
-    grid-template-columns: 1fr;
+@media (max-width: 768px) {
+  .page {
+    min-height: 100vh;
+    padding: 0;
   }
 
-  .header,
-  .statusItemHeader,
-  .sectionHeader {
-    flex-direction: column;
+  .card {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 6px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .header {
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 
   .headerActionArea {
-    justify-content: flex-start;
+    gap: 4px;
+  }
+
+  .title {
+    margin-bottom: 3px;
+    font-size: 20px;
+  }
+
+  .description,
+  .loadingText,
+  .sectionDescription,
+  .dashboardDescription,
+  .emptyText {
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .pageMessage {
+    margin-bottom: 8px;
+    padding: 7px 8px;
+    border-radius: 8px;
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .attendanceRealtimeSection {
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .attendancePunchGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .attendancePunchCard {
+    gap: 7px;
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .attendancePunchHeader {
+    gap: 6px;
+  }
+
+  .attendancePunchLabel,
+  .attendanceCommentLabel {
+    margin-bottom: 3px;
+    font-size: 9px;
+  }
+
+  .attendancePunchTime {
+    font-size: 18px;
+  }
+
+  .attendanceRecordedBadge,
+  .attendancePendingBadge,
+  .successBadge,
+  .warningBadge,
+  .monthlyStatusBadge {
+    padding: 3px 5px;
+    font-size: 8px;
+  }
+
+  .attendanceCommentField {
+    gap: 4px;
+  }
+
+  .attendancePunchTextarea {
+    min-height: 56px;
+    padding: 6px;
+    border-radius: 7px;
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .attendanceRecordedInfo {
+    min-height: 56px;
+    padding: 6px;
+    border-radius: 7px;
+  }
+
+  .attendanceCommentValue {
+    margin-top: 4px;
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .infoList {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .infoBox {
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .infoLabel,
+  .monthlyStatusLabel {
+    margin-bottom: 3px;
+    font-size: 8px;
+  }
+
+  .infoValue {
+    font-size: 11px;
+  }
+
+  .dashboardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .dashboardCard {
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .dashboardCardHeader,
+  .sectionHeader,
+  .statusItemHeader {
+    flex-direction: row;
+    gap: 6px;
+    margin-bottom: 7px;
+  }
+
+  .dashboardTitle,
+  .sectionTitle {
+    margin-bottom: 3px;
+    font-size: 13px;
+  }
+
+  .dashboardValue {
+    margin-bottom: 4px;
+    font-size: 22px;
+  }
+
+  .dashboardText {
+    min-height: 30px;
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .cardActionArea {
+    margin-top: 7px;
+  }
+
+  .statusSection {
+    padding-top: 0;
+  }
+
+  .monthlyStatusList,
+  .statusList {
+    gap: 5px;
+    margin-bottom: 6px;
+  }
+
+  .monthlyStatusItem {
+    gap: 6px;
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .monthlyStatusMonth {
+    font-size: 10px;
+  }
+
+  .statusItem {
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .statusTitle {
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+
+  .statusDescription {
+    font-size: 8px;
+    line-height: 1.4;
+  }
+
+  .emptyBox {
+    padding: 10px;
+    border-radius: 9px;
+  }
+
+  .emptyTitle {
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 560px) {
+  .header {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .headerActionArea {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 420px) {
+  .card {
+    padding: 4px;
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .attendanceRealtimeSection,
+  .dashboardCard,
+  .statusItem {
+    padding: 6px;
+  }
+
+  .attendancePunchGrid,
+  .dashboardGrid {
+    gap: 4px;
+  }
+
+  .attendancePunchCard {
+    padding: 6px;
+  }
+
+  .attendancePunchTime {
+    font-size: 16px;
+  }
+
+  .attendanceRecordedBadge,
+  .attendancePendingBadge,
+  .successBadge,
+  .warningBadge,
+  .monthlyStatusBadge {
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .attendancePunchTextarea {
+    min-height: 50px;
+    padding: 5px;
+    font-size: 8px;
+  }
+
+  .attendanceRecordedInfo {
+    min-height: 50px;
+    padding: 5px;
+  }
+
+  .infoList {
+    gap: 4px;
+  }
+
+  .infoBox {
+    padding: 6px;
+  }
+
+  .infoValue {
+    font-size: 10px;
+  }
+
+  .dashboardTitle,
+  .sectionTitle {
+    font-size: 12px;
+  }
+
+  .dashboardValue {
+    font-size: 20px;
+  }
+
+  .monthlyStatusItem {
+    padding: 5px;
+  }
+
+  .statusTitle {
+    font-size: 10px;
+  }
+}
+
+.passwordModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-color: rgba(15, 23, 42, 0.58);
+  box-sizing: border-box;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.passwordModal {
+  width: min(520px, 100%);
+  padding: 28px;
+  border: 1px solid #fdba74;
+  border-radius: 18px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  text-align: center;
+}
+
+.passwordModalIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 16px;
+  border: 1px solid #fdba74;
+  border-radius: 50%;
+  background-color: #fff7ed;
+  color: #ea580c;
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.passwordModalTitle {
+  margin: 0 0 12px;
+  color: #9a3412;
+  font-size: 24px;
+  line-height: 1.35;
+}
+
+.passwordModalText {
+  margin: 0;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.passwordModalActions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+@media (max-width: 768px) {
+  .passwordModalOverlay {
+    padding: 12px;
+  }
+
+  .passwordModal {
+    width: min(420px, 100%);
+    padding: 18px;
+    border-radius: 12px;
+  }
+
+  .passwordModalIcon {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 10px;
+    font-size: 23px;
+  }
+
+  .passwordModalTitle {
+    margin-bottom: 7px;
+    font-size: 17px;
+  }
+
+  .passwordModalText {
+    font-size: 10px;
+    line-height: 1.6;
+  }
+
+  .passwordModalActions {
+    gap: 6px;
+    margin-top: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .passwordModalOverlay {
+    padding: 8px;
+  }
+
+  .passwordModal {
+    padding: 14px 10px;
+    border-radius: 10px;
+  }
+
+  .passwordModalTitle {
+    font-size: 15px;
+  }
+
+  .passwordModalText {
+    font-size: 9px;
+  }
+
+  .passwordModalActions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .passwordModalActions > * {
+    width: 100%;
   }
 }

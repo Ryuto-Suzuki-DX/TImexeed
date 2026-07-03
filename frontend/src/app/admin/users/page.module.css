@@ -3,26 +3,29 @@
   min-height: 100vh;
   padding: 32px;
   box-sizing: border-box;
+  background-color: #fff7ed;
 }
 
 .pageCard {
   width: 100%;
   min-height: calc(100vh - 64px);
-  background: #f5f5f5;
-  border-radius: 18px;
   padding: 28px;
+  border: 1px solid #fed7aa;
+  border-radius: 18px;
+  background-color: #ffffff;
   box-sizing: border-box;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 30px rgba(234, 88, 12, 0.08);
 }
 
 .loadingCard {
   width: min(720px, calc(100% - 48px));
   margin: 48px auto;
-  background: #f5f5f5;
-  border-radius: 18px;
   padding: 28px;
+  border: 1px solid #fed7aa;
+  border-radius: 18px;
+  background-color: #ffffff;
   box-sizing: border-box;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 30px rgba(234, 88, 12, 0.08);
 }
 
 .headerArea {
@@ -41,12 +44,13 @@
 
 .searchPanel,
 .formPanel {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
+  min-width: 0;
   padding: 20px;
+  border: 1px solid #fed7aa;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #fffaf5 100%);
   box-sizing: border-box;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 8px 18px rgba(234, 88, 12, 0.06);
 }
 
 .sectionHeader {
@@ -57,9 +61,13 @@
   margin-bottom: 16px;
 }
 
+.sectionHeader > div {
+  min-width: 0;
+}
+
 .sectionTitle {
   margin: 0;
-  color: #111827;
+  color: #9a3412;
   font-size: 18px;
   font-weight: 700;
 }
@@ -69,6 +77,7 @@
   color: #6b7280;
   font-size: 13px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .searchForm {
@@ -80,30 +89,31 @@
 .searchInput,
 .input {
   width: 100%;
+  min-width: 0;
   min-height: 40px;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
   padding: 8px 10px;
-  box-sizing: border-box;
-  background: #ffffff;
+  border: 1px solid #fdba74;
+  border-radius: 10px;
+  background-color: #ffffff;
   color: #111827;
+  box-sizing: border-box;
   font-size: 14px;
 }
 
 .searchInput:focus,
 .input:focus {
-  outline: 2px solid #fed7aa;
-  border-color: #fb923c;
+  outline: 2px solid rgba(251, 146, 60, 0.28);
+  border-color: #f97316;
 }
 
 .switchRow {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  margin: 0 0 16px;
+  padding: 0;
   border: none;
   background: transparent;
-  padding: 0;
-  margin: 0 0 16px;
   cursor: pointer;
 }
 
@@ -112,12 +122,12 @@
   width: 44px;
   height: 24px;
   border-radius: 999px;
-  background: #d1d5db;
-  transition: background 0.2s ease;
+  background-color: #d1d5db;
+  transition: background-color 0.2s ease;
 }
 
 .switchOn {
-  background: #f97316;
+  background-color: #f97316;
 }
 
 .switchThumb {
@@ -127,9 +137,9 @@
   width: 18px;
   height: 18px;
   border-radius: 999px;
-  background: #ffffff;
-  transition: transform 0.2s ease;
+  background-color: #ffffff;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  transition: transform 0.2s ease;
 }
 
 .switchOn .switchThumb {
@@ -137,7 +147,7 @@
 }
 
 .switchText {
-  color: #374151;
+  color: #9a3412;
   font-size: 13px;
   font-weight: 700;
 }
@@ -149,15 +159,17 @@
 }
 
 .userRow {
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
   padding: 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background-color: #ffffff;
   box-sizing: border-box;
-  background: #ffffff;
+  box-shadow: 0 3px 10px rgba(234, 88, 12, 0.04);
 }
 
 .userRowDeleted {
-  background: #f9fafb;
+  background-color: #f9fafb;
+  border-color: #d1d5db;
   opacity: 0.78;
 }
 
@@ -166,6 +178,11 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 14px;
+}
+
+.userRowMain > div:first-child {
+  min-width: 0;
+  flex: 1;
 }
 
 .userNameLine {
@@ -180,12 +197,14 @@
   color: #111827;
   font-size: 15px;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .userEmail {
   margin: 7px 0 0;
   color: #4b5563;
   font-size: 13px;
+  word-break: break-all;
 }
 
 .userMeta {
@@ -193,6 +212,7 @@
   color: #6b7280;
   font-size: 12px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .adminBadge,
@@ -202,8 +222,8 @@
   align-items: center;
   justify-content: center;
   min-width: 56px;
-  border-radius: 999px;
   padding: 4px 8px;
+  border-radius: 999px;
   box-sizing: border-box;
   font-size: 11px;
   font-weight: 800;
@@ -211,31 +231,34 @@
 }
 
 .adminBadge {
-  background: #eff6ff;
+  background-color: #eff6ff;
   color: #1d4ed8;
 }
 
 .userBadge {
-  background: #ecfdf5;
+  background-color: #ecfdf5;
   color: #047857;
 }
 
 .deletedBadge {
-  background: #fef2f2;
+  background-color: #fef2f2;
   color: #b91c1c;
 }
 
 .rowActions {
   display: flex;
-  gap: 8px;
   align-items: center;
   flex-shrink: 0;
+  gap: 8px;
 }
 
 .emptyText {
   margin: 0;
   padding: 24px;
-  color: #6b7280;
+  border: 1px dashed #fdba74;
+  border-radius: 10px;
+  background-color: #fff7ed;
+  color: #9a3412;
   font-size: 14px;
   text-align: center;
 }
@@ -257,6 +280,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .fieldWide {
@@ -264,7 +288,7 @@
 }
 
 .fieldLabel {
-  color: #374151;
+  color: #9a3412;
   font-size: 13px;
   font-weight: 700;
 }
@@ -283,38 +307,348 @@
 
 @media (max-width: 768px) {
   .pageWrap {
-    padding: 16px;
+    width: 100%;
+    min-height: auto;
+    padding: 0;
+    background-color: #fff7ed;
   }
 
   .pageCard {
-    min-height: calc(100vh - 32px);
-    padding: 18px;
-    border-radius: 14px;
+    width: 100%;
+    min-height: auto;
+    padding: 6px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .loadingCard {
-    width: calc(100% - 32px);
-    margin: 24px auto;
-    padding: 18px;
-    border-radius: 14px;
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
-  .sectionHeader,
-  .userRowMain {
-    flex-direction: column;
+  .headerArea {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 2px;
+  }
+
+  .contentGrid {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .searchPanel,
+  .formPanel {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .sectionHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .sectionHeader > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sectionHeader > :global(button),
+  .rowActions :global(button),
+  .moreButtonArea :global(button),
+  .formActions :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 54px;
+    min-height: 28px;
+    padding: 3px 6px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .sectionTitle {
+    font-size: 14px;
+  }
+
+  .sectionDescription {
+    margin-top: 3px;
+    font-size: 9px;
+    line-height: 1.4;
   }
 
   .searchForm {
-    flex-direction: column;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .searchInput {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    min-height: 30px;
+    padding: 4px 6px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+
+  .searchForm > :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    min-width: 58px;
+    height: 30px;
+    min-height: 30px;
+    padding: 2px 5px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .switchRow {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .switch {
+    width: 34px;
+    height: 18px;
+  }
+
+  .switchThumb {
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .switchOn .switchThumb {
+    transform: translateX(16px);
+  }
+
+  .switchText {
+    font-size: 9px;
+  }
+
+  .userList {
+    gap: 5px;
+  }
+
+  .userRow {
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .userRowMain {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .userNameLine {
+    gap: 4px;
+  }
+
+  .userName {
+    font-size: 11px;
+  }
+
+  .userEmail {
+    margin-top: 3px;
+    font-size: 9px;
+  }
+
+  .userMeta {
+    margin-top: 3px;
+    font-size: 8px;
+    line-height: 1.4;
+  }
+
+  .adminBadge,
+  .userBadge,
+  .deletedBadge {
+    min-width: 44px;
+    padding: 3px 5px;
+    font-size: 8px;
+  }
+
+  .rowActions {
+    width: auto;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
+  .rowActions :global(button) {
+    min-width: 46px;
+    min-height: 26px;
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+
+  .emptyText {
+    padding: 12px 8px;
+    font-size: 9px;
+  }
+
+  .moreButtonArea {
+    margin-top: 8px;
   }
 
   .formGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 
-  .rowActions,
+  .field,
+  .fieldWide {
+    gap: 3px;
+  }
+
+  .fieldWide {
+    grid-column: 1 / -1;
+  }
+
+  .fieldLabel {
+    font-size: 9px;
+  }
+
+  .input {
+    min-height: 30px;
+    padding: 4px 6px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+
   .formActions {
     width: 100%;
-    justify-content: stretch;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageCard {
+    padding: 4px;
+  }
+
+  .searchPanel,
+  .formPanel {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .sectionTitle {
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    font-size: 8px;
+  }
+
+  .searchInput {
+    height: 28px;
+    min-height: 28px;
+    font-size: 9px;
+  }
+
+  .searchForm > :global(button) {
+    width: 52px;
+    min-width: 52px;
+    height: 28px;
+    min-height: 28px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .sectionHeader > :global(button),
+  .moreButtonArea :global(button),
+  .formActions :global(button) {
+    min-width: 48px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .switch {
+    width: 30px;
+    height: 16px;
+  }
+
+  .switchThumb {
+    width: 12px;
+    height: 12px;
+  }
+
+  .switchOn .switchThumb {
+    transform: translateX(14px);
+  }
+
+  .switchText {
+    font-size: 8px;
+  }
+
+  .userRow {
+    padding: 6px;
+  }
+
+  .userName {
+    font-size: 10px;
+  }
+
+  .userEmail,
+  .userMeta {
+    font-size: 7px;
+  }
+
+  .adminBadge,
+  .userBadge,
+  .deletedBadge {
+    min-width: 40px;
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .rowActions :global(button) {
+    min-width: 42px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 7px;
+  }
+
+  .formGrid {
+    gap: 4px;
+  }
+
+  .fieldLabel {
+    font-size: 8px;
+  }
+
+  .input {
+    min-height: 28px;
+    padding: 3px 5px;
+    font-size: 9px;
   }
 }

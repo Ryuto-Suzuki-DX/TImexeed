@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { removeAccessToken } from "@/api/auth";
+import { fetchMe, removeAccessToken } from "@/api/auth";
 import { countUnreadNotifications } from "@/api/user/notification";
 import { searchMonthlyAttendanceRequest } from "@/api/user/monthlyAttendanceRequest";
 import {
@@ -172,6 +172,10 @@ export default function UserMyPage() {
   const [pageMessageVariant, setPageMessageVariant] =
     useState<PageMessageVariant>("info");
 
+  const [isPasswordChangeModalOpen, setIsPasswordChangeModalOpen] =
+    useState(false);
+  const hasShownPasswordChangeModal = useRef(false);
+
   const targetMonths = useMemo(() => getTargetMonths(), []);
 
   const loadTodayAttendanceRealtimeEvents = useCallback(async () => {
@@ -210,6 +214,7 @@ export default function UserMyPage() {
       previousMonthResult,
       currentMonthResult,
       attendanceRealtimeResult,
+      currentUserResult,
     ] = await Promise.all([
       countUnreadNotifications({}),
       searchMonthlyAttendanceRequest({
@@ -221,6 +226,7 @@ export default function UserMyPage() {
         targetMonth: targetMonths[1].month,
       }),
       getTodayAttendanceRealtimeEvents({}),
+      fetchMe(),
     ]);
 
     if (notificationResult.error || !notificationResult.data) {
@@ -263,6 +269,23 @@ export default function UserMyPage() {
       return;
     }
 
+    if (currentUserResult.error || !currentUserResult.data) {
+      setPageMessage(
+        currentUserResult.message ||
+          "パスワード変更状態の取得に失敗しました。",
+      );
+      setPageMessageVariant("error");
+      setIsDashboardLoading(false);
+      return;
+    }
+
+    const mustChangePassword = currentUserResult.data.mustChangePassword;
+
+    if (mustChangePassword && !hasShownPasswordChangeModal.current) {
+      hasShownPasswordChangeModal.current = true;
+      setIsPasswordChangeModalOpen(true);
+    }
+
     const nextMonthlyStatuses = [
       toMonthlyStatusSummary(targetMonths[0], previousMonthResult.data),
       toMonthlyStatusSummary(targetMonths[1], currentMonthResult.data),
@@ -282,7 +305,11 @@ export default function UserMyPage() {
         monthlyStatus.status === "REJECTED",
     );
 
-    if (hasUnreadNotifications || hasAttentionMonthlyStatus) {
+    if (
+      hasUnreadNotifications ||
+      hasAttentionMonthlyStatus ||
+      mustChangePassword
+    ) {
       setPageMessage("確認が必要な項目があります。");
       setPageMessageVariant("warning");
     } else {
@@ -314,6 +341,15 @@ export default function UserMyPage() {
 
   const handleReload = () => {
     void loadDashboard();
+  };
+
+  const handleClosePasswordChangeModal = () => {
+    setIsPasswordChangeModalOpen(false);
+  };
+
+  const handleMoveToPasswordChange = () => {
+    setIsPasswordChangeModalOpen(false);
+    router.push("/user/password");
   };
 
   const handleCreateAttendanceRealtimeEvent = async (
@@ -794,6 +830,54 @@ export default function UserMyPage() {
           </>
         )}
       </section>
+
+      {isPasswordChangeModalOpen && (
+        <div
+          className={styles.passwordModalOverlay}
+          role="presentation"
+        >
+          <section
+            className={styles.passwordModal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="password-change-modal-title"
+          >
+            <div className={styles.passwordModalIcon} aria-hidden="true">
+              !
+            </div>
+
+            <h2
+              id="password-change-modal-title"
+              className={styles.passwordModalTitle}
+            >
+              パスワードを変更してください
+            </h2>
+
+            <p className={styles.passwordModalText}>
+              現在、初期パスワードが設定されています。
+              セキュリティ保護のため、新しいパスワードへ変更してください。
+            </p>
+
+            <div className={styles.passwordModalActions}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleClosePasswordChangeModal}
+              >
+                またあとで
+              </Button>
+
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleMoveToPasswordChange}
+              >
+                パスワード変更ページに移動
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

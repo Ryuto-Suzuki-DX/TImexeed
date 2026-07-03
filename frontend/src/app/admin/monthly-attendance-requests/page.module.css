@@ -35,6 +35,7 @@
 .searchCard,
 .summaryCard,
 .tableCard {
+  min-width: 0;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
   padding: 18px;
@@ -65,6 +66,7 @@
 .monthControl,
 .keywordControl {
   width: 100%;
+  min-width: 0;
 }
 
 .monthInputRow {
@@ -73,9 +75,11 @@
   gap: 8px;
 }
 
+.monthSelect,
 .monthInput,
 .keywordInput {
   width: 100%;
+  min-width: 0;
   min-height: 42px;
   border: 1px solid #d1d5db;
   border-radius: 10px;
@@ -86,6 +90,7 @@
   font-size: 14px;
 }
 
+.monthSelect:focus,
 .monthInput:focus,
 .keywordInput:focus {
   outline: 2px solid #fed7aa;
@@ -138,6 +143,7 @@
   color: #6b7280;
   font-size: 12px;
   font-weight: bold;
+  overflow-wrap: anywhere;
 }
 
 .summaryCard {
@@ -147,6 +153,10 @@
   margin-bottom: 16px;
   background: #fff7ed;
   border-color: #fed7aa;
+}
+
+.summaryCard > div {
+  min-width: 0;
 }
 
 .summaryLabel {
@@ -161,11 +171,14 @@
   color: #111827;
   font-size: 17px;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .tableScroll {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table {
@@ -213,6 +226,7 @@
 .userEmail {
   color: #6b7280;
   font-size: 12px;
+  word-break: break-all;
 }
 
 .statusBadge {
@@ -262,6 +276,7 @@
   max-width: 260px;
   white-space: normal;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .actionButtonList {
@@ -300,27 +315,313 @@
 
 @media (max-width: 768px) {
   .pageWrap {
-    padding: 16px;
+    width: 100%;
+    min-height: auto;
+    padding: 0;
   }
 
-  .pageCard,
-  .loadingCard {
-    padding: 18px;
-    border-radius: 14px;
+  .pageCard {
+    width: 100%;
+    min-height: auto;
+    padding: 6px;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .loadingCard {
-    width: calc(100% - 32px);
-    margin: 24px auto;
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .headerArea {
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 2px;
+  }
+
+  .searchCard,
+  .summaryCard,
+  .tableCard {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 10px;
+    box-sizing: border-box;
+  }
+
+  .searchCard,
+  .summaryCard {
+    margin-bottom: 6px;
+  }
+
+  .searchGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .searchLabel {
+    margin-bottom: 4px;
+    font-size: 10px;
   }
 
   .monthInputRow {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr) 56px;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .monthSelect,
+  .monthInput,
+  .keywordInput {
+    min-height: 32px;
+    padding: 5px 7px;
+    border-radius: 7px;
+    font-size: 11px;
+  }
+
+  .monthInputRow :global(button),
+  .searchActionArea :global(button),
+  .moreButtonArea :global(button),
+  .actionButtonList :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 54px;
+    min-height: 28px;
+    padding: 3px 6px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 10px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .monthInputRow :global(button) {
+    width: 56px;
+    min-width: 56px;
+    height: 32px;
+    min-height: 32px;
+  }
+
+  .searchActionArea {
+    justify-content: flex-end;
+  }
+
+  .searchActionArea :global(button) {
+    width: 64px;
+    min-width: 64px;
+    height: 30px;
+    min-height: 30px;
+  }
+
+  .statusFilterArea {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .statusButtonList {
+    gap: 5px;
+  }
+
+  .statusFilterButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-height: 28px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    box-sizing: border-box;
+    font-size: 10px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .selectedStatusText {
+    margin-top: 6px;
+    font-size: 9px;
+  }
+
+  .summaryCard {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .summaryLabel {
+    margin-bottom: 3px;
+    font-size: 9px;
+  }
+
+  .summaryValue {
+    font-size: 12px;
+  }
+
+  .tableCard {
+    padding: 6px;
+  }
+
+  .tableScroll {
+    width: 100%;
+  }
+
+  .table {
+    min-width: 820px;
+  }
+
+  .table th,
+  .table td {
+    padding: 7px;
+    font-size: 10px;
+  }
+
+  .table th {
+    font-size: 9px;
+  }
+
+  .userCell {
+    min-width: 150px;
+    gap: 2px;
+  }
+
+  .userName {
+    font-size: 10px;
+  }
+
+  .userEmail {
+    font-size: 8px;
+  }
+
+  .statusBadge {
+    min-width: 62px;
+    padding: 3px 6px;
+    font-size: 9px;
+  }
+
+  .reasonCell {
+    max-width: 180px;
+    line-height: 1.35;
   }
 
   .actionButtonList {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .actionButtonList :global(button) {
+    min-width: 50px;
+    min-height: 26px;
+    padding: 2px 5px;
+    font-size: 9px;
+  }
+
+  .emptyCell {
+    padding: 16px 8px !important;
+    font-size: 10px !important;
+  }
+
+  .moreButtonArea {
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pageCard {
+    padding: 4px;
+  }
+
+  .searchCard,
+  .summaryCard,
+  .tableCard {
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .monthInputRow {
+    grid-template-columns: 50px minmax(0, 1fr) minmax(0, 1fr) 50px;
+    gap: 3px;
+  }
+
+  .monthInputRow :global(button) {
+    width: 50px;
+    min-width: 50px;
+    height: 30px;
+    min-height: 30px;
+    padding: 2px 4px;
+    font-size: 9px;
+  }
+
+  .monthSelect,
+  .monthInput,
+  .keywordInput {
+    min-height: 30px;
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+
+  .searchActionArea :global(button) {
+    width: 58px;
+    min-width: 58px;
+    height: 28px;
+    min-height: 28px;
+    padding: 2px 5px;
+    font-size: 9px;
+  }
+
+  .statusButtonList {
+    gap: 4px;
+  }
+
+  .statusFilterButton {
+    min-height: 26px;
+    padding: 2px 6px;
+    font-size: 9px;
+  }
+
+  .summaryCard {
+    gap: 4px;
+  }
+
+  .summaryLabel {
+    font-size: 8px;
+  }
+
+  .summaryValue {
+    font-size: 11px;
+  }
+
+  .table {
+    min-width: 760px;
+  }
+
+  .table th,
+  .table td {
+    padding: 6px;
+    font-size: 9px;
+  }
+
+  .table th {
+    font-size: 8px;
+  }
+
+  .statusBadge {
+    min-width: 56px;
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+
+  .actionButtonList :global(button) {
+    min-width: 46px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 8px;
   }
 }

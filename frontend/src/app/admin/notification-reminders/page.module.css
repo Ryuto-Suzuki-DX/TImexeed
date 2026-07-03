@@ -114,6 +114,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .labelText {
@@ -125,6 +126,7 @@
 .textInput,
 .textArea {
   width: 100%;
+  min-width: 0;
   border: 1px solid #d1d5db;
   border-radius: 10px;
   background-color: #ffffff;
@@ -357,65 +359,377 @@
 }
 
 @media (max-width: 720px) {
+  .loadingCard {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 10px;
+    border-radius: 0;
+    box-sizing: border-box;
+    box-shadow: none;
+  }
+
+  .pageWrap {
+    width: 100%;
+    overflow-x: visible;
+  }
+
   .pageCard {
-    padding: 22px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 6px;
+    border-radius: 0;
+    box-sizing: border-box;
+    box-shadow: none;
   }
 
   .header {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .header > div:first-child {
+    min-width: 0;
+    flex: 1;
   }
 
   .summaryBox {
+    min-width: 72px;
+    width: auto;
+    padding: 6px 8px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .summaryLabel {
+    margin-bottom: 2px;
+    font-size: 8px;
+  }
+
+  .summaryValue {
+    font-size: 14px;
+  }
+
+  .messageArea {
+    margin-bottom: 8px;
+  }
+
+  .searchCard,
+  .formCard {
     width: 100%;
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 9px;
   }
 
   .sectionHeader {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 
-  .timeGrid {
-    grid-template-columns: 1fr;
+  .sectionHeader > div:first-child {
+    min-width: 0;
+    flex: 1;
   }
 
-  .reminderHeader {
-    flex-direction: column;
+  .sectionHeader > :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 76px;
+    min-height: 28px;
+    padding: 3px 6px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .sectionTitle {
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    margin-top: 2px;
+    font-size: 9px;
+    line-height: 1.4;
+  }
+
+  .searchGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto 58px;
+    align-items: end;
+    gap: 5px;
+  }
+
+  .formGrid {
     gap: 8px;
   }
 
+  .timeGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .formLabel {
+    gap: 3px;
+  }
+
+  .labelText {
+    font-size: 9px;
+  }
+
+  .textInput {
+    height: 30px;
+    padding: 0 6px;
+    font-size: 10px;
+    border-radius: 7px;
+  }
+
+  .textArea {
+    min-height: 64px;
+    padding: 6px;
+    font-size: 10px;
+    line-height: 1.45;
+    border-radius: 7px;
+  }
+
+  .checkLabel {
+    gap: 4px;
+    min-height: 30px;
+    font-size: 9px;
+  }
+
+  .checkLabel input {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    flex-shrink: 0;
+  }
+
+  .searchActionArea {
+    justify-content: flex-end;
+  }
+
+  .searchActionArea :global(button),
+  .formActionArea :global(button),
+  .actionArea :global(button),
+  .moreArea :global(button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-width: 54px;
+    min-height: 28px;
+    padding: 3px 6px;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .searchActionArea :global(button) {
+    width: 58px;
+    min-width: 58px;
+    height: 30px;
+    min-height: 30px;
+  }
+
+  .formActionArea {
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+
+  .reminderList {
+    gap: 6px;
+  }
+
+  .reminderCard {
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .reminderHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .reminderTitleArea {
+    gap: 5px;
+    flex: 1;
+  }
+
+  .statusBadge {
+    min-width: 46px;
+    padding: 3px 5px;
+    font-size: 8px;
+  }
+
+  .reminderTitle {
+    font-size: 11px;
+  }
+
   .updatedAt {
-    white-space: normal;
+    font-size: 8px;
+    white-space: nowrap;
+  }
+
+  .reminderMeta {
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+
+  .reminderMeta span {
+    min-height: 22px;
+    padding: 2px 6px;
+    font-size: 8px;
+  }
+
+  .reminderMessage {
+    font-size: 9px;
+    line-height: 1.45;
   }
 
   .reminderFooter {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin-top: 7px;
+  }
+
+  .createdAt {
+    min-width: 0;
+    flex: 1;
+    font-size: 8px;
   }
 
   .actionArea {
-    width: 100%;
+    width: auto;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .actionArea :global(button) {
+    min-width: 48px;
+    min-height: 26px;
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+
+  .emptyBox {
+    padding: 12px 8px;
+    border-radius: 9px;
+  }
+
+  .emptyTitle {
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+
+  .emptyText {
+    font-size: 9px;
+  }
+
+  .moreArea {
+    margin-top: 8px;
   }
 }
 
 @media (max-width: 480px) {
   .pageCard {
-    padding: 18px;
+    padding: 4px;
+  }
+
+  .summaryBox {
+    min-width: 64px;
+    padding: 5px 6px;
+  }
+
+  .summaryValue {
+    font-size: 12px;
   }
 
   .searchCard,
   .formCard {
-    padding: 14px;
+    padding: 6px;
+    border-radius: 8px;
+  }
+
+  .sectionTitle {
+    font-size: 12px;
+  }
+
+  .sectionDescription,
+  .labelText,
+  .checkLabel {
+    font-size: 8px;
+  }
+
+  .searchGrid {
+    grid-template-columns: minmax(0, 1fr) auto auto 52px;
+    gap: 3px;
+  }
+
+  .textInput {
+    height: 28px;
+    font-size: 9px;
+  }
+
+  .textArea {
+    min-height: 56px;
+    font-size: 9px;
+  }
+
+  .searchActionArea :global(button) {
+    width: 52px;
+    min-width: 52px;
+    height: 28px;
+    min-height: 28px;
+    padding: 2px 4px;
+    font-size: 8px;
+  }
+
+  .sectionHeader > :global(button),
+  .formActionArea :global(button),
+  .actionArea :global(button),
+  .moreArea :global(button) {
+    min-width: 46px;
+    min-height: 24px;
+    padding: 2px 4px;
+    font-size: 8px;
   }
 
   .reminderCard {
-    padding: 14px;
+    padding: 6px;
   }
 
-  .reminderTitleArea {
-    flex-direction: column;
-    align-items: flex-start;
+  .statusBadge {
+    min-width: 42px;
+    font-size: 7px;
   }
 
-  .formActionArea {
-    justify-content: flex-start;
+  .reminderTitle {
+    font-size: 10px;
+  }
+
+  .updatedAt,
+  .reminderMeta span,
+  .reminderMessage,
+  .createdAt {
+    font-size: 7px;
   }
 }

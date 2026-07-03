@@ -13,6 +13,7 @@
   border-radius: 16px;
   background-color: #ffffff;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
 }
 
 .header {
@@ -57,6 +58,7 @@
   border: 1px solid #fed7aa;
   background-color: #fff7ed;
   color: #9a3412;
+  overflow-wrap: anywhere;
 }
 
 .pageMessage_info {
@@ -89,6 +91,7 @@
   border-radius: 18px;
   border: 1px solid #fed7aa;
   background: linear-gradient(180deg, #ffffff 0%, #fff7ed 100%);
+  box-sizing: border-box;
 }
 
 .searchGrid {
@@ -102,6 +105,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .formLabel {
@@ -120,6 +124,7 @@
   color: #111827;
   font-size: 14px;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .input:focus {
@@ -147,6 +152,7 @@
   font-weight: 800;
   color: #374151;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .searchActionArea {
@@ -167,6 +173,7 @@
   border-radius: 14px;
   background-color: #fff7ed;
   border: 1px solid #fed7aa;
+  box-sizing: border-box;
 }
 
 .summaryLabel {
@@ -181,9 +188,11 @@
   font-size: 24px;
   font-weight: 900;
   color: #ea580c;
+  overflow-wrap: anywhere;
 }
 
 .matrixSection {
+  min-width: 0;
   padding-top: 4px;
 }
 
@@ -229,10 +238,14 @@
 }
 
 .tableScroll {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #ffffff;
+  box-sizing: border-box;
 }
 
 .matrixTable {
@@ -402,9 +415,15 @@
 }
 
 @media (max-width: 900px) {
+  .page {
+    padding: 24px;
+  }
+
   .card {
     max-width: none;
+    width: 100%;
     margin: 40px auto;
+    padding: 24px;
   }
 
   .header,
@@ -417,8 +436,205 @@
     justify-content: flex-start;
   }
 
-  .searchGrid,
+  .searchGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summarySection {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 12px;
+  }
+
+  .card {
+    margin: 20px auto;
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .header {
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .headerActionArea {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .headerActionArea :global(button) {
+    width: 100%;
+  }
+
+  .title {
+    font-size: 25px;
+    line-height: 1.3;
+  }
+
+  .description {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .pageMessage {
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .searchSection {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .searchGrid {
+    gap: 14px;
+  }
+
+  .checkboxRow {
+    gap: 8px;
+  }
+
+  .checkboxLabel {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .searchActionArea {
+    width: 100%;
+  }
+
+  .searchActionArea :global(button) {
+    width: 100%;
+  }
+
   .summarySection {
     grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .summaryBox {
+    padding: 14px;
+  }
+
+  .summaryValue {
+    font-size: 21px;
+  }
+
+  .sectionHeader {
+    gap: 10px;
+  }
+
+  .sectionTitle {
+    font-size: 18px;
+  }
+
+  .sectionDescription {
+    line-height: 1.6;
+  }
+
+  .emptyBox {
+    padding: 18px 14px;
+  }
+
+  .tableScroll {
+    border-radius: 12px;
+  }
+
+  .dateHeader,
+  .dateCell {
+    width: 74px;
+    min-width: 74px;
+    max-width: 74px;
+    padding: 9px 6px;
+    font-size: 11px;
+  }
+
+  .userHeader,
+  .eventCell {
+    width: 108px;
+    min-width: 108px;
+    max-width: 108px;
+  }
+
+  .userHeader {
+    padding: 9px 7px;
+  }
+
+  .eventCell {
+    padding: 5px;
+  }
+
+  .userName {
+    font-size: 12px;
+  }
+
+  .cellEventItem {
+    padding: 6px;
+  }
+
+  .cellEventHeader {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .eventBadge,
+  .eventBadgeClockIn,
+  .eventBadgeClockOut,
+  .eventBadgeOther {
+    padding: 3px 6px;
+    font-size: 10px;
+  }
+
+  .eventTime {
+    font-size: 12px;
+  }
+
+  .eventNote {
+    padding: 5px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 400px) {
+  .page {
+    padding: 8px;
+  }
+
+  .card {
+    margin: 12px auto;
+    padding: 12px;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+
+  .searchSection {
+    padding: 12px;
+  }
+
+  .checkboxLabel {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .dateHeader,
+  .dateCell {
+    width: 68px;
+    min-width: 68px;
+    max-width: 68px;
+  }
+
+  .userHeader,
+  .eventCell {
+    width: 102px;
+    min-width: 102px;
+    max-width: 102px;
   }
 }
