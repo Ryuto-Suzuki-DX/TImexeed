@@ -9,11 +9,13 @@
  * ・管理者本人宛の未読お知らせ件数取得
  * ・全員宛お知らせ作成
  * ・お知らせ削除
+ * ・お知らせ既読状況取得
  *
  * 注意：
  * ・管理者にも notifications は作成される
  * ・検索、既読、未読件数取得では userId / targetUserId は送らない
  * ・全員宛作成では ADMIN / USER 両方が対象になる
+ * ・既読状況一覧では USER のみが返される
  * ・keyword は title / message の検索用
  * ・検索結果は既存の管理者検索系と同じく total / offset / limit / hasMore を返す
  */
@@ -69,5 +71,30 @@ export type DeleteNotificationRequest = {
 };
 
 export type DeleteNotificationResponse = {
-  notification: Notification;
+  notificationId: number;
+};
+
+export type GetNotificationReadStatusRequest = {
+  notificationId: number;
+};
+
+export type NotificationReadStatusUser = {
+  userId: number;
+  name: string;
+  email: string;
+  departmentId: number | null;
+  departmentName: string | null;
+  readAt: string | null;
+};
+
+export type GetNotificationReadStatusResponse = {
+  notificationId: number;
+  notificationGroupId: string;
+  title: string;
+  message: string;
+  targetUserCount: number;
+  readUserCount: number;
+  unreadUserCount: number;
+  readUsers: NotificationReadStatusUser[];
+  unreadUsers: NotificationReadStatusUser[];
 };

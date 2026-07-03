@@ -83,6 +83,7 @@ export default function AdminUsersPage() {
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
 
   const [form, setForm] = useState<UserForm>(initialForm);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   const [pageMessage, setPageMessage] = useState("ユーザーを検索・作成・編集できます。");
@@ -112,6 +113,7 @@ export default function AdminUsersPage() {
   const resetForm = () => {
     setForm(initialForm);
     setIsEditing(false);
+    setIsFormOpen(false);
   };
 
   const loadDepartments = async () => {
@@ -179,7 +181,9 @@ export default function AdminUsersPage() {
   };
 
   const handleStartCreate = () => {
-    resetForm();
+    setForm(initialForm);
+    setIsEditing(false);
+    setIsFormOpen(true);
     setPageMessage("新規ユーザー情報を入力してください。");
     setPageMessageVariant("info");
   };
@@ -221,6 +225,7 @@ export default function AdminUsersPage() {
     });
 
     setIsEditing(true);
+    setIsFormOpen(true);
     setPageMessage("ユーザー情報を編集できます。");
     setPageMessageVariant("info");
     setIsPageLoading(false);
@@ -415,7 +420,7 @@ export default function AdminUsersPage() {
             <MessageBox variant={pageMessageVariant}>{isPageLoading ? "処理中..." : pageMessage}</MessageBox>
           </div>
 
-          <div className={styles.contentGrid}>
+          <div className={`${styles.contentGrid} ${!isFormOpen ? styles.contentGridSingle : ""}`}>
             <section className={styles.searchPanel}>
               <div className={styles.sectionHeader}>
                 <div>
@@ -494,18 +499,17 @@ export default function AdminUsersPage() {
               )}
             </section>
 
-            <section className={styles.formPanel}>
+            {isFormOpen && (
+              <section className={styles.formPanel}>
               <div className={styles.sectionHeader}>
                 <div>
                   <h2 className={styles.sectionTitle}>{formTitle}</h2>
                   <p className={styles.sectionDescription}>{formDescription}</p>
                 </div>
 
-                {isEditing && (
-                  <Button type="button" variant="secondary" onClick={resetForm}>
-                    編集取消
-                  </Button>
-                )}
+                <Button type="button" variant="secondary" onClick={resetForm}>
+                  {isEditing ? "編集取消" : "作成取消"}
+                </Button>
               </div>
 
               <div className={styles.formGrid}>
@@ -610,7 +614,8 @@ export default function AdminUsersPage() {
                   </Button>
                 )}
               </div>
-            </section>
+              </section>
+            )}
           </div>
         </section>
       </div>

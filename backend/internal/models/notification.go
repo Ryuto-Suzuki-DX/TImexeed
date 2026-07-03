@@ -20,6 +20,14 @@ import "time"
 type Notification struct {
 	ID uint `gorm:"primaryKey" json:"id"`
 
+	// 同じ配信単位のお知らせをまとめるグループID
+	//
+	// 注意：
+	// ・全員宛お知らせでは、同時に作成した全レコードへ同じ値を設定する
+	// ・個別ユーザー宛お知らせにも固有の値を設定する
+	// ・既存レコードとの互換性を保つためNULLを許可する
+	NotificationGroupID *string `gorm:"type:varchar(36);index" json:"notificationGroupId"`
+
 	// 通知先ユーザーID
 	UserID uint `gorm:"not null;index" json:"userId"`
 

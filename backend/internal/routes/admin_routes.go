@@ -267,6 +267,7 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		admin.POST("/notifications/unread-count", notificationController.CountUnreadNotifications)
 		admin.POST("/notifications/create-for-all-users", notificationController.CreateNotificationForAllUsers)
 		admin.POST("/notifications/delete", notificationController.DeleteNotification)
+		admin.POST("/notifications/read-status", notificationController.GetNotificationReadStatus)
 
 		// お知らせ自動リマインド
 		admin.POST("/notification-reminders/search", notificationReminderController.SearchNotificationReminders)

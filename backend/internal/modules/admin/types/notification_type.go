@@ -39,6 +39,16 @@ type DeleteNotificationRequest struct {
 }
 
 /*
+ * お知らせ既読状況取得リクエスト
+ *
+ * 管理者のお知らせ一覧に表示されているnotificationIdを受け取る。
+ * Serviceで対象のお知らせのnotificationGroupIdを特定する。
+ */
+type GetNotificationReadStatusRequest struct {
+	NotificationID uint `json:"notificationId" binding:"required"`
+}
+
+/*
  * =========================================================
  * Response
  * =========================================================
@@ -83,4 +93,39 @@ type CreateNotificationForAllUsersResponse struct {
 
 type DeleteNotificationResponse struct {
 	NotificationID uint `json:"notificationId"`
+}
+
+/*
+ * お知らせ既読状況のユーザー情報
+ *
+ * 注意：
+ * ・管理者は含めず、role = USER のユーザーだけを返す
+ * ・既読ユーザーではreadAtに初回既読日時が入る
+ * ・未読ユーザーではreadAtはnullになる
+ */
+type NotificationReadStatusUserResponse struct {
+	UserID uint `json:"userId"`
+
+	Name  string `json:"name"`
+	Email string `json:"email"`
+
+	DepartmentID   *uint   `json:"departmentId"`
+	DepartmentName *string `json:"departmentName"`
+
+	ReadAt *time.Time `json:"readAt"`
+}
+
+type GetNotificationReadStatusResponse struct {
+	NotificationID      uint   `json:"notificationId"`
+	NotificationGroupID string `json:"notificationGroupId"`
+
+	Title   string `json:"title"`
+	Message string `json:"message"`
+
+	TargetUserCount int `json:"targetUserCount"`
+	ReadUserCount   int `json:"readUserCount"`
+	UnreadUserCount int `json:"unreadUserCount"`
+
+	ReadUsers   []NotificationReadStatusUserResponse `json:"readUsers"`
+	UnreadUsers []NotificationReadStatusUserResponse `json:"unreadUsers"`
 }

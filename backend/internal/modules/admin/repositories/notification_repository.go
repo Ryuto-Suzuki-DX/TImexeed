@@ -2,12 +2,31 @@ package repositories
 
 import (
 	"errors"
+	"time"
 
 	"timexeed/backend/internal/models"
 	"timexeed/backend/internal/results"
 
 	"gorm.io/gorm"
 )
+
+/*
+ * お知らせ既読状況取得用レコード
+ *
+ * Builderで設定したSELECT句の別名とフィールド名を対応させる。
+ */
+type NotificationReadStatusRecord struct {
+	UserID uint `gorm:"column:user_id"`
+
+	Name  string `gorm:"column:name"`
+	Email string `gorm:"column:email"`
+
+	DepartmentID   *uint   `gorm:"column:department_id"`
+	DepartmentName *string `gorm:"column:department_name"`
+
+	IsRead bool       `gorm:"column:is_read"`
+	ReadAt *time.Time `gorm:"column:read_at"`
+}
 
 /*
  * 管理者用お知らせRepository interface
@@ -18,7 +37,9 @@ type NotificationRepository interface {
 	FindNotifications(query *gorm.DB) ([]models.Notification, results.Result)
 	FindNotification(query *gorm.DB) (models.Notification, results.Result)
 	SaveNotification(notification models.Notification) (models.Notification, results.Result)
+	DeleteNotificationsByGroupID(notificationGroupID string, deletedAt time.Time) (int64, results.Result)
 	CountNotifications(query *gorm.DB) (int64, results.Result)
+	FindNotificationReadStatuses(query *gorm.DB) ([]NotificationReadStatusRecord, results.Result)
 
 	FindUserByID(userID uint) (models.User, results.Result)
 	FindActiveUsers() ([]models.User, results.Result)
@@ -31,6 +52,7 @@ type NotificationRepository interface {
  * 役割：
  * ・Builderで作成されたGORMクエリを実行する
  * ・DBへのSave / Createを実行する
+ * ・DBの一括更新を実行する
  * ・Repository内で発生したエラーはRepositoryでcode/message/detailsを作って返す
  *
  * 注意：
@@ -120,7 +142,7 @@ func (repository *notificationRepository) FindNotification(query *gorm.DB) (mode
 /*
  * お知らせ保存
  *
- * 既読更新、論理削除で使う。
+ * 既読更新、グループIDがない既存お知らせの論理削除で使う。
  */
 func (repository *notificationRepository) SaveNotification(notification models.Notification) (models.Notification, results.Result) {
 	if notification.ID == 0 {
@@ -142,6 +164,50 @@ func (repository *notificationRepository) SaveNotification(notification models.N
 	return notification, results.OK(
 		nil,
 		"SAVE_NOTIFICATION_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 同一グループのお知らせ一括論理削除
+ *
+ * 管理者が全員宛お知らせを削除したとき、
+ * 同じnotification_group_idを持つADMIN / USER両方の通知を論理削除する。
+ */
+func (repository *notificationRepository) DeleteNotificationsByGroupID(
+	notificationGroupID string,
+	deletedAt time.Time,
+) (int64, results.Result) {
+	if notificationGroupID == "" {
+		return 0, results.InternalServerError(
+			"DELETE_NOTIFICATIONS_BY_GROUP_ID_EMPTY_NOTIFICATION_GROUP_ID",
+			"お知らせの削除に失敗しました",
+			nil,
+		)
+	}
+
+	updateResult := repository.db.
+		Model(&models.Notification{}).
+		Where("notification_group_id = ?", notificationGroupID).
+		Where("is_deleted = ?", false).
+		Updates(map[string]any{
+			"is_deleted": true,
+			"deleted_at": deletedAt,
+			"updated_at": deletedAt,
+		})
+
+	if updateResult.Error != nil {
+		return 0, results.InternalServerError(
+			"DELETE_NOTIFICATIONS_BY_GROUP_ID_FAILED",
+			"お知らせの削除に失敗しました",
+			updateResult.Error.Error(),
+		)
+	}
+
+	return updateResult.RowsAffected, results.OK(
+		nil,
+		"DELETE_NOTIFICATIONS_BY_GROUP_ID_SUCCESS",
 		"",
 		nil,
 	)
@@ -174,6 +240,38 @@ func (repository *notificationRepository) CountNotifications(query *gorm.DB) (in
 	return count, results.OK(
 		nil,
 		"COUNT_NOTIFICATIONS_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * お知らせ既読状況一覧取得
+ */
+func (repository *notificationRepository) FindNotificationReadStatuses(
+	query *gorm.DB,
+) ([]NotificationReadStatusRecord, results.Result) {
+	if query == nil {
+		return nil, results.InternalServerError(
+			"FIND_NOTIFICATION_READ_STATUSES_QUERY_IS_NIL",
+			"お知らせ既読状況の取得に失敗しました",
+			nil,
+		)
+	}
+
+	var records []NotificationReadStatusRecord
+
+	if err := query.Scan(&records).Error; err != nil {
+		return nil, results.InternalServerError(
+			"FIND_NOTIFICATION_READ_STATUSES_FAILED",
+			"お知らせ既読状況の取得に失敗しました",
+			err.Error(),
+		)
+	}
+
+	return records, results.OK(
+		nil,
+		"FIND_NOTIFICATION_READ_STATUSES_SUCCESS",
 		"",
 		nil,
 	)

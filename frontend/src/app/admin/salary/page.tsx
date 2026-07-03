@@ -18,12 +18,6 @@ type SalaryMenuItem = {
 
 const salaryMenuItems: SalaryMenuItem[] = [
   {
-    title: "給与全体設定",
-    description: "通勤手当上限、在宅勤務補助、給与計算で使う会社全体の設定を管理します。",
-    href: "/admin/salary/company-settings",
-    statusLabel: "全体設定",
-  },
-  {
     title: "ユーザー給与詳細",
     description: "ユーザーごとの給与区分、基本金額、固定手当、固定控除、適用期間を管理します。",
     href: "/admin/salary/user-salary-details",

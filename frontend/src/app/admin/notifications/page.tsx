@@ -10,10 +10,15 @@ import { useRequireRole } from "@/hooks/useRequireRole";
 import {
   createNotificationForAllUsers,
   deleteNotification,
+  getNotificationReadStatus,
   readNotification,
   searchNotifications,
 } from "@/api/admin/notification";
-import type { Notification } from "@/types/admin/notification";
+import type {
+  GetNotificationReadStatusResponse,
+  Notification,
+  NotificationReadStatusUser,
+} from "@/types/admin/notification";
 import styles from "./page.module.css";
 
 type PageMessageVariant = "info" | "success" | "warning" | "error";
@@ -40,6 +45,10 @@ function formatDateTime(value: string | null | undefined) {
   return `${year}/${month}/${day} ${hour}:${minute}`;
 }
 
+function getDepartmentName(user: NotificationReadStatusUser) {
+  return user.departmentName || "所属なし";
+}
+
 export default function AdminNotificationsPage() {
   const { user, isLoading, message } = useRequireRole("ADMIN");
 
@@ -60,6 +69,10 @@ export default function AdminNotificationsPage() {
   const [isMoreLoading, setIsMoreLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [processingNotificationId, setProcessingNotificationId] = useState<number | null>(null);
+
+  const [readStatus, setReadStatus] = useState<GetNotificationReadStatusResponse | null>(null);
+  const [isReadStatusOpen, setIsReadStatusOpen] = useState(false);
+  const [isReadStatusLoading, setIsReadStatusLoading] = useState(false);
 
   const unreadCount = useMemo(() => {
     return notifications.filter((notification) => !notification.isRead).length;
@@ -130,6 +143,25 @@ export default function AdminNotificationsPage() {
       window.clearTimeout(timerId);
     };
   }, [isLoading, loadNotifications, user]);
+
+  useEffect(() => {
+    if (!isReadStatusOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isReadStatusLoading) {
+        setIsReadStatusOpen(false);
+        setReadStatus(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isReadStatusLoading, isReadStatusOpen]);
 
   const handleSearch = () => {
     void loadNotifications(0, false);
@@ -236,6 +268,38 @@ export default function AdminNotificationsPage() {
     setPageMessage("お知らせを削除しました。");
     setPageMessageVariant("success");
     setProcessingNotificationId(null);
+  };
+
+  const handleOpenReadStatus = async (notification: Notification) => {
+    setProcessingNotificationId(notification.id);
+    setIsReadStatusLoading(true);
+    setReadStatus(null);
+
+    const result = await getNotificationReadStatus({
+      notificationId: notification.id,
+    });
+
+    if (result.error || !result.data) {
+      setPageMessage(result.message || "お知らせ既読状況の取得に失敗しました。");
+      setPageMessageVariant("error");
+      setProcessingNotificationId(null);
+      setIsReadStatusLoading(false);
+      return;
+    }
+
+    setReadStatus(result.data);
+    setIsReadStatusOpen(true);
+    setProcessingNotificationId(null);
+    setIsReadStatusLoading(false);
+  };
+
+  const handleCloseReadStatus = () => {
+    if (isReadStatusLoading) {
+      return;
+    }
+
+    setIsReadStatusOpen(false);
+    setReadStatus(null);
   };
 
   const handleLoadMore = () => {
@@ -391,6 +455,17 @@ export default function AdminNotificationsPage() {
                       </p>
 
                       <div className={styles.actionArea}>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => void handleOpenReadStatus(notification)}
+                          disabled={processingNotificationId === notification.id}
+                        >
+                          {processingNotificationId === notification.id && isReadStatusLoading
+                            ? "取得中..."
+                            : "既読状況"}
+                        </Button>
+
                         {!notification.isRead && (
                           <Button
                             type="button"
@@ -427,6 +502,122 @@ export default function AdminNotificationsPage() {
           </section>
         </section>
       </div>
+
+      {isReadStatusOpen && readStatus && (
+        <div
+          className={styles.modalOverlay}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseReadStatus();
+            }
+          }}
+        >
+          <section
+            className={styles.modalCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="notification-read-status-title"
+          >
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitleArea}>
+                <p className={styles.modalEyebrow}>お知らせ既読状況</p>
+                <h2 id="notification-read-status-title" className={styles.modalTitle}>
+                  {readStatus.title}
+                </h2>
+                <p className={styles.modalMessage}>{readStatus.message}</p>
+              </div>
+
+              <button
+                type="button"
+                className={styles.modalCloseButton}
+                onClick={handleCloseReadStatus}
+                aria-label="既読状況を閉じる"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className={styles.readStatusSummary}>
+              <div className={styles.readStatusSummaryBox}>
+                <p className={styles.readStatusSummaryLabel}>対象ユーザー</p>
+                <p className={styles.readStatusSummaryValue}>{readStatus.targetUserCount}人</p>
+              </div>
+
+              <div className={styles.readStatusSummaryBox}>
+                <p className={styles.readStatusSummaryLabel}>既読</p>
+                <p className={styles.readStatusSummaryValue}>{readStatus.readUserCount}人</p>
+              </div>
+
+              <div className={styles.readStatusSummaryBox}>
+                <p className={styles.readStatusSummaryLabel}>未読</p>
+                <p className={styles.readStatusSummaryValue}>{readStatus.unreadUserCount}人</p>
+              </div>
+            </div>
+
+            <div className={styles.readStatusColumns}>
+              <section className={styles.readStatusSection}>
+                <div className={styles.readStatusSectionHeader}>
+                  <h3 className={styles.readStatusSectionTitle}>既読ユーザー</h3>
+                  <span className={styles.readCountBadge}>{readStatus.readUserCount}人</span>
+                </div>
+
+                <div className={styles.userStatusList}>
+                  {readStatus.readUsers.length === 0 ? (
+                    <div className={styles.userStatusEmpty}>既読ユーザーはいません。</div>
+                  ) : (
+                    readStatus.readUsers.map((readUser) => (
+                      <article key={readUser.userId} className={styles.userStatusCard}>
+                        <div className={styles.userStatusMain}>
+                          <p className={styles.userName}>{readUser.name}</p>
+                          <p className={styles.userDepartment}>{getDepartmentName(readUser)}</p>
+                          <p className={styles.userEmail}>{readUser.email}</p>
+                        </div>
+
+                        <div className={styles.userReadAtArea}>
+                          <span className={styles.userReadAtLabel}>既読日時</span>
+                          <span className={styles.userReadAt}>{formatDateTime(readUser.readAt)}</span>
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section className={styles.readStatusSection}>
+                <div className={styles.readStatusSectionHeader}>
+                  <h3 className={styles.readStatusSectionTitle}>未読ユーザー</h3>
+                  <span className={styles.unreadCountBadge}>{readStatus.unreadUserCount}人</span>
+                </div>
+
+                <div className={styles.userStatusList}>
+                  {readStatus.unreadUsers.length === 0 ? (
+                    <div className={styles.userStatusEmpty}>未読ユーザーはいません。</div>
+                  ) : (
+                    readStatus.unreadUsers.map((unreadUser) => (
+                      <article key={unreadUser.userId} className={styles.userStatusCard}>
+                        <div className={styles.userStatusMain}>
+                          <p className={styles.userName}>{unreadUser.name}</p>
+                          <p className={styles.userDepartment}>{getDepartmentName(unreadUser)}</p>
+                          <p className={styles.userEmail}>{unreadUser.email}</p>
+                        </div>
+
+                        <span className={styles.unreadStatusLabel}>未読</span>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+            </div>
+
+            <div className={styles.modalActionArea}>
+              <Button type="button" variant="secondary" onClick={handleCloseReadStatus}>
+                閉じる
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
     </PageContainer>
   );
 }

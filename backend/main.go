@@ -4,7 +4,10 @@ import (
 	"os"
 
 	"timexeed/backend/internal/database"
+	adminrepositories "timexeed/backend/internal/modules/admin/repositories"
+	adminservices "timexeed/backend/internal/modules/admin/services"
 	"timexeed/backend/internal/routes"
+	"timexeed/backend/internal/schedulers"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -23,6 +26,25 @@ func main() {
 	if err != nil {
 		panic("DB接続に失敗しました: " + err.Error())
 	}
+
+	/*
+	 * お知らせ自動リマインド実行処理
+	 *
+	 * ・次の分の開始時刻から実行を開始する
+	 * ・以降1分ごとにnotification_remindersを確認する
+	 * ・実行条件に一致した場合、notificationsを作成する
+	 */
+	notificationReminderExecutionRepository :=
+		adminrepositories.NewNotificationReminderExecutionRepository(db)
+
+	notificationReminderExecutionService :=
+		adminservices.NewNotificationReminderExecutionService(
+			notificationReminderExecutionRepository,
+		)
+
+	schedulers.StartNotificationReminderScheduler(
+		notificationReminderExecutionService,
+	)
 
 	/*
 	 * gin.Default() はアクセスログ用の gin.Logger() を自動登録する。

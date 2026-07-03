@@ -183,3 +183,30 @@ func (controller *NotificationController) DeleteNotification(c *gin.Context) {
 
 	responses.JSON(c, result)
 }
+
+/*
+ * お知らせ既読状況取得
+ *
+ * POST /admin/notifications/read-status
+ *
+ * 注意：
+ * ・管理者のお知らせ一覧に表示されているnotificationIdを受け取る
+ * ・同じnotificationGroupIdを持つrole = USERの通知だけを対象にする
+ * ・管理者アカウントは既読/未読一覧に含めない
+ */
+func (controller *NotificationController) GetNotificationReadStatus(c *gin.Context) {
+	var req types.GetNotificationReadStatusRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		responses.JSON(c, results.BadRequest(
+			"GET_NOTIFICATION_READ_STATUS_INVALID_REQUEST",
+			"お知らせ既読状況取得のリクエスト形式が正しくありません",
+			err.Error(),
+		))
+		return
+	}
+
+	result := controller.notificationService.GetNotificationReadStatus(req)
+
+	responses.JSON(c, result)
+}

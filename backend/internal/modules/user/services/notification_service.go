@@ -181,6 +181,10 @@ func (service *notificationService) SearchNotifications(
  * お知らせ既読更新
  *
  * userID + notificationID で対象お知らせを取得し、既読にする。
+ *
+ * 注意：
+ * ・初回既読日時を保持する
+ * ・すでに既読の場合はDBを更新せず、現在の情報をそのまま返す
  */
 func (service *notificationService) ReadNotification(
 	userID uint,
@@ -212,6 +216,17 @@ func (service *notificationService) ReadNotification(
 	currentNotification, findResult := service.notificationRepository.FindNotification(findQuery)
 	if findResult.Error {
 		return findResult
+	}
+
+	if currentNotification.IsRead {
+		return results.OK(
+			types.ReadNotificationResponse{
+				Notification: toNotificationResponse(currentNotification),
+			},
+			"READ_NOTIFICATION_ALREADY_READ",
+			"お知らせは既読です",
+			nil,
+		)
 	}
 
 	readNotification, buildReadResult := service.notificationBuilder.BuildReadNotificationModel(currentNotification)

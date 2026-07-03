@@ -8,6 +8,7 @@ import (
 	"timexeed/backend/internal/modules/admin/types"
 	"timexeed/backend/internal/results"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -22,6 +23,7 @@ type NotificationBuilder interface {
 	BuildCountUnreadNotificationsQuery(userID uint) (*gorm.DB, results.Result)
 	BuildFindNotificationByUserIDAndIDQuery(userID uint, notificationID uint) (*gorm.DB, results.Result)
 	BuildFindNotificationByIDQuery(notificationID uint) (*gorm.DB, results.Result)
+	BuildFindNotificationReadStatusesQuery(notificationGroupID string) (*gorm.DB, results.Result)
 	BuildReadNotificationModel(currentNotification models.Notification) (models.Notification, results.Result)
 	BuildDeleteNotificationModel(currentNotification models.Notification) (models.Notification, results.Result)
 	BuildCreateNotificationsForAllUsersModels(users []models.User, req types.CreateNotificationForAllUsersRequest) ([]models.Notification, results.Result)
@@ -280,6 +282,65 @@ func (builder *notificationBuilder) BuildFindNotificationByIDQuery(
 }
 
 /*
+ * お知らせ既読状況取得用Query作成
+ *
+ * 同じnotificationGroupIdを持つ通知のうち、
+ * role = USER のユーザーだけを取得する。
+ *
+ * 注意：
+ * ・管理者アカウントは対象外
+ * ・送信後にユーザーが論理削除されても確認履歴として表示するため、
+ *   users.is_deleted / notifications.is_deleted では除外しない
+ */
+func (builder *notificationBuilder) BuildFindNotificationReadStatusesQuery(
+	notificationGroupID string,
+) (*gorm.DB, results.Result) {
+	if builder.db == nil {
+		return nil, results.InternalServerError(
+			"BUILD_FIND_NOTIFICATION_READ_STATUSES_QUERY_DB_IS_NIL",
+			"お知らせ既読状況取得条件の作成に失敗しました",
+			nil,
+		)
+	}
+
+	notificationGroupID = strings.TrimSpace(notificationGroupID)
+	if notificationGroupID == "" {
+		return nil, results.BadRequest(
+			"BUILD_FIND_NOTIFICATION_READ_STATUSES_QUERY_EMPTY_NOTIFICATION_GROUP_ID",
+			"お知らせグループIDが正しくありません",
+			nil,
+		)
+	}
+
+	query := builder.db.
+		Table("notifications AS notifications").
+		Select(`
+			notifications.user_id AS user_id,
+			users.name AS name,
+			users.email AS email,
+			users.department_id AS department_id,
+			departments.name AS department_name,
+			notifications.is_read AS is_read,
+			notifications.read_at AS read_at
+		`).
+		Joins("INNER JOIN users ON users.id = notifications.user_id").
+		Joins("LEFT JOIN departments ON departments.id = users.department_id").
+		Where("notifications.notification_group_id = ?", notificationGroupID).
+		Where("users.role = ?", "USER").
+		Order("notifications.is_read DESC").
+		Order("notifications.read_at ASC NULLS LAST").
+		Order("users.name ASC").
+		Order("users.id ASC")
+
+	return query, results.OK(
+		nil,
+		"BUILD_FIND_NOTIFICATION_READ_STATUSES_QUERY_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
  * 既読更新用Model作成
  */
 func (builder *notificationBuilder) BuildReadNotificationModel(
@@ -293,9 +354,11 @@ func (builder *notificationBuilder) BuildReadNotificationModel(
 		)
 	}
 
-	now := time.Now()
-	currentNotification.IsRead = true
-	currentNotification.ReadAt = &now
+	if !currentNotification.IsRead {
+		now := time.Now()
+		currentNotification.IsRead = true
+		currentNotification.ReadAt = &now
+	}
 
 	return currentNotification, results.OK(
 		nil,
@@ -382,12 +445,15 @@ func (builder *notificationBuilder) BuildCreateNotificationForUserModel(
 		)
 	}
 
+	notificationGroupID := uuid.NewString()
+
 	return models.Notification{
-			UserID:    userID,
-			Title:     title,
-			Message:   message,
-			IsRead:    false,
-			IsDeleted: false,
+			NotificationGroupID: &notificationGroupID,
+			UserID:              userID,
+			Title:               title,
+			Message:             message,
+			IsRead:              false,
+			IsDeleted:           false,
 		}, results.OK(
 			nil,
 			"BUILD_CREATE_NOTIFICATION_FOR_USER_MODEL_SUCCESS",
@@ -431,6 +497,7 @@ func (builder *notificationBuilder) BuildCreateNotificationsForUsersModels(
 		)
 	}
 
+	notificationGroupID := uuid.NewString()
 	notifications := make([]models.Notification, 0, len(users))
 
 	for _, user := range users {
@@ -439,11 +506,12 @@ func (builder *notificationBuilder) BuildCreateNotificationsForUsersModels(
 		}
 
 		notifications = append(notifications, models.Notification{
-			UserID:    user.ID,
-			Title:     title,
-			Message:   message,
-			IsRead:    false,
-			IsDeleted: false,
+			NotificationGroupID: &notificationGroupID,
+			UserID:              user.ID,
+			Title:               title,
+			Message:             message,
+			IsRead:              false,
+			IsDeleted:           false,
 		})
 	}
 

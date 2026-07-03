@@ -75,6 +75,17 @@ function formatNumber(value: number | null | undefined) {
   return value.toFixed(1).replace(".0", "");
 }
 
+function formatRole(role: string) {
+  switch (role) {
+    case "ADMIN":
+      return "管理者";
+    case "USER":
+      return "ユーザー";
+    default:
+      return role || "-";
+  }
+}
+
 function formatAttendanceRealtimeEventType(eventType: string) {
   switch (eventType) {
     case "CLOCK_IN":
@@ -347,8 +358,8 @@ export default function AdminMyPage() {
               </div>
 
               <div className={styles.infoBox}>
-                <p className={styles.infoLabel}>ロール</p>
-                <p className={styles.infoValue}>{user.role}</p>
+                <p className={styles.infoLabel}>権限</p>
+                <p className={styles.infoValue}>{formatRole(user.role)}</p>
               </div>
 
               <div className={styles.infoBox}>

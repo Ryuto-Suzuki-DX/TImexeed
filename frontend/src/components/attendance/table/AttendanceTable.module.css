@@ -8,20 +8,27 @@
 
 .sectionTitle {
   margin: 0 0 4px;
-  font-size: 18px;
   color: #ea580c;
+  font-size: 18px;
 }
 
 .sectionDescription {
   margin: 0;
-  font-size: 12px;
   color: #666666;
+  font-size: 12px;
 }
 
 .tableWrap {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
-  border-radius: 14px;
+  overflow-y: visible;
   border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background-color: #ffffff;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table {
@@ -35,11 +42,12 @@
 }
 
 .th {
+  position: relative;
   padding: 10px;
   border-bottom: 1px solid #fed7aa;
-  text-align: left;
-  font-size: 12px;
   color: #9a3412;
+  font-size: 12px;
+  text-align: left;
   white-space: nowrap;
 }
 
@@ -74,4 +82,91 @@
 .actionColumn {
   width: 110px;
   min-width: 110px;
+}
+
+.table th:first-child,
+.table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  box-shadow: 2px 0 5px rgba(15, 23, 42, 0.08);
+}
+
+.table th:first-child {
+  z-index: 3;
+  background-color: #ffedd5;
+}
+
+@media (max-width: 768px) {
+  .sectionHeader {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .sectionTitle {
+    margin-bottom: 2px;
+    font-size: 13px;
+  }
+
+  .sectionDescription {
+    font-size: 8px;
+    line-height: 1.35;
+  }
+
+  .tableWrap {
+    border-radius: 9px;
+  }
+
+  .table {
+    min-width: 1280px;
+  }
+
+  .th {
+    padding: 6px;
+    font-size: 9px;
+  }
+
+  .dateColumn {
+    width: 60px;
+  }
+
+  .planColumn {
+    width: 205px;
+  }
+
+  .actualColumn {
+    width: 235px;
+  }
+
+  .scheduledColumn {
+    width: 90px;
+  }
+
+  .breakColumn {
+    width: 325px;
+  }
+
+  .transportColumn {
+    width: 250px;
+  }
+
+  .statusColumn {
+    width: 145px;
+  }
+
+  .actionColumn {
+    width: 76px;
+    min-width: 76px;
+  }
+}
+
+@media (max-width: 480px) {
+  .table {
+    min-width: 1190px;
+  }
+
+  .th {
+    padding: 5px;
+    font-size: 8px;
+  }
 }

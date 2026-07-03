@@ -1,6 +1,8 @@
 package services
 
 import (
+	"time"
+
 	"timexeed/backend/internal/models"
 	"timexeed/backend/internal/modules/admin/builders"
 	"timexeed/backend/internal/modules/admin/repositories"
@@ -21,6 +23,7 @@ type NotificationService interface {
 	CreateNotificationForAllUsers(req types.CreateNotificationForAllUsersRequest) results.Result
 	CreateNotificationForUser(userID uint, title string, message string) results.Result
 	DeleteNotification(req types.DeleteNotificationRequest) results.Result
+	GetNotificationReadStatus(req types.GetNotificationReadStatusRequest) results.Result
 }
 
 /*
@@ -143,6 +146,10 @@ func (service *notificationService) SearchNotifications(
  * お知らせ既読更新
  *
  * ログイン中管理者本人のお知らせだけを既読にする。
+ *
+ * 注意：
+ * ・初回既読日時を保持する
+ * ・すでに既読の場合はDBを更新せず、現在の情報をそのまま返す
  */
 func (service *notificationService) ReadNotification(
 	userID uint,
@@ -156,6 +163,17 @@ func (service *notificationService) ReadNotification(
 	currentNotification, findResult := service.notificationRepository.FindNotification(findQuery)
 	if findResult.Error {
 		return findResult
+	}
+
+	if currentNotification.IsRead {
+		return results.OK(
+			types.ReadNotificationResponse{
+				Notification: toNotificationResponse(currentNotification),
+			},
+			"READ_NOTIFICATION_ALREADY_READ",
+			"お知らせは既読です",
+			nil,
+		)
 	}
 
 	readNotification, buildReadResult := service.notificationBuilder.BuildReadNotificationModel(currentNotification)
@@ -282,7 +300,12 @@ func (service *notificationService) CreateNotificationForUser(
 /*
  * お知らせ論理削除
  *
- * 管理者機能なので user_id では絞らず、notificationId で対象を取得する。
+ * notificationGroupIdがあるお知らせは、同じ配信グループの通知を全件論理削除する。
+ * これにより、管理者側で削除した全員宛お知らせはユーザー側にも表示されなくなる。
+ *
+ * 注意：
+ * ・改造前に作成されたnotificationGroupIdがない既存お知らせは、
+ *   従来どおりnotificationIdで指定された1件だけを論理削除する
  */
 func (service *notificationService) DeleteNotification(
 	req types.DeleteNotificationRequest,
@@ -295,6 +318,27 @@ func (service *notificationService) DeleteNotification(
 	currentNotification, findResult := service.notificationRepository.FindNotification(findQuery)
 	if findResult.Error {
 		return findResult
+	}
+
+	if currentNotification.NotificationGroupID != nil && *currentNotification.NotificationGroupID != "" {
+		deletedCount, deleteResult := service.notificationRepository.DeleteNotificationsByGroupID(
+			*currentNotification.NotificationGroupID,
+			time.Now(),
+		)
+		if deleteResult.Error {
+			return deleteResult
+		}
+
+		return results.OK(
+			types.DeleteNotificationResponse{
+				NotificationID: req.NotificationID,
+			},
+			"DELETE_NOTIFICATION_SUCCESS",
+			"お知らせを削除しました",
+			map[string]any{
+				"deletedCount": deletedCount,
+			},
+		)
 	}
 
 	deletedNotification, buildDeleteResult := service.notificationBuilder.BuildDeleteNotificationModel(currentNotification)
@@ -313,6 +357,97 @@ func (service *notificationService) DeleteNotification(
 		},
 		"DELETE_NOTIFICATION_SUCCESS",
 		"お知らせを削除しました",
+		nil,
+	)
+}
+
+/*
+ * お知らせ既読状況取得
+ *
+ * 管理者のお知らせ一覧上のnotificationIdからグループIDを特定し、
+ * 同じ配信グループに属するUSERだけの既読/未読状況を返す。
+ *
+ * 注意：
+ * ・ADMINは一覧に含めない
+ * ・既存データなどnotificationGroupIdがないお知らせは対象外
+ * ・送信後に論理削除されたユーザーも確認履歴として表示する
+ */
+func (service *notificationService) GetNotificationReadStatus(
+	req types.GetNotificationReadStatusRequest,
+) results.Result {
+	findQuery, buildFindResult := service.notificationBuilder.BuildFindNotificationByIDQuery(req.NotificationID)
+	if buildFindResult.Error {
+		return buildFindResult
+	}
+
+	currentNotification, findResult := service.notificationRepository.FindNotification(findQuery)
+	if findResult.Error {
+		return findResult
+	}
+
+	if currentNotification.NotificationGroupID == nil || *currentNotification.NotificationGroupID == "" {
+		return results.BadRequest(
+			"GET_NOTIFICATION_READ_STATUS_NOTIFICATION_GROUP_ID_NOT_SET",
+			"このお知らせは既読状況一覧に対応していません",
+			map[string]any{
+				"notificationId": req.NotificationID,
+			},
+		)
+	}
+
+	readStatusQuery, buildReadStatusResult := service.notificationBuilder.BuildFindNotificationReadStatusesQuery(
+		*currentNotification.NotificationGroupID,
+	)
+	if buildReadStatusResult.Error {
+		return buildReadStatusResult
+	}
+
+	records, findReadStatusesResult := service.notificationRepository.FindNotificationReadStatuses(readStatusQuery)
+	if findReadStatusesResult.Error {
+		return findReadStatusesResult
+	}
+
+	readUsers := make([]types.NotificationReadStatusUserResponse, 0)
+	unreadUsers := make([]types.NotificationReadStatusUserResponse, 0)
+
+	for _, record := range records {
+		userResponse := types.NotificationReadStatusUserResponse{
+			UserID: record.UserID,
+
+			Name:  record.Name,
+			Email: record.Email,
+
+			DepartmentID:   record.DepartmentID,
+			DepartmentName: record.DepartmentName,
+
+			ReadAt: record.ReadAt,
+		}
+
+		if record.IsRead {
+			readUsers = append(readUsers, userResponse)
+			continue
+		}
+
+		unreadUsers = append(unreadUsers, userResponse)
+	}
+
+	return results.OK(
+		types.GetNotificationReadStatusResponse{
+			NotificationID:      currentNotification.ID,
+			NotificationGroupID: *currentNotification.NotificationGroupID,
+
+			Title:   currentNotification.Title,
+			Message: currentNotification.Message,
+
+			TargetUserCount: len(records),
+			ReadUserCount:   len(readUsers),
+			UnreadUserCount: len(unreadUsers),
+
+			ReadUsers:   readUsers,
+			UnreadUsers: unreadUsers,
+		},
+		"GET_NOTIFICATION_READ_STATUS_SUCCESS",
+		"お知らせ既読状況を取得しました",
 		nil,
 	)
 }

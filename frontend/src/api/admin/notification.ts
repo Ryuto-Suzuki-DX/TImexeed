@@ -6,6 +6,8 @@ import type {
   CreateNotificationForAllUsersResponse,
   DeleteNotificationRequest,
   DeleteNotificationResponse,
+  GetNotificationReadStatusRequest,
+  GetNotificationReadStatusResponse,
   ReadNotificationRequest,
   ReadNotificationResponse,
   SearchNotificationsRequest,
@@ -68,6 +70,18 @@ export function createNotificationForAllUsers(request: CreateNotificationForAllU
 export function deleteNotification(request: DeleteNotificationRequest) {
   return apiPost<DeleteNotificationResponse, DeleteNotificationRequest>(
     "/admin/notifications/delete",
+    request
+  );
+}
+
+/*
+ * 管理者 お知らせ既読状況取得
+ *
+ * POST /admin/notifications/read-status
+ */
+export function getNotificationReadStatus(request: GetNotificationReadStatusRequest) {
+  return apiPost<GetNotificationReadStatusResponse, GetNotificationReadStatusRequest>(
+    "/admin/notifications/read-status",
     request
   );
 }

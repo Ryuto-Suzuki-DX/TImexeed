@@ -8,6 +8,7 @@ import (
 	"timexeed/backend/internal/modules/user/types"
 	"timexeed/backend/internal/results"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -237,6 +238,8 @@ func (builder *notificationBuilder) BuildFindNotificationByUserIDAndIDQuery(
 
 /*
  * 既読更新用Model作成
+ *
+ * 初回の既読日時を保持するため、すでに既読の場合は値を変更しない。
  */
 func (builder *notificationBuilder) BuildReadNotificationModel(
 	currentNotification models.Notification,
@@ -249,9 +252,11 @@ func (builder *notificationBuilder) BuildReadNotificationModel(
 		)
 	}
 
-	now := time.Now()
-	currentNotification.IsRead = true
-	currentNotification.ReadAt = &now
+	if !currentNotification.IsRead {
+		now := time.Now()
+		currentNotification.IsRead = true
+		currentNotification.ReadAt = &now
+	}
 
 	return currentNotification, results.OK(
 		nil,
@@ -298,12 +303,15 @@ func (builder *notificationBuilder) BuildCreateNotificationForUserModel(
 		)
 	}
 
+	notificationGroupID := uuid.NewString()
+
 	return models.Notification{
-			UserID:    userID,
-			Title:     title,
-			Message:   message,
-			IsRead:    false,
-			IsDeleted: false,
+			NotificationGroupID: &notificationGroupID,
+			UserID:              userID,
+			Title:               title,
+			Message:             message,
+			IsRead:              false,
+			IsDeleted:           false,
 		}, results.OK(
 			nil,
 			"BUILD_CREATE_NOTIFICATION_FOR_USER_MODEL_SUCCESS",
@@ -347,6 +355,7 @@ func (builder *notificationBuilder) BuildCreateNotificationsForUsersModels(
 		)
 	}
 
+	notificationGroupID := uuid.NewString()
 	notifications := make([]models.Notification, 0, len(users))
 
 	for _, user := range users {
@@ -355,11 +364,12 @@ func (builder *notificationBuilder) BuildCreateNotificationsForUsersModels(
 		}
 
 		notifications = append(notifications, models.Notification{
-			UserID:    user.ID,
-			Title:     title,
-			Message:   message,
-			IsRead:    false,
-			IsDeleted: false,
+			NotificationGroupID: &notificationGroupID,
+			UserID:              user.ID,
+			Title:               title,
+			Message:             message,
+			IsRead:              false,
+			IsDeleted:           false,
 		})
 	}
 
