@@ -24,6 +24,8 @@ type PaidLeaveUsageService interface {
 	CreatePaidLeaveUsage(req types.CreatePaidLeaveUsageRequest) results.Result
 	UpdatePaidLeaveUsage(req types.UpdatePaidLeaveUsageRequest) results.Result
 	DeletePaidLeaveUsage(req types.DeletePaidLeaveUsageRequest) results.Result
+	ValidateMonthlyAttendancePaidLeaveBalance(req types.UpdateMonthlyAttendanceRequest, paidLeaveAttendanceTypeIDs map[uint]bool) results.Result
+	SyncAutomaticPaidLeaveUsage(targetUserID uint, workDate string, shouldUsePaidLeave bool) results.Result
 }
 
 /*
@@ -531,6 +533,270 @@ func (service *paidLeaveUsageService) DeletePaidLeaveUsage(req types.DeletePaidL
 		},
 		"DELETE_PAID_LEAVE_USAGE_SUCCESS",
 		"有給使用日を削除しました",
+		nil,
+	)
+}
+
+/*
+ * 月次勤怠全体保存前の有給残数チェック
+ *
+ * 現在の有給使用履歴と、今回の月次保存後に必要となる
+ * 勤怠連携用有給使用履歴との差分を計算して確認する。
+ *
+ * 注意：
+ * ・勤怠画面由来の有給は1日単位で扱う
+ * ・手動追加データは現在の使用済み日数としてそのまま含める
+ * ・同じ有給を再保存するだけの場合は新規消費として数えない
+ * ・有給を外す日については、現在の自動登録分を差し引く
+ */
+func (service *paidLeaveUsageService) ValidateMonthlyAttendancePaidLeaveBalance(
+	req types.UpdateMonthlyAttendanceRequest,
+	paidLeaveAttendanceTypeIDs map[uint]bool,
+) results.Result {
+	if req.TargetUserID == 0 {
+		return results.BadRequest(
+			"VALIDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_INVALID_TARGET_USER_ID",
+			"有給残数確認の対象ユーザーが正しくありません",
+			map[string]any{
+				"targetUserId": req.TargetUserID,
+			},
+		)
+	}
+
+	userQuery, buildUserResult := service.paidLeaveUsageBuilder.BuildFindActiveUserByIDQuery(req.TargetUserID)
+	if buildUserResult.Error {
+		return buildUserResult
+	}
+
+	user, findUserResult := service.paidLeaveUsageRepository.FindUser(userQuery)
+	if findUserResult.Error {
+		return findUserResult
+	}
+
+	usedDaysQuery, buildUsedDaysResult := service.paidLeaveUsageBuilder.BuildSumActivePaidLeaveUsageDaysByUserIDQuery(req.TargetUserID)
+	if buildUsedDaysResult.Error {
+		return buildUsedDaysResult
+	}
+
+	usedDays, sumResult := service.paidLeaveUsageRepository.SumPaidLeaveUsageDays(usedDaysQuery)
+	if sumResult.Error {
+		return sumResult
+	}
+
+	usageDaysDelta := 0.0
+	processedWorkDates := make(map[string]bool)
+
+	for _, attendanceDayReq := range req.AttendanceDays {
+		if processedWorkDates[attendanceDayReq.WorkDate] {
+			continue
+		}
+		processedWorkDates[attendanceDayReq.WorkDate] = true
+		usageDate, err := utils.ParseDate(attendanceDayReq.WorkDate)
+		if err != nil {
+			return results.BadRequest(
+				"VALIDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_INVALID_WORK_DATE",
+				"有給残数確認対象日の形式が正しくありません",
+				map[string]any{
+					"workDate": attendanceDayReq.WorkDate,
+					"format":   "yyyy-MM-dd",
+				},
+			)
+		}
+
+		findQuery, buildFindResult := service.paidLeaveUsageBuilder.BuildFindAutomaticPaidLeaveUsageByUserIDAndUsageDateQuery(
+			req.TargetUserID,
+			usageDate,
+		)
+		if buildFindResult.Error {
+			return buildFindResult
+		}
+
+		currentPaidLeaveUsage, findResult := service.paidLeaveUsageRepository.FindPaidLeaveUsage(findQuery)
+		hasActiveAutomaticUsage := false
+
+		if findResult.Error {
+			if findResult.Code != "PAID_LEAVE_USAGE_NOT_FOUND" {
+				return findResult
+			}
+		} else {
+			hasActiveAutomaticUsage = !currentPaidLeaveUsage.IsDeleted
+		}
+
+		shouldUsePaidLeave := paidLeaveAttendanceTypeIDs[attendanceDayReq.PlanAttendanceTypeID]
+
+		if shouldUsePaidLeave && !hasActiveAutomaticUsage {
+			usageDaysDelta += 1.0
+		}
+
+		if !shouldUsePaidLeave && hasActiveAutomaticUsage {
+			usageDaysDelta -= 1.0
+		}
+	}
+
+	totalGrantedDays := calculateTotalGrantedDays(user.HireDate, time.Now())
+	projectedUsedDays := usedDays + usageDaysDelta
+	projectedRemainingDays := totalGrantedDays - projectedUsedDays
+
+	if projectedRemainingDays < 0 {
+		return results.BadRequest(
+			"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_BALANCE_NOT_ENOUGH",
+			"有給残数が不足しているため、有給を登録できません",
+			map[string]any{
+				"targetUserId":           req.TargetUserID,
+				"totalGrantedDays":       totalGrantedDays,
+				"currentUsedDays":        usedDays,
+				"usageDaysDelta":         usageDaysDelta,
+				"projectedUsedDays":      projectedUsedDays,
+				"projectedRemainingDays": projectedRemainingDays,
+			},
+		)
+	}
+
+	return results.OK(
+		nil,
+		"VALIDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_BALANCE_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 勤怠画面由来の有給使用履歴を日付単位で同期する
+ *
+ * shouldUsePaidLeave = true：
+ * ・未登録なら IsManual=false で作成
+ * ・論理削除済みなら復活
+ * ・有効なデータが既にあれば何もしない
+ *
+ * shouldUsePaidLeave = false：
+ * ・有効な IsManual=false データがあれば論理削除
+ * ・未登録または削除済みなら何もしない
+ *
+ * 管理者が手動登録した IsManual=true のデータは対象外。
+ */
+func (service *paidLeaveUsageService) SyncAutomaticPaidLeaveUsage(
+	targetUserID uint,
+	workDate string,
+	shouldUsePaidLeave bool,
+) results.Result {
+	if targetUserID == 0 {
+		return results.BadRequest(
+			"SYNC_AUTOMATIC_PAID_LEAVE_USAGE_INVALID_TARGET_USER_ID",
+			"勤怠連携用有給使用日の同期対象ユーザーが正しくありません",
+			map[string]any{
+				"targetUserId": targetUserID,
+			},
+		)
+	}
+
+	usageDate, err := utils.ParseDate(workDate)
+	if err != nil {
+		return results.BadRequest(
+			"SYNC_AUTOMATIC_PAID_LEAVE_USAGE_INVALID_WORK_DATE",
+			"勤怠連携用有給使用日の対象日形式が正しくありません",
+			map[string]any{
+				"workDate": workDate,
+				"format":   "yyyy-MM-dd",
+			},
+		)
+	}
+
+	findQuery, buildFindResult := service.paidLeaveUsageBuilder.BuildFindAutomaticPaidLeaveUsageByUserIDAndUsageDateQuery(
+		targetUserID,
+		usageDate,
+	)
+	if buildFindResult.Error {
+		return buildFindResult
+	}
+
+	currentPaidLeaveUsage, findResult := service.paidLeaveUsageRepository.FindPaidLeaveUsage(findQuery)
+
+	if findResult.Error {
+		if findResult.Code != "PAID_LEAVE_USAGE_NOT_FOUND" {
+			return findResult
+		}
+
+		if !shouldUsePaidLeave {
+			return results.OK(
+				nil,
+				"SYNC_AUTOMATIC_PAID_LEAVE_USAGE_NOTHING_TO_DELETE",
+				"",
+				nil,
+			)
+		}
+
+		paidLeaveUsage, buildCreateResult := service.paidLeaveUsageBuilder.BuildCreateAutomaticPaidLeaveUsageModel(
+			targetUserID,
+			usageDate,
+		)
+		if buildCreateResult.Error {
+			return buildCreateResult
+		}
+
+		_, createResult := service.paidLeaveUsageRepository.CreatePaidLeaveUsage(paidLeaveUsage)
+		if createResult.Error {
+			return createResult
+		}
+
+		return results.OK(
+			nil,
+			"SYNC_AUTOMATIC_PAID_LEAVE_USAGE_CREATED",
+			"",
+			nil,
+		)
+	}
+
+	if shouldUsePaidLeave {
+		if !currentPaidLeaveUsage.IsDeleted {
+			return results.OK(
+				nil,
+				"SYNC_AUTOMATIC_PAID_LEAVE_USAGE_ALREADY_ACTIVE",
+				"",
+				nil,
+			)
+		}
+
+		activatedPaidLeaveUsage, buildActivateResult := service.paidLeaveUsageBuilder.BuildActivateAutomaticPaidLeaveUsageModel(currentPaidLeaveUsage)
+		if buildActivateResult.Error {
+			return buildActivateResult
+		}
+
+		_, saveResult := service.paidLeaveUsageRepository.SavePaidLeaveUsage(activatedPaidLeaveUsage)
+		if saveResult.Error {
+			return saveResult
+		}
+
+		return results.OK(
+			nil,
+			"SYNC_AUTOMATIC_PAID_LEAVE_USAGE_ACTIVATED",
+			"",
+			nil,
+		)
+	}
+
+	if currentPaidLeaveUsage.IsDeleted {
+		return results.OK(
+			nil,
+			"SYNC_AUTOMATIC_PAID_LEAVE_USAGE_ALREADY_DELETED",
+			"",
+			nil,
+		)
+	}
+
+	deletedPaidLeaveUsage, buildDeleteResult := service.paidLeaveUsageBuilder.BuildDeleteAutomaticPaidLeaveUsageModel(currentPaidLeaveUsage)
+	if buildDeleteResult.Error {
+		return buildDeleteResult
+	}
+
+	_, saveResult := service.paidLeaveUsageRepository.SavePaidLeaveUsage(deletedPaidLeaveUsage)
+	if saveResult.Error {
+		return saveResult
+	}
+
+	return results.OK(
+		nil,
+		"SYNC_AUTOMATIC_PAID_LEAVE_USAGE_DELETED",
+		"",
 		nil,
 	)
 }

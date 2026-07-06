@@ -20,6 +20,10 @@ type PaidLeaveUsageBuilder interface {
 	BuildFindManualPaidLeaveUsageByIDAndUserIDQuery(targetPaidLeaveUsageID uint, targetUserID uint) (*gorm.DB, results.Result)
 	BuildUpdatePaidLeaveUsageModel(currentPaidLeaveUsage models.PaidLeaveUsage, req types.UpdatePaidLeaveUsageRequest, usageDate time.Time) (models.PaidLeaveUsage, results.Result)
 	BuildDeletePaidLeaveUsageModel(currentPaidLeaveUsage models.PaidLeaveUsage) (models.PaidLeaveUsage, results.Result)
+	BuildFindAutomaticPaidLeaveUsageByUserIDAndUsageDateQuery(targetUserID uint, usageDate time.Time) (*gorm.DB, results.Result)
+	BuildCreateAutomaticPaidLeaveUsageModel(targetUserID uint, usageDate time.Time) (models.PaidLeaveUsage, results.Result)
+	BuildActivateAutomaticPaidLeaveUsageModel(currentPaidLeaveUsage models.PaidLeaveUsage) (models.PaidLeaveUsage, results.Result)
+	BuildDeleteAutomaticPaidLeaveUsageModel(currentPaidLeaveUsage models.PaidLeaveUsage) (models.PaidLeaveUsage, results.Result)
 }
 
 /*
@@ -463,6 +467,170 @@ func (builder *paidLeaveUsageBuilder) BuildDeletePaidLeaveUsageModel(
 	return currentPaidLeaveUsage, results.OK(
 		nil,
 		"BUILD_DELETE_PAID_LEAVE_USAGE_MODEL_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 勤怠連携用有給使用日検索クエリ作成
+ *
+ * 対象：
+ * ・対象ユーザー
+ * ・対象日
+ * ・is_manual = false
+ *
+ * 注意：
+ * ・論理削除済みも含めて取得する
+ * ・有給を再選択した場合は、既存データを復活させるために使う
+ */
+func (builder *paidLeaveUsageBuilder) BuildFindAutomaticPaidLeaveUsageByUserIDAndUsageDateQuery(
+	targetUserID uint,
+	usageDate time.Time,
+) (*gorm.DB, results.Result) {
+	if targetUserID == 0 {
+		return nil, results.BadRequest(
+			"BUILD_FIND_AUTOMATIC_PAID_LEAVE_USAGE_INVALID_TARGET_USER_ID",
+			"勤怠連携用有給使用日取得条件の作成に失敗しました",
+			map[string]any{
+				"targetUserId": targetUserID,
+			},
+		)
+	}
+
+	if usageDate.IsZero() {
+		return nil, results.BadRequest(
+			"BUILD_FIND_AUTOMATIC_PAID_LEAVE_USAGE_EMPTY_USAGE_DATE",
+			"勤怠連携用有給使用日取得条件の作成に失敗しました",
+			nil,
+		)
+	}
+
+	query := builder.db.
+		Model(&models.PaidLeaveUsage{}).
+		Where("user_id = ?", targetUserID).
+		Where("usage_date = ?", usageDate).
+		Where("is_manual = ?", false).
+		Order("id DESC")
+
+	return query, results.OK(
+		nil,
+		"BUILD_FIND_AUTOMATIC_PAID_LEAVE_USAGE_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 勤怠連携用有給使用日作成Model作成
+ */
+func (builder *paidLeaveUsageBuilder) BuildCreateAutomaticPaidLeaveUsageModel(
+	targetUserID uint,
+	usageDate time.Time,
+) (models.PaidLeaveUsage, results.Result) {
+	if targetUserID == 0 {
+		return models.PaidLeaveUsage{}, results.BadRequest(
+			"BUILD_CREATE_AUTOMATIC_PAID_LEAVE_USAGE_INVALID_TARGET_USER_ID",
+			"勤怠連携用有給使用日作成データの作成に失敗しました",
+			map[string]any{
+				"targetUserId": targetUserID,
+			},
+		)
+	}
+
+	if usageDate.IsZero() {
+		return models.PaidLeaveUsage{}, results.BadRequest(
+			"BUILD_CREATE_AUTOMATIC_PAID_LEAVE_USAGE_EMPTY_USAGE_DATE",
+			"勤怠連携用有給使用日作成データの作成に失敗しました",
+			nil,
+		)
+	}
+
+	paidLeaveUsage := models.PaidLeaveUsage{
+		UserID:    targetUserID,
+		UsageDate: usageDate,
+		UsageDays: 1.0,
+		IsManual:  false,
+		Memo:      "月次勤怠全体保存から登録",
+		IsDeleted: false,
+		DeletedAt: nil,
+	}
+
+	return paidLeaveUsage, results.OK(
+		nil,
+		"BUILD_CREATE_AUTOMATIC_PAID_LEAVE_USAGE_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 勤怠連携用有給使用日復活Model作成
+ */
+func (builder *paidLeaveUsageBuilder) BuildActivateAutomaticPaidLeaveUsageModel(
+	currentPaidLeaveUsage models.PaidLeaveUsage,
+) (models.PaidLeaveUsage, results.Result) {
+	if currentPaidLeaveUsage.ID == 0 {
+		return models.PaidLeaveUsage{}, results.BadRequest(
+			"BUILD_ACTIVATE_AUTOMATIC_PAID_LEAVE_USAGE_EMPTY_CURRENT_DATA",
+			"勤怠連携用有給使用日の復活データ作成に失敗しました",
+			nil,
+		)
+	}
+
+	if currentPaidLeaveUsage.IsManual {
+		return models.PaidLeaveUsage{}, results.BadRequest(
+			"BUILD_ACTIVATE_AUTOMATIC_PAID_LEAVE_USAGE_MANUAL_DATA",
+			"手動追加の有給使用日は勤怠保存から変更できません",
+			map[string]any{
+				"paidLeaveUsageId": currentPaidLeaveUsage.ID,
+			},
+		)
+	}
+
+	currentPaidLeaveUsage.UsageDays = 1.0
+	currentPaidLeaveUsage.IsDeleted = false
+	currentPaidLeaveUsage.DeletedAt = nil
+
+	return currentPaidLeaveUsage, results.OK(
+		nil,
+		"BUILD_ACTIVATE_AUTOMATIC_PAID_LEAVE_USAGE_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 勤怠連携用有給使用日論理削除Model作成
+ */
+func (builder *paidLeaveUsageBuilder) BuildDeleteAutomaticPaidLeaveUsageModel(
+	currentPaidLeaveUsage models.PaidLeaveUsage,
+) (models.PaidLeaveUsage, results.Result) {
+	if currentPaidLeaveUsage.ID == 0 {
+		return models.PaidLeaveUsage{}, results.BadRequest(
+			"BUILD_DELETE_AUTOMATIC_PAID_LEAVE_USAGE_EMPTY_CURRENT_DATA",
+			"勤怠連携用有給使用日の削除データ作成に失敗しました",
+			nil,
+		)
+	}
+
+	if currentPaidLeaveUsage.IsManual {
+		return models.PaidLeaveUsage{}, results.BadRequest(
+			"BUILD_DELETE_AUTOMATIC_PAID_LEAVE_USAGE_MANUAL_DATA",
+			"手動追加の有給使用日は勤怠保存から削除できません",
+			map[string]any{
+				"paidLeaveUsageId": currentPaidLeaveUsage.ID,
+			},
+		)
+	}
+
+	now := time.Now()
+	currentPaidLeaveUsage.IsDeleted = true
+	currentPaidLeaveUsage.DeletedAt = &now
+
+	return currentPaidLeaveUsage, results.OK(
+		nil,
+		"BUILD_DELETE_AUTOMATIC_PAID_LEAVE_USAGE_SUCCESS",
 		"",
 		nil,
 	)

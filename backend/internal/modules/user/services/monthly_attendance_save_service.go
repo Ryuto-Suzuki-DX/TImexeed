@@ -121,7 +121,16 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 		)
 	}
 
-	paidLeaveCheckResult := service.validatePaidLeaveBalanceBeforeMonthlySave(userID, req)
+	paidLeaveAttendanceTypeIDs, paidLeaveTypeResult := service.loadPaidLeaveAttendanceTypeIDMap()
+	if paidLeaveTypeResult.Error {
+		return paidLeaveTypeResult
+	}
+
+	paidLeaveCheckResult := service.paidLeaveService.ValidateMonthlyAttendancePaidLeaveBalance(
+		userID,
+		req,
+		paidLeaveAttendanceTypeIDs,
+	)
 	if paidLeaveCheckResult.Error {
 		return paidLeaveCheckResult
 	}
@@ -175,6 +184,15 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 
 			if resetTransportExpensesResult.Error {
 				if resetTransportExpensesResult.Code == "ATTENDANCE_DAY_NOT_FOUND" {
+					syncPaidLeaveUsageResult := service.paidLeaveService.SyncAutomaticPaidLeaveUsage(
+						userID,
+						attendanceDayReq.WorkDate,
+						false,
+					)
+					if syncPaidLeaveUsageResult.Error {
+						return syncPaidLeaveUsageResult
+					}
+
 					continue
 				}
 
@@ -246,6 +264,15 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 				return deleteAttendanceDayResult
 			}
 
+			syncPaidLeaveUsageResult := service.paidLeaveService.SyncAutomaticPaidLeaveUsage(
+				userID,
+				attendanceDayReq.WorkDate,
+				false,
+			)
+			if syncPaidLeaveUsageResult.Error {
+				return syncPaidLeaveUsageResult
+			}
+
 			savedAttendanceDayCount++
 			continue
 		}
@@ -275,6 +302,16 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 
 		if updateAttendanceDayResult.Error {
 			return updateAttendanceDayResult
+		}
+
+		shouldUsePaidLeave := paidLeaveAttendanceTypeIDs[attendanceDayReq.PlanAttendanceTypeID]
+		syncPaidLeaveUsageResult := service.paidLeaveService.SyncAutomaticPaidLeaveUsage(
+			userID,
+			attendanceDayReq.WorkDate,
+			shouldUsePaidLeave,
+		)
+		if syncPaidLeaveUsageResult.Error {
+			return syncPaidLeaveUsageResult
 		}
 
 		savedAttendanceDayCount++
@@ -403,18 +440,15 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 	)
 }
 
-func (service *monthlyAttendanceSaveService) validatePaidLeaveBalanceBeforeMonthlySave(
-	userID uint,
-	req types.UpdateMonthlyAttendanceRequest,
-) results.Result {
+func (service *monthlyAttendanceSaveService) loadPaidLeaveAttendanceTypeIDMap() (map[uint]bool, results.Result) {
 	searchAttendanceTypesResult := service.attendanceTypeService.SearchAttendanceTypes(types.SearchAttendanceTypesRequest{})
 	if searchAttendanceTypesResult.Error {
-		return searchAttendanceTypesResult
+		return nil, searchAttendanceTypesResult
 	}
 
 	searchAttendanceTypesResponse, ok := searchAttendanceTypesResult.Data.(types.SearchAttendanceTypesResponse)
 	if !ok {
-		return results.InternalServerError(
+		return nil, results.InternalServerError(
 			"UPDATE_MONTHLY_ATTENDANCE_INVALID_ATTENDANCE_TYPE_SEARCH_RESPONSE",
 			"勤務区分マスタ検索結果の形式が正しくありません",
 			nil,
@@ -422,54 +456,17 @@ func (service *monthlyAttendanceSaveService) validatePaidLeaveBalanceBeforeMonth
 	}
 
 	paidLeaveAttendanceTypeIDs := buildPaidLeaveAttendanceTypeIDMap(searchAttendanceTypesResponse.AttendanceTypes)
-
 	if len(paidLeaveAttendanceTypeIDs) == 0 {
-		return results.OK(
-			nil,
+		return nil, results.InternalServerError(
 			"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_TYPE_NOT_FOUND",
-			"",
+			"有給の勤務区分が見つかりません",
 			nil,
 		)
 	}
 
-	hasPaidLeave := hasPaidLeaveAttendanceDay(req, paidLeaveAttendanceTypeIDs)
-
-	if !hasPaidLeave {
-		return results.OK(
-			nil,
-			"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_NOT_INCLUDED",
-			"",
-			nil,
-		)
-	}
-
-	getPaidLeaveBalanceResult := service.paidLeaveService.GetPaidLeaveBalance(userID)
-	if getPaidLeaveBalanceResult.Error {
-		return getPaidLeaveBalanceResult
-	}
-
-	paidLeaveBalanceResponse, ok := getPaidLeaveBalanceResult.Data.(types.PaidLeaveBalanceResponse)
-	if !ok {
-		return results.InternalServerError(
-			"UPDATE_MONTHLY_ATTENDANCE_INVALID_PAID_LEAVE_BALANCE_RESPONSE",
-			"有給残数取得結果の形式が正しくありません",
-			nil,
-		)
-	}
-
-	if paidLeaveBalanceResponse.RemainingDays <= 0 {
-		return results.BadRequest(
-			"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_BALANCE_NOT_ENOUGH",
-			"有給残数がないため、有給を登録できません",
-			map[string]any{
-				"remainingDays": paidLeaveBalanceResponse.RemainingDays,
-			},
-		)
-	}
-
-	return results.OK(
+	return paidLeaveAttendanceTypeIDs, results.OK(
 		nil,
-		"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_BALANCE_CHECK_SUCCESS",
+		"LOAD_PAID_LEAVE_ATTENDANCE_TYPE_ID_MAP_SUCCESS",
 		"",
 		nil,
 	)
@@ -485,17 +482,4 @@ func buildPaidLeaveAttendanceTypeIDMap(attendanceTypes []types.AttendanceTypeRes
 	}
 
 	return paidLeaveAttendanceTypeIDs
-}
-
-func hasPaidLeaveAttendanceDay(
-	req types.UpdateMonthlyAttendanceRequest,
-	paidLeaveAttendanceTypeIDs map[uint]bool,
-) bool {
-	for _, attendanceDayReq := range req.AttendanceDays {
-		if paidLeaveAttendanceTypeIDs[attendanceDayReq.PlanAttendanceTypeID] {
-			return true
-		}
-	}
-
-	return false
 }

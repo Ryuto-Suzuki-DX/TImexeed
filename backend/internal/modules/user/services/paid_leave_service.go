@@ -8,6 +8,7 @@ import (
 	"timexeed/backend/internal/modules/user/repositories"
 	"timexeed/backend/internal/modules/user/types"
 	"timexeed/backend/internal/results"
+	"timexeed/backend/internal/utils"
 )
 
 /*
@@ -17,6 +18,16 @@ import (
  */
 type PaidLeaveService interface {
 	GetPaidLeaveBalance(userID uint) results.Result
+	ValidateMonthlyAttendancePaidLeaveBalance(
+		userID uint,
+		req types.UpdateMonthlyAttendanceRequest,
+		paidLeaveAttendanceTypeIDs map[uint]bool,
+	) results.Result
+	SyncAutomaticPaidLeaveUsage(
+		userID uint,
+		workDate string,
+		shouldUsePaidLeave bool,
+	) results.Result
 }
 
 /*
@@ -24,27 +35,24 @@ type PaidLeaveService interface {
  *
  * 役割：
  * ・Controllerから受け取ったログインユーザーIDをもとに処理を進める
+ * ・現在の有給残数を返す
+ * ・月次勤怠全体保存前に、保存後の有給残数を確認する
+ * ・勤怠画面由来の有給使用履歴を日付単位で同期する
  * ・Serviceで発生したエラーはServiceでcode/message/detailsを作る
- * ・Builderで検索クエリを作成する
- * ・Builderで発生したエラーはBuilderから返されたResultをそのまま返す
- * ・RepositoryでDB処理を実行する
- * ・Repositoryで発生したエラーはRepositoryから返されたResultをそのまま返す
- * ・成功時はResponse型に変換してControllerへ返す
+ * ・Builder/Repositoryのエラーはそのまま返す
  *
  * 注意：
  * ・Controllerにはgin.Contextを渡さない
  * ・Serviceではc.JSONしない
  * ・DBへの直接アクセスはRepositoryに任せる
- * ・Builder/Repositoryのエラー文言をServiceで作り直さない
+ * ・勤怠画面由来の有給使用履歴は IsManual=false とする
+ * ・管理者が手動登録した IsManual=true の履歴は変更しない
  */
 type paidLeaveService struct {
 	paidLeaveBuilder    builders.PaidLeaveBuilder
 	paidLeaveRepository repositories.PaidLeaveRepository
 }
 
-/*
- * PaidLeaveService生成
- */
 func NewPaidLeaveService(
 	paidLeaveBuilder builders.PaidLeaveBuilder,
 	paidLeaveRepository repositories.PaidLeaveRepository,
@@ -57,49 +65,33 @@ func NewPaidLeaveService(
 
 /*
  * 現時点の有給残数取得
- *
- * 計算方針：
- * ・ログイン中ユーザーの入社日を取得する
- * ・固定値ファイルの付与ルールをもとに、現時点までの付与日数を合計する
- * ・有給使用日テーブルの使用日数を合計する
- * ・残数 = 付与合計 - 使用合計
- *
- * 注意：
- * ・現時点では、出勤率8割判定は未実装
- * ・現時点では、有給申請・勤怠承認との連携分はPaidLeaveUsageに入っている前提
  */
 func (service *paidLeaveService) GetPaidLeaveBalance(userID uint) results.Result {
 	if userID == 0 {
 		return results.BadRequest(
 			"GET_PAID_LEAVE_BALANCE_INVALID_USER_ID",
 			"有給残数取得の対象ユーザーが正しくありません",
-			map[string]any{
-				"userId": userID,
-			},
+			map[string]any{"userId": userID},
 		)
 	}
 
 	now := time.Now()
 
-	// Builderでログインユーザー取得用クエリを作成する
 	userQuery, buildUserResult := service.paidLeaveBuilder.BuildFindActiveUserByIDQuery(userID)
 	if buildUserResult.Error {
 		return buildUserResult
 	}
 
-	// Repositoryでログインユーザーを取得する
 	user, findUserResult := service.paidLeaveRepository.FindUser(userQuery)
 	if findUserResult.Error {
 		return findUserResult
 	}
 
-	// Builderで有給使用日数合計用クエリを作成する
 	usedDaysQuery, buildUsedDaysResult := service.paidLeaveBuilder.BuildSumActivePaidLeaveUsageDaysByUserIDQuery(userID)
 	if buildUsedDaysResult.Error {
 		return buildUsedDaysResult
 	}
 
-	// Repositoryで使用日数合計を取得する
 	usedDays, sumResult := service.paidLeaveRepository.SumPaidLeaveUsageDays(usedDaysQuery)
 	if sumResult.Error {
 		return sumResult
@@ -108,20 +100,16 @@ func (service *paidLeaveService) GetPaidLeaveBalance(userID uint) results.Result
 	totalGrantedDays := calculateTotalGrantedDays(user.HireDate, now)
 	nextGrantDate, nextGrantDays := calculateNextGrant(user.HireDate, now)
 	requiredUseDeadline, requiredUseRemainingDays := calculateRequiredUseInfo(user.HireDate, now, usedDays)
-
 	remainingDays := totalGrantedDays - usedDays
 
 	return results.OK(
 		types.PaidLeaveBalanceResponse{
-			UserID: userID,
-
-			TotalGrantedDays: totalGrantedDays,
-			UsedDays:         usedDays,
-			RemainingDays:    remainingDays,
-
-			NextGrantDate: nextGrantDate,
-			NextGrantDays: nextGrantDays,
-
+			UserID:                   userID,
+			TotalGrantedDays:         totalGrantedDays,
+			UsedDays:                 usedDays,
+			RemainingDays:            remainingDays,
+			NextGrantDate:            nextGrantDate,
+			NextGrantDays:            nextGrantDays,
 			RequiredUseDays:          constants.PaidLeaveRequiredUseDays,
 			RequiredUseDeadline:      requiredUseDeadline,
 			RequiredUseRemainingDays: requiredUseRemainingDays,
@@ -133,76 +121,274 @@ func (service *paidLeaveService) GetPaidLeaveBalance(userID uint) results.Result
 }
 
 /*
- * 現時点までの有給付与合計日数を計算する
+ * 月次勤怠全体保存前の有給残数チェック
+ *
+ * 現在の有給使用履歴と、今回の月次保存後に必要になる
+ * 勤怠画面由来の有給使用履歴との差分を計算する。
+ *
+ * 注意：
+ * ・勤怠画面の有給は1日単位で扱う
+ * ・同じ日を再保存するだけなら新規消費として数えない
+ * ・有給を外す日については現在の自動登録分を差し引く
+ * ・同じ日付がRequest内に重複しても一度だけ判定する
  */
-func calculateTotalGrantedDays(hireDate time.Time, targetDate time.Time) float64 {
-	totalGrantedDays := 0.0
-
-	for _, rule := range constants.PaidLeaveGrantRules {
-		grantDate := hireDate.AddDate(0, rule.AfterMonths, 0)
-
-		if grantDate.After(targetDate) {
-			continue
-		}
-
-		totalGrantedDays += rule.GrantDays
+func (service *paidLeaveService) ValidateMonthlyAttendancePaidLeaveBalance(
+	userID uint,
+	req types.UpdateMonthlyAttendanceRequest,
+	paidLeaveAttendanceTypeIDs map[uint]bool,
+) results.Result {
+	if userID == 0 {
+		return results.Unauthorized(
+			"VALIDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_INVALID_USER_ID",
+			"認証情報のユーザーIDが正しくありません",
+			nil,
+		)
 	}
 
-	return totalGrantedDays
+	userQuery, buildUserResult := service.paidLeaveBuilder.BuildFindActiveUserByIDQuery(userID)
+	if buildUserResult.Error {
+		return buildUserResult
+	}
+
+	user, findUserResult := service.paidLeaveRepository.FindUser(userQuery)
+	if findUserResult.Error {
+		return findUserResult
+	}
+
+	usedDaysQuery, buildUsedDaysResult := service.paidLeaveBuilder.BuildSumActivePaidLeaveUsageDaysByUserIDQuery(userID)
+	if buildUsedDaysResult.Error {
+		return buildUsedDaysResult
+	}
+
+	usedDays, sumResult := service.paidLeaveRepository.SumPaidLeaveUsageDays(usedDaysQuery)
+	if sumResult.Error {
+		return sumResult
+	}
+
+	usageDaysDelta := 0.0
+	processedWorkDates := make(map[string]bool)
+
+	for _, attendanceDayReq := range req.AttendanceDays {
+		if processedWorkDates[attendanceDayReq.WorkDate] {
+			continue
+		}
+		processedWorkDates[attendanceDayReq.WorkDate] = true
+
+		usageDate, err := utils.ParseDate(attendanceDayReq.WorkDate)
+		if err != nil {
+			return results.BadRequest(
+				"VALIDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_INVALID_WORK_DATE",
+				"有給残数確認対象日の形式が正しくありません",
+				map[string]any{
+					"workDate": attendanceDayReq.WorkDate,
+					"format":   "yyyy-MM-dd",
+				},
+			)
+		}
+
+		findQuery, buildFindResult := service.paidLeaveBuilder.BuildFindAutomaticPaidLeaveUsageByUserIDAndUsageDateQuery(
+			userID,
+			usageDate,
+		)
+		if buildFindResult.Error {
+			return buildFindResult
+		}
+
+		currentPaidLeaveUsage, findResult := service.paidLeaveRepository.FindPaidLeaveUsage(findQuery)
+		hasActiveAutomaticUsage := false
+
+		if findResult.Error {
+			if findResult.Code != "USER_PAID_LEAVE_USAGE_NOT_FOUND" {
+				return findResult
+			}
+		} else {
+			hasActiveAutomaticUsage = !currentPaidLeaveUsage.IsDeleted
+		}
+
+		shouldUsePaidLeave := paidLeaveAttendanceTypeIDs[attendanceDayReq.PlanAttendanceTypeID]
+
+		if shouldUsePaidLeave && !hasActiveAutomaticUsage {
+			usageDaysDelta += 1.0
+		}
+
+		if !shouldUsePaidLeave && hasActiveAutomaticUsage {
+			usageDaysDelta -= 1.0
+		}
+	}
+
+	totalGrantedDays := calculateTotalGrantedDays(user.HireDate, time.Now())
+	projectedUsedDays := usedDays + usageDaysDelta
+	projectedRemainingDays := totalGrantedDays - projectedUsedDays
+
+	if projectedRemainingDays < 0 {
+		return results.BadRequest(
+			"UPDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_BALANCE_NOT_ENOUGH",
+			"有給残数が不足しているため、有給を登録できません",
+			map[string]any{
+				"totalGrantedDays":       totalGrantedDays,
+				"currentUsedDays":        usedDays,
+				"usageDaysDelta":         usageDaysDelta,
+				"projectedUsedDays":      projectedUsedDays,
+				"projectedRemainingDays": projectedRemainingDays,
+			},
+		)
+	}
+
+	return results.OK(
+		nil,
+		"VALIDATE_MONTHLY_ATTENDANCE_PAID_LEAVE_BALANCE_SUCCESS",
+		"",
+		nil,
+	)
 }
 
 /*
- * 次回付与予定日と次回付与日数を計算する
+ * 勤怠画面由来の有給使用履歴を日付単位で同期する
+ *
+ * shouldUsePaidLeave=true：
+ * ・未登録なら IsManual=false で作成
+ * ・論理削除済みなら復活
+ * ・有効なデータが既にあれば何もしない
+ *
+ * shouldUsePaidLeave=false：
+ * ・有効な IsManual=false データがあれば論理削除
+ * ・未登録または削除済みなら何もしない
  */
+func (service *paidLeaveService) SyncAutomaticPaidLeaveUsage(
+	userID uint,
+	workDate string,
+	shouldUsePaidLeave bool,
+) results.Result {
+	if userID == 0 {
+		return results.Unauthorized(
+			"SYNC_AUTOMATIC_PAID_LEAVE_USAGE_INVALID_USER_ID",
+			"認証情報のユーザーIDが正しくありません",
+			nil,
+		)
+	}
+
+	usageDate, err := utils.ParseDate(workDate)
+	if err != nil {
+		return results.BadRequest(
+			"SYNC_AUTOMATIC_PAID_LEAVE_USAGE_INVALID_WORK_DATE",
+			"勤怠連携用有給使用日の対象日形式が正しくありません",
+			map[string]any{
+				"workDate": workDate,
+				"format":   "yyyy-MM-dd",
+			},
+		)
+	}
+
+	findQuery, buildFindResult := service.paidLeaveBuilder.BuildFindAutomaticPaidLeaveUsageByUserIDAndUsageDateQuery(
+		userID,
+		usageDate,
+	)
+	if buildFindResult.Error {
+		return buildFindResult
+	}
+
+	currentPaidLeaveUsage, findResult := service.paidLeaveRepository.FindPaidLeaveUsage(findQuery)
+
+	if findResult.Error {
+		if findResult.Code != "USER_PAID_LEAVE_USAGE_NOT_FOUND" {
+			return findResult
+		}
+
+		if !shouldUsePaidLeave {
+			return results.OK(nil, "SYNC_AUTOMATIC_PAID_LEAVE_USAGE_NOTHING_TO_DELETE", "", nil)
+		}
+
+		paidLeaveUsage, buildCreateResult := service.paidLeaveBuilder.BuildCreateAutomaticPaidLeaveUsageModel(
+			userID,
+			usageDate,
+		)
+		if buildCreateResult.Error {
+			return buildCreateResult
+		}
+
+		_, createResult := service.paidLeaveRepository.CreatePaidLeaveUsage(paidLeaveUsage)
+		if createResult.Error {
+			return createResult
+		}
+
+		return results.OK(nil, "SYNC_AUTOMATIC_PAID_LEAVE_USAGE_CREATED", "", nil)
+	}
+
+	if shouldUsePaidLeave {
+		if !currentPaidLeaveUsage.IsDeleted {
+			return results.OK(nil, "SYNC_AUTOMATIC_PAID_LEAVE_USAGE_ALREADY_ACTIVE", "", nil)
+		}
+
+		activatedPaidLeaveUsage, buildActivateResult := service.paidLeaveBuilder.BuildActivateAutomaticPaidLeaveUsageModel(currentPaidLeaveUsage)
+		if buildActivateResult.Error {
+			return buildActivateResult
+		}
+
+		_, saveResult := service.paidLeaveRepository.SavePaidLeaveUsage(activatedPaidLeaveUsage)
+		if saveResult.Error {
+			return saveResult
+		}
+
+		return results.OK(nil, "SYNC_AUTOMATIC_PAID_LEAVE_USAGE_ACTIVATED", "", nil)
+	}
+
+	if currentPaidLeaveUsage.IsDeleted {
+		return results.OK(nil, "SYNC_AUTOMATIC_PAID_LEAVE_USAGE_ALREADY_DELETED", "", nil)
+	}
+
+	deletedPaidLeaveUsage, buildDeleteResult := service.paidLeaveBuilder.BuildDeleteAutomaticPaidLeaveUsageModel(currentPaidLeaveUsage)
+	if buildDeleteResult.Error {
+		return buildDeleteResult
+	}
+
+	_, saveResult := service.paidLeaveRepository.SavePaidLeaveUsage(deletedPaidLeaveUsage)
+	if saveResult.Error {
+		return saveResult
+	}
+
+	return results.OK(nil, "SYNC_AUTOMATIC_PAID_LEAVE_USAGE_DELETED", "", nil)
+}
+
+func calculateTotalGrantedDays(hireDate time.Time, targetDate time.Time) float64 {
+	totalGrantedDays := 0.0
+	for _, rule := range constants.PaidLeaveGrantRules {
+		grantDate := hireDate.AddDate(0, rule.AfterMonths, 0)
+		if grantDate.After(targetDate) {
+			continue
+		}
+		totalGrantedDays += rule.GrantDays
+	}
+	return totalGrantedDays
+}
+
 func calculateNextGrant(hireDate time.Time, targetDate time.Time) (*time.Time, float64) {
 	for _, rule := range constants.PaidLeaveGrantRules {
 		grantDate := hireDate.AddDate(0, rule.AfterMonths, 0)
-
 		if grantDate.After(targetDate) {
 			return &grantDate, rule.GrantDays
 		}
 	}
-
 	return nil, 0
 }
 
-/*
- * 年5日取得義務の期限と残り必要取得日数を計算する
- *
- * 現時点では簡易版：
- * ・直近の付与日数が10日以上の場合のみ対象
- * ・期限は直近付与日から1年後
- * ・使用日数は全期間合計を使う
- *
- * 注意：
- * ・本来は「付与日から1年以内に何日取得したか」で判定する
- * ・後で厳密化する場合は、付与日以降の使用日だけを集計する必要がある
- */
 func calculateRequiredUseInfo(hireDate time.Time, targetDate time.Time, usedDays float64) (*time.Time, float64) {
 	var latestGrantDate *time.Time
 	var latestGrantDays float64
 
 	for _, rule := range constants.PaidLeaveGrantRules {
 		grantDate := hireDate.AddDate(0, rule.AfterMonths, 0)
-
 		if grantDate.After(targetDate) {
 			continue
 		}
-
 		latestGrantDate = &grantDate
 		latestGrantDays = rule.GrantDays
 	}
 
-	if latestGrantDate == nil {
-		return nil, 0
-	}
-
-	if latestGrantDays < 10 {
+	if latestGrantDate == nil || latestGrantDays < 10 {
 		return nil, 0
 	}
 
 	deadline := latestGrantDate.AddDate(1, 0, 0)
-
 	remainingRequiredDays := constants.PaidLeaveRequiredUseDays - usedDays
 	if remainingRequiredDays < 0 {
 		remainingRequiredDays = 0
