@@ -139,14 +139,6 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 		"申請日時",
 		"承認日時",
 
-		"給与区分",
-		"月給",
-		"時給",
-		"日給",
-		"追加手当",
-		"固定控除",
-		"給与計算対象",
-
 		"暦日数",
 		"勤怠登録日数",
 		"勤怠未登録日数",
@@ -186,8 +178,6 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 		"早退控除時間_分",
 
 		"実労働稼働率_％",
-		"給与対象稼働率_％",
-		"稼働率判定",
 
 		"日別交通費合計",
 		"月次定期代",
@@ -198,7 +188,6 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 		"有給使用換算時間_分",
 
 		"経費合計",
-		"給与含め経費合計",
 		"経費件数",
 		"交通費系経費",
 		"備品系経費",
@@ -222,26 +211,18 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		strconv.Itoa(row.ExportTargetYear),
 		strconv.Itoa(row.ExportTargetMonth),
 		row.ExportedAt,
-		row.CalculationStatus,
+		calculationStatusLabel(row.CalculationStatus),
 
 		uintToString(row.UserID),
 		row.UserName,
 		row.DepartmentName,
 		row.HireDate,
 		row.RetirementDate,
-		boolToString(row.IsRetiredInTargetMonth),
+		boolToJapanese(row.IsRetiredInTargetMonth),
 
-		row.MonthlyStatus,
+		monthlyStatusLabel(row.MonthlyStatus),
 		row.RequestedAt,
 		row.ApprovedAt,
-
-		calcString(calculated, row.SalaryType),
-		calcIntToString(calculated, row.BaseSalary),
-		calcIntToString(calculated, row.HourlyWage),
-		calcIntToString(calculated, row.DailyWage),
-		calcIntToString(calculated, row.ExtraAllowanceAmount),
-		calcIntToString(calculated, row.FixedDeductionAmount),
-		calcBoolToString(calculated, row.IsPayrollTarget),
 
 		calcIntToString(calculated, row.CalendarDays),
 		calcIntToString(calculated, row.RegisteredAttendanceDays),
@@ -282,8 +263,6 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		calcIntToString(calculated, row.EarlyLeaveMinutes),
 
 		calcFloatToString(calculated, row.ActualOperationRate),
-		calcFloatToString(calculated, row.PayrollTargetOperationRate),
-		calcString(calculated, row.OperationRateJudge),
 
 		calcIntToString(calculated, row.DailyTransportationAmount),
 		calcIntToString(calculated, row.CommuterPassAmount),
@@ -294,7 +273,6 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		calcIntToString(calculated, row.PaidLeaveUsedMinutes),
 
 		calcIntToString(calculated, row.ExpenseTotalAmount),
-		calcIntToString(calculated, row.SalaryIncludedExpenseAmount),
 		calcIntToString(calculated, row.ExpenseCount),
 		calcIntToString(calculated, row.TransportationExpenseAmount),
 		calcIntToString(calculated, row.SuppliesExpenseAmount),
@@ -624,9 +602,6 @@ func isExcelNumericHeader(headerName string) bool {
 		"月次申請状態":  true,
 		"申請日時":    true,
 		"承認日時":    true,
-		"給与区分":    true,
-		"給与計算対象":  true,
-		"稼働率判定":   true,
 		"警告内容":    true,
 	}
 
@@ -644,15 +619,12 @@ func isExcelSummableHeader(headerName string) bool {
 		"従業員ID": true,
 		"暦日数":   true,
 		"平日数":   true,
-		"月給":    true,
-		"時給":    true,
-		"日給":    true,
 	}
 	if nonSummableHeaders[headerName] {
 		return false
 	}
 
-	summableWords := []string{"日数", "回数", "_分", "合計", "金額", "件数", "手当", "控除"}
+	summableWords := []string{"日数", "回数", "_分", "合計", "金額", "件数", "控除"}
 	for _, word := range summableWords {
 		if strings.Contains(headerName, word) {
 			return true
@@ -791,6 +763,48 @@ func buildExcelStylesXML() string {
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`
+}
+
+func calculationStatusLabel(status string) string {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "CALCULATED":
+		return "集計済み"
+	case "SKIPPED_NOT_APPROVED":
+		return "未承認のため集計対象外"
+	case "SKIPPED":
+		return "集計対象外"
+	case "ERROR":
+		return "集計エラー"
+	default:
+		return status
+	}
+}
+
+func monthlyStatusLabel(status string) string {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "NONE", "NOT_SUBMITTED":
+		return "未申請"
+	case "DRAFT":
+		return "下書き"
+	case "PENDING":
+		return "申請中"
+	case "APPROVED":
+		return "承認済み"
+	case "REJECTED":
+		return "差し戻し"
+	case "CANCELED", "CANCELLED", "WITHDRAWN":
+		return "取り下げ"
+	default:
+		return status
+	}
+}
+
+func boolToJapanese(value bool) string {
+	if value {
+		return "はい"
+	}
+
+	return "いいえ"
 }
 
 func calcString(calculated bool, value string) string {
