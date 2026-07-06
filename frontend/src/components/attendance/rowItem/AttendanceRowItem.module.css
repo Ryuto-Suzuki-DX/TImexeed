@@ -142,8 +142,8 @@
 
 .horizontalBlock .select,
 .horizontalBlock input {
-  width: 82px;
-  min-width: 82px;
+  width: 88px;
+  min-width: 88px;
   height: 38px;
   box-sizing: border-box;
 }
