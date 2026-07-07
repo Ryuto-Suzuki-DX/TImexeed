@@ -358,32 +358,50 @@ export default function UserExpensesPage() {
                 <div className={styles.twoColumn}>
                   <label className={styles.fieldLabel}>
                     対象月
-                    <input
-                      className={styles.input}
-                      type="month"
-                      value={expenseForm.targetMonth}
-                      onChange={(event) =>
-                        setExpenseForm((current) => ({
-                          ...current,
-                          targetMonth: event.target.value,
-                        }))
-                      }
-                    />
+                    <span className={styles.pickerShell}>
+                      <span className={styles.pickerValue}>
+                        {formatMonthPickerLabel(expenseForm.targetMonth)}
+                      </span>
+                      <span className={styles.pickerIcon} aria-hidden="true">
+                        ▾
+                      </span>
+                      <input
+                        className={styles.pickerInput}
+                        type="month"
+                        value={expenseForm.targetMonth}
+                        onChange={(event) =>
+                          setExpenseForm((current) => ({
+                            ...current,
+                            targetMonth: event.target.value,
+                          }))
+                        }
+                        aria-label="対象月を選択"
+                      />
+                    </span>
                   </label>
 
                   <label className={styles.fieldLabel}>
                     経費発生日
-                    <input
-                      className={styles.input}
-                      type="date"
-                      value={expenseForm.expenseDate}
-                      onChange={(event) =>
-                        setExpenseForm((current) => ({
-                          ...current,
-                          expenseDate: event.target.value,
-                        }))
-                      }
-                    />
+                    <span className={styles.pickerShell}>
+                      <span className={styles.pickerValue}>
+                        {formatDatePickerLabel(expenseForm.expenseDate)}
+                      </span>
+                      <span className={styles.pickerIcon} aria-hidden="true">
+                        ▾
+                      </span>
+                      <input
+                        className={styles.pickerInput}
+                        type="date"
+                        value={expenseForm.expenseDate}
+                        onChange={(event) =>
+                          setExpenseForm((current) => ({
+                            ...current,
+                            expenseDate: event.target.value,
+                          }))
+                        }
+                        aria-label="経費発生日を選択"
+                      />
+                    </span>
                   </label>
                 </div>
 
@@ -487,32 +505,50 @@ export default function UserExpensesPage() {
                 <div className={styles.twoColumn}>
                   <label className={styles.fieldLabel}>
                     対象月From
-                    <input
-                      className={styles.input}
-                      type="month"
-                      value={searchForm.targetMonthFrom}
-                      onChange={(event) =>
-                        setSearchForm((current) => ({
-                          ...current,
-                          targetMonthFrom: event.target.value,
-                        }))
-                      }
-                    />
+                    <span className={styles.pickerShell}>
+                      <span className={styles.pickerValue}>
+                        {formatMonthPickerLabel(searchForm.targetMonthFrom)}
+                      </span>
+                      <span className={styles.pickerIcon} aria-hidden="true">
+                        ▾
+                      </span>
+                      <input
+                        className={styles.pickerInput}
+                        type="month"
+                        value={searchForm.targetMonthFrom}
+                        onChange={(event) =>
+                          setSearchForm((current) => ({
+                            ...current,
+                            targetMonthFrom: event.target.value,
+                          }))
+                        }
+                        aria-label="対象月Fromを選択"
+                      />
+                    </span>
                   </label>
 
                   <label className={styles.fieldLabel}>
                     対象月To
-                    <input
-                      className={styles.input}
-                      type="month"
-                      value={searchForm.targetMonthTo}
-                      onChange={(event) =>
-                        setSearchForm((current) => ({
-                          ...current,
-                          targetMonthTo: event.target.value,
-                        }))
-                      }
-                    />
+                    <span className={styles.pickerShell}>
+                      <span className={styles.pickerValue}>
+                        {formatMonthPickerLabel(searchForm.targetMonthTo)}
+                      </span>
+                      <span className={styles.pickerIcon} aria-hidden="true">
+                        ▾
+                      </span>
+                      <input
+                        className={styles.pickerInput}
+                        type="month"
+                        value={searchForm.targetMonthTo}
+                        onChange={(event) =>
+                          setSearchForm((current) => ({
+                            ...current,
+                            targetMonthTo: event.target.value,
+                          }))
+                        }
+                        aria-label="対象月Toを選択"
+                      />
+                    </span>
                   </label>
                 </div>
 
@@ -739,4 +775,29 @@ function getCurrentMonthText() {
   const month = String(now.getMonth() + 1).padStart(2, "0");
 
   return `${year}-${month}`;
+}
+
+function formatMonthPickerLabel(value: string) {
+  const [yearText, monthText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+
+  if (!year || !month) {
+    return "月を選択";
+  }
+
+  return `${year}年${month}月`;
+}
+
+function formatDatePickerLabel(value: string) {
+  const [yearText, monthText, dayText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+
+  if (!year || !month || !day) {
+    return "日付を選択";
+  }
+
+  return `${year}年${month}月${day}日`;
 }

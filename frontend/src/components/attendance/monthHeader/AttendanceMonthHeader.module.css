@@ -18,13 +18,77 @@
 }
 
 .monthField {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
   width: 170px;
   min-width: 170px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.monthInput {
+.monthLabel {
+  display: block;
+}
+
+.monthPicker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
   min-width: 0;
+  height: 40px;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111827;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.monthPicker:focus-within {
+  outline: 2px solid #fed7aa;
+  border-color: #fb923c;
+}
+
+.monthPickerValue {
+  min-width: 0;
+  overflow: hidden;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monthPickerIcon {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.monthPickerInput {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .monthNavigation,
@@ -60,42 +124,49 @@
 
   .monthControl {
     display: grid;
-    grid-template-columns: minmax(110px, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     align-items: end;
-    gap: 6px;
+    gap: 4px;
     width: 100%;
+  }
+
+  .monthField,
+  .monthNavigation,
+  .monthActions {
+    width: 100%;
+    min-width: 0;
   }
 
   .monthField {
-    width: 100%;
-    min-width: 0;
+    gap: 4px;
+    font-size: 10px;
   }
 
-  .monthInput {
-    width: 100%;
-    min-width: 0;
-    height: 30px;
-    min-height: 30px;
-    padding: 2px 6px;
-    font-size: 10px;
-    line-height: 1;
+  .monthPicker {
+    height: 32px;
+    padding: 0 7px;
     border-radius: 7px;
-    box-sizing: border-box;
+  }
+
+  .monthPickerValue {
+    font-size: 11px;
+  }
+
+  .monthPickerIcon {
+    margin-left: 5px;
+    font-size: 9px;
   }
 
   .monthNavigation {
     display: grid;
-    grid-template-columns: repeat(2, auto);
-    align-items: end;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px;
   }
 
   .monthActions {
-    grid-column: 1 / -1;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px;
-    width: 100%;
   }
 
   .monthNavigation :global(button),
@@ -103,8 +174,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: auto;
-    min-width: 54px;
+    width: 100%;
+    min-width: 0;
     min-height: 28px;
     padding: 3px 6px;
     border-radius: 7px;
@@ -114,10 +185,6 @@
     text-align: center;
     white-space: nowrap;
   }
-
-  .monthActions :global(button) {
-    width: 100%;
-  }
 }
 
 @media (max-width: 480px) {
@@ -125,142 +192,25 @@
     gap: 4px;
   }
 
-  .monthControl {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 4px;
-  }
-
-  .monthInput {
-    height: 28px;
-    min-height: 28px;
-    padding: 1px 5px;
-    font-size: 9px;
+  .monthPicker {
+    height: 30px;
+    padding: 0 6px;
     border-radius: 6px;
   }
 
-  .monthNavigation {
-    gap: 3px;
+  .monthPickerValue {
+    font-size: 10px;
+  }
+
+  .monthPickerIcon {
+    font-size: 8px;
   }
 
   .monthNavigation :global(button),
   .monthActions :global(button) {
-    min-width: 48px;
     min-height: 26px;
     padding: 2px 4px;
     border-radius: 6px;
     font-size: 8px;
-  }
-}
-
-@media (max-width: 360px) {
-  .monthControl {
-    grid-template-columns: 1fr;
-  }
-
-  .monthField {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .monthNavigation {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-  }
-
-  .monthNavigation :global(button) {
-    width: 100%;
-  }
-
-  .monthActions {
-    grid-column: 1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/*
- * iOS Safari向け補強
- * 通常ブラウザの既存表示は維持し、実機iPhone/iPadだけに適用する。
- */
-@supports (-webkit-touch-callout: none) {
-  @media (max-width: 768px) {
-    .monthControl {
-      grid-template-columns: minmax(0, 1fr);
-      width: 100%;
-    }
-
-    .monthField,
-    .monthNavigation,
-    .monthActions {
-      width: 100%;
-      min-width: 0;
-    }
-
-    .monthField {
-      grid-column: 1;
-    }
-
-    .monthNavigation {
-      grid-column: 1;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 4px;
-    }
-
-    .monthActions {
-      grid-column: 1;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 4px;
-    }
-
-    .monthNavigation :global(button),
-    .monthActions :global(button) {
-      width: 100%;
-      min-width: 0;
-      min-height: 34px;
-      padding: 5px 8px;
-      font-size: 12px;
-    }
-
-    .monthInput {
-      display: block;
-      width: 100%;
-      max-width: 100%;
-      min-width: 0;
-      inline-size: 100%;
-      max-inline-size: 100%;
-      height: 36px;
-      min-height: 36px;
-      padding: 5px 8px;
-      overflow: hidden;
-      border-radius: 7px;
-      box-sizing: border-box;
-      font-family: inherit;
-      font-size: 16px;
-      line-height: 1.2;
-      text-align: left;
-      -webkit-appearance: auto;
-      appearance: auto;
-    }
-
-    .monthInput::-webkit-date-and-time-value {
-      min-width: 0;
-      margin: 0;
-      padding: 0;
-      text-align: left;
-    }
-
-    .monthInput::-webkit-datetime-edit {
-      min-width: 0;
-      padding: 0;
-    }
-
-    .monthInput::-webkit-calendar-picker-indicator {
-      flex: 0 0 auto;
-      width: 18px;
-      height: 18px;
-      margin: 0;
-      padding: 0;
-    }
   }
 }

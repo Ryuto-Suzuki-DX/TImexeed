@@ -1,7 +1,6 @@
 "use client";
 
 import Button from "@/components/atoms/Button";
-import Input from "@/components/atoms/Input";
 import PageTitle from "@/components/atoms/PageTitle";
 import styles from "./AttendanceMonthHeader.module.css";
 
@@ -42,15 +41,27 @@ export default function AttendanceMonthHeader({
       />
 
       <div className={styles.monthControl}>
-        <div className={styles.monthField}>
-          <Input
-            label="対象月"
-            type="month"
-            value={targetMonth}
-            onChange={(event) => onChangeMonth(event.target.value)}
-            className={styles.monthInput}
-          />
-        </div>
+        <label className={styles.monthField}>
+          <span className={styles.monthLabel}>対象月</span>
+
+          <span className={styles.monthPicker}>
+            <span className={styles.monthPickerValue}>
+              {formatMonthPickerLabel(targetMonth)}
+            </span>
+
+            <span className={styles.monthPickerIcon} aria-hidden="true">
+              ▾
+            </span>
+
+            <input
+              className={styles.monthPickerInput}
+              type="month"
+              value={targetMonth}
+              onChange={(event) => onChangeMonth(event.target.value)}
+              aria-label="対象月を選択"
+            />
+          </span>
+        </label>
 
         <div className={styles.monthNavigation}>
           <Button
@@ -102,4 +113,16 @@ export default function AttendanceMonthHeader({
       </div>
     </div>
   );
+}
+
+function formatMonthPickerLabel(value: string) {
+  const [yearText, monthText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+
+  if (!year || !month) {
+    return "月を選択";
+  }
+
+  return `${year}年${month}月`;
 }

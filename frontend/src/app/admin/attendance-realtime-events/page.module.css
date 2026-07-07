@@ -132,6 +132,64 @@
   border-color: #fb923c;
 }
 
+.monthPicker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background-color: #ffffff;
+  color: #111827;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.monthPicker:focus-within {
+  outline: 2px solid #fdba74;
+  border-color: #fb923c;
+}
+
+.monthPickerValue {
+  min-width: 0;
+  overflow: hidden;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monthPickerIcon {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  color: #9a3412;
+  font-size: 13px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.monthPickerInput {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .checkboxRow {
   display: flex;
   gap: 10px;
@@ -495,6 +553,21 @@
     gap: 14px;
   }
 
+  .monthPicker {
+    height: 34px;
+    padding: 0 9px;
+    border-radius: 8px;
+  }
+
+  .monthPickerValue {
+    font-size: 12px;
+  }
+
+  .monthPickerIcon {
+    margin-left: 6px;
+    font-size: 11px;
+  }
+
   .checkboxRow {
     gap: 8px;
   }
@@ -600,13 +673,6 @@
     font-size: 11px;
   }
 
-  .input[type="month"] {
-    height: 30px;
-    min-height: 30px;
-    padding: 0 6px;
-    font-size: 11px;
-    border-radius: 7px;
-  }
 }
 
 @media (max-width: 400px) {
@@ -625,6 +691,20 @@
 
   .searchSection {
     padding: 12px;
+  }
+
+  .monthPicker {
+    height: 32px;
+    padding: 0 8px;
+    border-radius: 7px;
+  }
+
+  .monthPickerValue {
+    font-size: 11px;
+  }
+
+  .monthPickerIcon {
+    font-size: 10px;
   }
 
   .checkboxLabel {
@@ -646,58 +726,4 @@
     max-width: 102px;
   }
 
-  .input[type="month"] {
-    height: 28px;
-    min-height: 28px;
-    padding: 0 5px;
-    font-size: 10px;
-    border-radius: 6px;
-  }
 }
-
-/*
- * iOS Safari対策
- * Chromeなどの既存表示は変えず、実機iPhone/iPadの月入力だけ補強する。
- */
-@supports (-webkit-touch-callout: none) {
-  @media (max-width: 640px) {
-    .input[type="month"] {
-      display: block;
-      width: 100%;
-      max-width: 100%;
-      min-width: 0;
-      height: 36px;
-      min-height: 36px;
-      padding: 5px 8px;
-      overflow: hidden;
-      border-radius: 7px;
-      box-sizing: border-box;
-      font-size: 16px;
-      line-height: 1.2;
-      text-align: left;
-      -webkit-appearance: auto;
-      appearance: auto;
-    }
-
-    .input[type="month"]::-webkit-date-and-time-value {
-      min-width: 0;
-      margin: 0;
-      padding: 0;
-      text-align: left;
-    }
-
-    .input[type="month"]::-webkit-datetime-edit {
-      min-width: 0;
-      padding: 0;
-    }
-
-    .input[type="month"]::-webkit-calendar-picker-indicator {
-      flex: 0 0 auto;
-      width: 18px;
-      height: 18px;
-      margin: 0;
-      padding: 0;
-    }
-  }
-}
-

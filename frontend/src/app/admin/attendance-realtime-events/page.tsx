@@ -36,6 +36,16 @@ function getCurrentYearMonth() {
   return `${year}-${month}`;
 }
 
+function formatYearMonthLabel(value: string) {
+  const parsed = parseYearMonth(value);
+
+  if (!parsed) {
+    return "対象月を選択";
+  }
+
+  return `${parsed.year}年${parsed.month}月`;
+}
+
 function parseYearMonth(value: string) {
   const [yearText, monthText] = value.split("-");
   const year = Number(yearText);
@@ -344,12 +354,24 @@ export default function AdminAttendanceRealtimeEventsPage() {
               <div className={styles.searchGrid}>
                 <label className={styles.formField}>
                   <span className={styles.formLabel}>対象月</span>
-                  <input
-                    className={styles.input}
-                    type="month"
-                    value={targetYearMonth}
-                    onChange={(event) => setTargetYearMonth(event.target.value)}
-                  />
+
+                  <span className={styles.monthPicker}>
+                    <span className={styles.monthPickerValue}>
+                      {formatYearMonthLabel(targetYearMonth)}
+                    </span>
+
+                    <span className={styles.monthPickerIcon} aria-hidden="true">
+                      ▾
+                    </span>
+
+                    <input
+                      className={styles.monthPickerInput}
+                      type="month"
+                      value={targetYearMonth}
+                      onChange={(event) => setTargetYearMonth(event.target.value)}
+                      aria-label="対象月を選択"
+                    />
+                  </span>
                 </label>
 
                 <label className={styles.formField}>

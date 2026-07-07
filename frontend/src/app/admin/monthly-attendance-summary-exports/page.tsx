@@ -150,17 +150,29 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
               <form className={styles.exportForm} onSubmit={handleSubmit}>
                 <label className={styles.fieldLabel}>
                   対象月
-                  <input
-                    className={styles.input}
-                    type="month"
-                    value={exportForm.targetMonth}
-                    onChange={(event) =>
-                      setExportForm((current) => ({
-                        ...current,
-                        targetMonth: event.target.value,
-                      }))
-                    }
-                  />
+
+                  <span className={styles.monthPicker}>
+                    <span className={styles.monthPickerValue}>
+                      {formatMonthPickerLabel(exportForm.targetMonth)}
+                    </span>
+
+                    <span className={styles.monthPickerIcon} aria-hidden="true">
+                      ▾
+                    </span>
+
+                    <input
+                      className={styles.monthPickerInput}
+                      type="month"
+                      value={exportForm.targetMonth}
+                      onChange={(event) =>
+                        setExportForm((current) => ({
+                          ...current,
+                          targetMonth: event.target.value,
+                        }))
+                      }
+                      aria-label="対象月を選択"
+                    />
+                  </span>
                 </label>
 
                 <label className={styles.fieldLabel}>
@@ -285,4 +297,16 @@ function getCurrentMonthText() {
   const month = String(now.getMonth() + 1).padStart(2, "0");
 
   return `${year}-${month}`;
+}
+
+function formatMonthPickerLabel(value: string) {
+  const [yearText, monthText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+
+  if (!year || !month) {
+    return "月を選択";
+  }
+
+  return `${year}年${month}月`;
 }
