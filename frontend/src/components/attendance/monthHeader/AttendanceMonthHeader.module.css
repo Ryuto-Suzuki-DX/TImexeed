@@ -177,3 +177,90 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/*
+ * iOS Safari向け補強
+ * 通常ブラウザの既存表示は維持し、実機iPhone/iPadだけに適用する。
+ */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 768px) {
+    .monthControl {
+      grid-template-columns: minmax(0, 1fr);
+      width: 100%;
+    }
+
+    .monthField,
+    .monthNavigation,
+    .monthActions {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .monthField {
+      grid-column: 1;
+    }
+
+    .monthNavigation {
+      grid-column: 1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .monthActions {
+      grid-column: 1;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .monthNavigation :global(button),
+    .monthActions :global(button) {
+      width: 100%;
+      min-width: 0;
+      min-height: 34px;
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+
+    .monthInput {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      inline-size: 100%;
+      max-inline-size: 100%;
+      height: 36px;
+      min-height: 36px;
+      padding: 5px 8px;
+      overflow: hidden;
+      border-radius: 7px;
+      box-sizing: border-box;
+      font-family: inherit;
+      font-size: 16px;
+      line-height: 1.2;
+      text-align: left;
+      -webkit-appearance: auto;
+      appearance: auto;
+    }
+
+    .monthInput::-webkit-date-and-time-value {
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      text-align: left;
+    }
+
+    .monthInput::-webkit-datetime-edit {
+      min-width: 0;
+      padding: 0;
+    }
+
+    .monthInput::-webkit-calendar-picker-indicator {
+      flex: 0 0 auto;
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      padding: 0;
+    }
+  }
+}
