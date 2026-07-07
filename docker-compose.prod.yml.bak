@@ -43,10 +43,7 @@ services:
     networks:
       - timexeed-internal
     logging:
-      driver: "json-file"
-      options:
-        max-size: "1m"
-        max-file: "1"
+      driver: "none"
 
   frontend:
     build:

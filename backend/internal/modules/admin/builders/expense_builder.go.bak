@@ -171,7 +171,8 @@ func (builder *expenseBuilder) BuildFindExpenseByIDQuery(expenseID uint) (*gorm.
 		Joins("JOIN users ON users.id = expenses.user_id").
 		Where("expenses.id = ?", expenseID).
 		Where("expenses.is_deleted = ?", false).
-		Where("users.is_deleted = ?", false)
+		Where("users.is_deleted = ?", false).
+		Where("users.role = ?", "USER")
 
 	return query, results.OK(
 		nil,
@@ -394,6 +395,7 @@ func applySearchExpensesCondition(query *gorm.DB, req types.SearchExpensesReques
 	query = query.
 		Where("expenses.is_deleted = ?", false).
 		Where("users.is_deleted = ?", false).
+		Where("users.role = ?", "USER").
 		Where("expenses.target_month >= ?", targetMonthFrom).
 		Where("expenses.target_month <= ?", targetMonthTo)
 

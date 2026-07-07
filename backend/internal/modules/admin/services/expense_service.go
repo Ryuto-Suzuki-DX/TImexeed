@@ -251,14 +251,9 @@ func (service *expenseService) CreateExpense(ctx context.Context, req types.Crea
 		createdExpense = savedExpense
 	}
 
-	foundExpense, findResult := service.findExpenseByID(createdExpense.ID)
-	if findResult.Error {
-		return findResult
-	}
-
 	return results.Created(
-		types.CreateExpenseResponse{
-			Expense: toExpenseResponse(foundExpense),
+	        types.CreateExpenseResponse{
+	                Expense: toExpenseResponse(createdExpense),
 		},
 		"CREATE_EXPENSE_SUCCESS",
 		"経費を作成しました",

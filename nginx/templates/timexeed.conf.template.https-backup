@@ -2,15 +2,14 @@ server {
     listen 80;
     listen [::]:80;
 
-    server_name timexeed.com www.timexeed.com;
+    server_name ${TIMEXEED_DOMAIN};
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
-        try_files $uri =404;
     }
 
     location / {
-        return 301 https://timexeed.com$request_uri;
+        return 301 https://$host$request_uri;
     }
 }
 
@@ -18,10 +17,10 @@ server {
     listen 443 ssl;
     listen [::]:443 ssl;
 
-    server_name timexeed.com;
+    server_name ${TIMEXEED_DOMAIN};
 
-    ssl_certificate /etc/letsencrypt/live/timexeed.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/timexeed.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/${TIMEXEED_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${TIMEXEED_DOMAIN}/privkey.pem;
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_session_cache shared:SSL:10m;
@@ -64,16 +63,4 @@ server {
         proxy_read_timeout 60s;
         proxy_send_timeout 60s;
     }
-}
-
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-
-    server_name www.timexeed.com;
-
-    ssl_certificate /etc/letsencrypt/live/timexeed.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/timexeed.com/privkey.pem;
-
-    return 301 https://timexeed.com$request_uri;
 }
