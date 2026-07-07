@@ -279,6 +279,107 @@
   white-space: nowrap;
 }
 
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: rgba(15, 23, 42, 0.56);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  box-sizing: border-box;
+}
+
+.modalCard {
+  width: min(440px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: 22px;
+  border: 1px solid #fed7aa;
+  border-radius: 16px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.modalEyebrow {
+  margin: 0 0 5px;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.modalTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.modalDescription {
+  margin: 14px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.modalDetailList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 16px 0 0;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background-color: #f9fafb;
+}
+
+.modalDetailRow {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 12px;
+  padding: 11px 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modalDetailRow:last-child {
+  border-bottom: none;
+}
+
+.modalDetailRow dt {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.modalDetailRow dd {
+  min-width: 0;
+  margin: 0;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
 @media (max-width: 1180px) {
   .contentGrid {
     grid-template-columns: 1fr;
@@ -376,6 +477,19 @@
     font-size: 10px;
   }
 
+  .input[type="month"],
+  .input[type="date"] {
+    width: 100%;
+    min-width: 0;
+    height: 28px;
+    min-height: 28px;
+    padding: 1px 5px;
+    border-radius: 6px;
+    font-size: 9px;
+    line-height: 1;
+    box-sizing: border-box;
+  }
+
   .textarea {
     min-height: 58px;
     padding: 6px;
@@ -451,6 +565,56 @@
     align-items: center;
     gap: 4px;
   }
+
+  .modalOverlay {
+    align-items: flex-end;
+    padding: 10px;
+  }
+
+  .modalCard {
+    width: 100%;
+    max-height: calc(100vh - 20px);
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .modalEyebrow {
+    font-size: 10px;
+  }
+
+  .modalTitle {
+    font-size: 16px;
+  }
+
+  .modalDescription {
+    margin-top: 10px;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  .modalDetailList {
+    margin-top: 12px;
+    border-radius: 9px;
+  }
+
+  .modalDetailRow {
+    grid-template-columns: 66px minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .modalDetailRow dt {
+    font-size: 9px;
+  }
+
+  .modalDetailRow dd {
+    font-size: 10px;
+  }
+
+  .modalActions {
+    gap: 6px;
+    margin-top: 14px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -484,6 +648,7 @@
   }
 
   .twoColumn {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px;
   }
 
@@ -496,6 +661,19 @@
     min-height: 28px;
     padding: 3px 5px;
     font-size: 9px;
+  }
+
+  .input[type="month"],
+  .input[type="date"] {
+    width: 100%;
+    min-width: 0;
+    height: 26px;
+    min-height: 26px;
+    padding: 1px 4px;
+    border-radius: 5px;
+    font-size: 8px;
+    line-height: 1;
+    box-sizing: border-box;
   }
 
   .textarea {
@@ -538,5 +716,30 @@
   .memoText,
   .noReceiptText {
     font-size: 7px;
+  }
+
+  .modalOverlay {
+    padding: 6px;
+  }
+
+  .modalCard {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .modalTitle {
+    font-size: 14px;
+  }
+
+  .modalDetailRow {
+    grid-template-columns: 58px minmax(0, 1fr);
+    padding: 7px;
+  }
+
+  .modalActions :global(button) {
+    min-width: 72px;
+    min-height: 28px;
+    padding: 3px 6px;
+    font-size: 9px;
   }
 }

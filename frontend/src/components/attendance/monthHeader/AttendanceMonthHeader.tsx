@@ -42,40 +42,63 @@ export default function AttendanceMonthHeader({
       />
 
       <div className={styles.monthControl}>
-        <Input
-          label="対象月"
-          type="month"
-          value={targetMonth}
-          onChange={(event) => onChangeMonth(event.target.value)}
-          className={styles.monthInput}
-        />
+        <div className={styles.monthField}>
+          <Input
+            label="対象月"
+            type="month"
+            value={targetMonth}
+            onChange={(event) => onChangeMonth(event.target.value)}
+            className={styles.monthInput}
+          />
+        </div>
 
-        <Button type="button" variant="secondary" onClick={onPreviousMonth}>
-          前月
-        </Button>
-
-        <Button type="button" variant="secondary" onClick={onNextMonth}>
-          次月
-        </Button>
-
-        <Button type="button" variant="secondary" onClick={onSaveAll} disabled={saveDisabled}>
-          全体保存
-        </Button>
-
-        {showWithdrawButton ? (
+        <div className={styles.monthNavigation}>
           <Button
             type="button"
-            variant="danger"
-            onClick={onMonthlyWithdraw}
-            disabled={monthlyWithdrawDisabled}
+            variant="secondary"
+            onClick={onPreviousMonth}
           >
-            申請取り下げ
+            前月
           </Button>
-        ) : (
-          <Button type="button" onClick={onMonthlySubmit} disabled={monthlySubmitDisabled}>
-            月次申請する
+
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onNextMonth}
+          >
+            次月
           </Button>
-        )}
+        </div>
+
+        <div className={styles.monthActions}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onSaveAll}
+            disabled={saveDisabled}
+          >
+            全体保存
+          </Button>
+
+          {showWithdrawButton ? (
+            <Button
+              type="button"
+              variant="danger"
+              onClick={onMonthlyWithdraw}
+              disabled={monthlyWithdrawDisabled}
+            >
+              申請取り下げ
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={onMonthlySubmit}
+              disabled={monthlySubmitDisabled}
+            >
+              月次申請する
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

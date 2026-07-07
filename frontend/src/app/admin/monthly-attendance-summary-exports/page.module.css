@@ -205,6 +205,19 @@
 }
 
 @media (max-width: 768px) {
+
+  .input[type="month"] {
+    width: 130px;
+    max-width: 100%;
+    min-height: 28px;
+    height: 28px;
+    padding: 2px 5px;
+    font-size: 10px;
+    line-height: 1;
+    border-radius: 6px;
+    box-sizing: border-box;
+  }
+  
   .pageWrap {
     width: 100%;
     min-height: auto;

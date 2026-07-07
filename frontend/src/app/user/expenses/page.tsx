@@ -72,6 +72,8 @@ export default function UserExpensesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState<number | null>(null);
   const [isViewingReceiptId, setIsViewingReceiptId] = useState<number | null>(null);
+  const [deleteTargetExpense, setDeleteTargetExpense] =
+    useState<ExpenseListItemResponse | null>(null);
   const [pageMessage, setPageMessage] = useState<PageMessage>({
     variant: "info",
     text: "自分の経費を登録し、対象月の期間で検索できます。",
@@ -212,14 +214,24 @@ export default function UserExpensesPage() {
     }
   }
 
-  async function handleDelete(expense: ExpenseListItemResponse) {
-    const confirmed = window.confirm(
-      `経費を削除します。\n\n発生日：${expense.expenseDate}\n金額：${formatYen(expense.amount)}\n内容：${expense.description}\n\nよろしいですか？`
-    );
+  function handleOpenDeleteModal(expense: ExpenseListItemResponse) {
+    setDeleteTargetExpense(expense);
+  }
 
-    if (!confirmed) {
+  function handleCloseDeleteModal() {
+    if (isDeletingId !== null) {
       return;
     }
+
+    setDeleteTargetExpense(null);
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTargetExpense) {
+      return;
+    }
+
+    const expense = deleteTargetExpense;
 
     setIsDeletingId(expense.id);
     setPageMessage({
@@ -237,6 +249,7 @@ export default function UserExpensesPage() {
         setExpenseForm(initialExpenseForm);
       }
 
+      setDeleteTargetExpense(null);
       setPageMessage({
         variant: "success",
         text: "経費を削除しました。",
@@ -578,7 +591,7 @@ export default function UserExpensesPage() {
                               <Button
                                 type="button"
                                 variant="danger"
-                                onClick={() => void handleDelete(expense)}
+                                onClick={() => handleOpenDeleteModal(expense)}
                                 disabled={isDeletingId === expense.id}
                               >
                                 {isDeletingId === expense.id ? "削除中..." : "削除"}
@@ -595,6 +608,80 @@ export default function UserExpensesPage() {
           </div>
         </section>
       </div>
+
+      {deleteTargetExpense && (
+        <div
+          className={styles.modalOverlay}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseDeleteModal();
+            }
+          }}
+        >
+          <section
+            className={styles.modalCard}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-expense-modal-title"
+          >
+            <div className={styles.modalHeader}>
+              <div>
+                <p className={styles.modalEyebrow}>削除確認</p>
+                <h2 id="delete-expense-modal-title" className={styles.modalTitle}>
+                  この経費を削除しますか？
+                </h2>
+              </div>
+            </div>
+
+            <p className={styles.modalDescription}>
+              削除した経費は一覧から表示されなくなります。内容を確認してから削除してください。
+            </p>
+
+            <dl className={styles.modalDetailList}>
+              <div className={styles.modalDetailRow}>
+                <dt>対象月</dt>
+                <dd>{deleteTargetExpense.targetMonth}</dd>
+              </div>
+
+              <div className={styles.modalDetailRow}>
+                <dt>発生日</dt>
+                <dd>{deleteTargetExpense.expenseDate}</dd>
+              </div>
+
+              <div className={styles.modalDetailRow}>
+                <dt>金額</dt>
+                <dd>{formatYen(deleteTargetExpense.amount)}</dd>
+              </div>
+
+              <div className={styles.modalDetailRow}>
+                <dt>内容</dt>
+                <dd>{deleteTargetExpense.description}</dd>
+              </div>
+            </dl>
+
+            <div className={styles.modalActions}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleCloseDeleteModal}
+                disabled={isDeletingId !== null}
+              >
+                キャンセル
+              </Button>
+
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => void handleConfirmDelete()}
+                disabled={isDeletingId !== null}
+              >
+                {isDeletingId !== null ? "削除中..." : "削除する"}
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
     </PageContainer>
   );
 }
