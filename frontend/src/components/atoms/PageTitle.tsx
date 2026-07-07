@@ -28,7 +28,7 @@ export default function PageTitle({
         )}
       </div>
 
-      <style jsx global>{`
+      <style>{`
         .timexeed-page-title {
           margin-bottom: 24px;
         }

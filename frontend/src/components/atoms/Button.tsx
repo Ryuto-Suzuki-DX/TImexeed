@@ -39,7 +39,7 @@ export default function Button({
         {children}
       </button>
 
-      <style jsx global>{`
+      <style>{`
         .timexeed-button {
           display: inline-flex;
           align-items: center;
