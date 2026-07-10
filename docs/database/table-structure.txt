@@ -1,0 +1,506 @@
+
+================================================================
+TABLE: api_operation_logs
+================================================================
+                                                                   Table "public.api_operation_logs"
+    Column     |           Type           | Collation | Nullable |                    Default                     | Storage  | Compression | Stats target | Description 
+---------------+--------------------------+-----------+----------+------------------------------------------------+----------+-------------+--------------+-------------
+ id            | bigint                   |           | not null | nextval('api_operation_logs_id_seq'::regclass) | plain    |             |              | 
+ user_id       | bigint                   |           |          |                                                | plain    |             |              | 
+ email         | character varying(255)   |           |          |                                                | extended |             |              | 
+ role          | character varying(50)    |           |          |                                                | extended |             |              | 
+ method        | character varying(10)    |           | not null |                                                | extended |             |              | 
+ path          | character varying(255)   |           | not null |                                                | extended |             |              | 
+ status_code   | bigint                   |           | not null |                                                | plain    |             |              | 
+ client_ip     | character varying(100)   |           |          |                                                | extended |             |              | 
+ user_agent    | text                     |           |          |                                                | extended |             |              | 
+ duration_ms   | bigint                   |           | not null |                                                | plain    |             |              | 
+ error_message | text                     |           |          |                                                | extended |             |              | 
+ started_at    | timestamp with time zone |           | not null |                                                | plain    |             |              | 
+ finished_at   | timestamp with time zone |           | not null |                                                | plain    |             |              | 
+ created_at    | timestamp with time zone |           |          |                                                | plain    |             |              | 
+ updated_at    | timestamp with time zone |           |          |                                                | plain    |             |              | 
+Indexes:
+    "api_operation_logs_pkey" PRIMARY KEY, btree (id)
+    "idx_api_operation_logs_method" btree (method)
+    "idx_api_operation_logs_path" btree (path)
+    "idx_api_operation_logs_started_at" btree (started_at)
+    "idx_api_operation_logs_status_code" btree (status_code)
+    "idx_api_operation_logs_user_id" btree (user_id)
+Access method: heap
+
+
+================================================================
+TABLE: attendance_breaks
+================================================================
+                                                                     Table "public.attendance_breaks"
+      Column       |           Type           | Collation | Nullable |                    Default                    | Storage  | Compression | Stats target | Description 
+-------------------+--------------------------+-----------+----------+-----------------------------------------------+----------+-------------+--------------+-------------
+ id                | bigint                   |           | not null | nextval('attendance_breaks_id_seq'::regclass) | plain    |             |              | 
+ attendance_day_id | bigint                   |           | not null |                                               | plain    |             |              | 
+ break_start_at    | timestamp with time zone |           | not null |                                               | plain    |             |              | 
+ break_end_at      | timestamp with time zone |           | not null |                                               | plain    |             |              | 
+ break_memo        | text                     |           |          |                                               | extended |             |              | 
+ is_deleted        | boolean                  |           | not null | false                                         | plain    |             |              | 
+ created_at        | timestamp with time zone |           |          |                                               | plain    |             |              | 
+ updated_at        | timestamp with time zone |           |          |                                               | plain    |             |              | 
+ deleted_at        | timestamp with time zone |           |          |                                               | plain    |             |              | 
+Indexes:
+    "attendance_breaks_pkey" PRIMARY KEY, btree (id)
+    "idx_attendance_breaks_attendance_day_id" btree (attendance_day_id)
+Foreign-key constraints:
+    "fk_attendance_breaks_attendance_day" FOREIGN KEY (attendance_day_id) REFERENCES attendance_days(id)
+Access method: heap
+
+
+================================================================
+TABLE: attendance_days
+================================================================
+                                                                          Table "public.attendance_days"
+           Column           |           Type           | Collation | Nullable |                   Default                   | Storage  | Compression | Stats target | Description 
+----------------------------+--------------------------+-----------+----------+---------------------------------------------+----------+-------------+--------------+-------------
+ id                         | bigint                   |           | not null | nextval('attendance_days_id_seq'::regclass) | plain    |             |              | 
+ user_id                    | bigint                   |           | not null |                                             | plain    |             |              | 
+ work_date                  | date                     |           | not null |                                             | plain    |             |              | 
+ plan_attendance_type_id    | bigint                   |           | not null |                                             | plain    |             |              | 
+ actual_work_status         | character varying(30)    |           | not null | 'NORMAL'::character varying                 | extended |             |              | 
+ plan_start_at              | timestamp with time zone |           |          |                                             | plain    |             |              | 
+ plan_end_at                | timestamp with time zone |           |          |                                             | plain    |             |              | 
+ actual_start_at            | timestamp with time zone |           |          |                                             | plain    |             |              | 
+ actual_end_at              | timestamp with time zone |           |          |                                             | plain    |             |              | 
+ scheduled_work_minutes     | bigint                   |           |          |                                             | plain    |             |              | 
+ remote_work_allowance_flag | boolean                  |           | not null | false                                       | plain    |             |              | 
+ is_deleted                 | boolean                  |           | not null | false                                       | plain    |             |              | 
+ created_at                 | timestamp with time zone |           |          |                                             | plain    |             |              | 
+ updated_at                 | timestamp with time zone |           |          |                                             | plain    |             |              | 
+ deleted_at                 | timestamp with time zone |           |          |                                             | plain    |             |              | 
+Indexes:
+    "attendance_days_pkey" PRIMARY KEY, btree (id)
+    "idx_attendance_days_user_id" btree (user_id)
+    "idx_attendance_days_work_date" btree (work_date)
+Foreign-key constraints:
+    "fk_attendance_days_plan_attendance_type" FOREIGN KEY (plan_attendance_type_id) REFERENCES attendance_types(id)
+Referenced by:
+    TABLE "attendance_breaks" CONSTRAINT "fk_attendance_breaks_attendance_day" FOREIGN KEY (attendance_day_id) REFERENCES attendance_days(id)
+    TABLE "attendance_transport_expenses" CONSTRAINT "fk_attendance_transport_expenses_attendance_day" FOREIGN KEY (attendance_day_id) REFERENCES attendance_days(id)
+Access method: heap
+
+
+================================================================
+TABLE: attendance_realtime_events
+================================================================
+                                                                  Table "public.attendance_realtime_events"
+   Column   |           Type           | Collation | Nullable |                        Default                         | Storage  | Compression | Stats target | Description 
+------------+--------------------------+-----------+----------+--------------------------------------------------------+----------+-------------+--------------+-------------
+ id         | bigint                   |           | not null | nextval('attendance_realtime_events_id_seq'::regclass) | plain    |             |              | 
+ user_id    | bigint                   |           | not null |                                                        | plain    |             |              | 
+ event_date | date                     |           | not null |                                                        | plain    |             |              | 
+ event_type | character varying(30)    |           | not null |                                                        | extended |             |              | 
+ event_at   | timestamp with time zone |           | not null |                                                        | plain    |             |              | 
+ note       | text                     |           |          |                                                        | extended |             |              | 
+ client_ip  | character varying(100)   |           |          |                                                        | extended |             |              | 
+ user_agent | text                     |           |          |                                                        | extended |             |              | 
+ created_at | timestamp with time zone |           |          |                                                        | plain    |             |              | 
+ updated_at | timestamp with time zone |           |          |                                                        | plain    |             |              | 
+Indexes:
+    "attendance_realtime_events_pkey" PRIMARY KEY, btree (id)
+    "idx_attendance_realtime_event_unique" UNIQUE, btree (user_id, event_date, event_type)
+    "idx_attendance_realtime_events_event_at" btree (event_at)
+    "idx_attendance_realtime_events_event_date" btree (event_date)
+    "idx_attendance_realtime_events_event_type" btree (event_type)
+    "idx_attendance_realtime_events_user_id" btree (user_id)
+Foreign-key constraints:
+    "fk_attendance_realtime_events_user" FOREIGN KEY (user_id) REFERENCES users(id)
+Access method: heap
+
+
+================================================================
+TABLE: attendance_transport_expenses
+================================================================
+                                                                     Table "public.attendance_transport_expenses"
+      Column       |           Type           | Collation | Nullable |                          Default                          | Storage  | Compression | Stats target | Description 
+-------------------+--------------------------+-----------+----------+-----------------------------------------------------------+----------+-------------+--------------+-------------
+ id                | bigint                   |           | not null | nextval('attendance_transport_expenses_id_seq'::regclass) | plain    |             |              | 
+ attendance_day_id | bigint                   |           | not null |                                                           | plain    |             |              | 
+ sort_order        | bigint                   |           | not null | 0                                                         | plain    |             |              | 
+ transport_from    | character varying(100)   |           | not null |                                                           | extended |             |              | 
+ transport_to      | character varying(100)   |           | not null |                                                           | extended |             |              | 
+ transport_method  | character varying(50)    |           | not null |                                                           | extended |             |              | 
+ transport_amount  | bigint                   |           | not null | 0                                                         | plain    |             |              | 
+ transport_memo    | character varying(255)   |           |          |                                                           | extended |             |              | 
+ is_deleted        | boolean                  |           | not null | false                                                     | plain    |             |              | 
+ created_at        | timestamp with time zone |           |          |                                                           | plain    |             |              | 
+ updated_at        | timestamp with time zone |           |          |                                                           | plain    |             |              | 
+ deleted_at        | timestamp with time zone |           |          |                                                           | plain    |             |              | 
+Indexes:
+    "attendance_transport_expenses_pkey" PRIMARY KEY, btree (id)
+    "idx_attendance_transport_expenses_attendance_day_id" btree (attendance_day_id)
+    "idx_attendance_transport_expenses_is_deleted" btree (is_deleted)
+Foreign-key constraints:
+    "fk_attendance_transport_expenses_attendance_day" FOREIGN KEY (attendance_day_id) REFERENCES attendance_days(id)
+Access method: heap
+
+
+================================================================
+TABLE: attendance_types
+================================================================
+                                                                        Table "public.attendance_types"
+         Column          |           Type           | Collation | Nullable |                   Default                    | Storage  | Compression | Stats target | Description 
+-------------------------+--------------------------+-----------+----------+----------------------------------------------+----------+-------------+--------------+-------------
+ id                      | bigint                   |           | not null | nextval('attendance_types_id_seq'::regclass) | plain    |             |              | 
+ code                    | character varying(50)    |           | not null |                                              | extended |             |              | 
+ name                    | character varying(100)   |           | not null |                                              | extended |             |              | 
+ category                | character varying(50)    |           | not null |                                              | extended |             |              | 
+ is_worked               | boolean                  |           | not null | false                                        | plain    |             |              | 
+ requires_request        | boolean                  |           | not null | false                                        | plain    |             |              | 
+ sync_plan_actual        | boolean                  |           | not null | false                                        | plain    |             |              | 
+ allow_actual_time_input | boolean                  |           | not null | true                                         | plain    |             |              | 
+ allow_break_input       | boolean                  |           | not null | true                                         | plain    |             |              | 
+ allow_transport_input   | boolean                  |           | not null | true                                         | plain    |             |              | 
+ allow_late_flag         | boolean                  |           | not null | true                                         | plain    |             |              | 
+ allow_early_leave_flag  | boolean                  |           | not null | true                                         | plain    |             |              | 
+ allow_absence_flag      | boolean                  |           | not null | true                                         | plain    |             |              | 
+ allow_sick_leave_flag   | boolean                  |           | not null | true                                         | plain    |             |              | 
+ display_order           | bigint                   |           | not null | 0                                            | plain    |             |              | 
+ is_active               | boolean                  |           | not null | true                                         | plain    |             |              | 
+ is_deleted              | boolean                  |           | not null | false                                        | plain    |             |              | 
+ created_at              | timestamp with time zone |           |          |                                              | plain    |             |              | 
+ updated_at              | timestamp with time zone |           |          |                                              | plain    |             |              | 
+ deleted_at              | timestamp with time zone |           |          |                                              | plain    |             |              | 
+Indexes:
+    "attendance_types_pkey" PRIMARY KEY, btree (id)
+    "idx_attendance_types_code" UNIQUE, btree (code)
+Referenced by:
+    TABLE "attendance_days" CONSTRAINT "fk_attendance_days_plan_attendance_type" FOREIGN KEY (plan_attendance_type_id) REFERENCES attendance_types(id)
+Access method: heap
+
+
+================================================================
+TABLE: departments
+================================================================
+                                                                  Table "public.departments"
+   Column   |           Type           | Collation | Nullable |                 Default                 | Storage  | Compression | Stats target | Description 
+------------+--------------------------+-----------+----------+-----------------------------------------+----------+-------------+--------------+-------------
+ id         | bigint                   |           | not null | nextval('departments_id_seq'::regclass) | plain    |             |              | 
+ name       | character varying(100)   |           | not null |                                         | extended |             |              | 
+ is_deleted | boolean                  |           | not null | false                                   | plain    |             |              | 
+ created_at | timestamp with time zone |           |          |                                         | plain    |             |              | 
+ updated_at | timestamp with time zone |           |          |                                         | plain    |             |              | 
+ deleted_at | timestamp with time zone |           |          |                                         | plain    |             |              | 
+Indexes:
+    "departments_pkey" PRIMARY KEY, btree (id)
+    "idx_departments_name" UNIQUE, btree (name)
+Access method: heap
+
+
+================================================================
+TABLE: expenses
+================================================================
+                                                                         Table "public.expenses"
+          Column          |           Type           | Collation | Nullable |               Default                | Storage  | Compression | Stats target | Description 
+--------------------------+--------------------------+-----------+----------+--------------------------------------+----------+-------------+--------------+-------------
+ id                       | bigint                   |           | not null | nextval('expenses_id_seq'::regclass) | plain    |             |              | 
+ user_id                  | bigint                   |           | not null |                                      | plain    |             |              | 
+ target_month             | date                     |           | not null |                                      | plain    |             |              | 
+ expense_date             | date                     |           | not null |                                      | plain    |             |              | 
+ amount                   | bigint                   |           | not null |                                      | plain    |             |              | 
+ description              | text                     |           | not null |                                      | extended |             |              | 
+ memo                     | text                     |           |          |                                      | extended |             |              | 
+ original_file_name       | character varying(255)   |           |          |                                      | extended |             |              | 
+ stored_file_name         | character varying(255)   |           |          |                                      | extended |             |              | 
+ file_url                 | text                     |           |          |                                      | extended |             |              | 
+ drive_file_id            | character varying(255)   |           |          |                                      | extended |             |              | 
+ external_storage_link_id | bigint                   |           |          |                                      | plain    |             |              | 
+ mime_type                | character varying(100)   |           |          |                                      | extended |             |              | 
+ size_bytes               | bigint                   |           |          |                                      | plain    |             |              | 
+ is_deleted               | boolean                  |           | not null | false                                | plain    |             |              | 
+ created_at               | timestamp with time zone |           |          |                                      | plain    |             |              | 
+ updated_at               | timestamp with time zone |           |          |                                      | plain    |             |              | 
+ deleted_at               | timestamp with time zone |           |          |                                      | plain    |             |              | 
+Indexes:
+    "expenses_pkey" PRIMARY KEY, btree (id)
+    "idx_expenses_drive_file_id" btree (drive_file_id)
+    "idx_expenses_expense_date" btree (expense_date)
+    "idx_expenses_external_storage_link_id" btree (external_storage_link_id)
+    "idx_expenses_target_month" btree (target_month)
+    "idx_expenses_user_id" btree (user_id)
+Foreign-key constraints:
+    "fk_expenses_user" FOREIGN KEY (user_id) REFERENCES users(id)
+Access method: heap
+
+
+================================================================
+TABLE: external_storage_links
+================================================================
+                                                                  Table "public.external_storage_links"
+   Column    |           Type           | Collation | Nullable |                      Default                       | Storage  | Compression | Stats target | Description 
+-------------+--------------------------+-----------+----------+----------------------------------------------------+----------+-------------+--------------+-------------
+ id          | bigint                   |           | not null | nextval('external_storage_links_id_seq'::regclass) | plain    |             |              | 
+ link_type   | character varying(80)    |           | not null |                                                    | extended |             |              | 
+ link_name   | character varying(100)   |           | not null |                                                    | extended |             |              | 
+ url         | text                     |           | not null |                                                    | extended |             |              | 
+ description | text                     |           |          |                                                    | extended |             |              | 
+ memo        | text                     |           |          |                                                    | extended |             |              | 
+ is_deleted  | boolean                  |           | not null | false                                              | plain    |             |              | 
+ created_at  | timestamp with time zone |           |          |                                                    | plain    |             |              | 
+ updated_at  | timestamp with time zone |           |          |                                                    | plain    |             |              | 
+ deleted_at  | timestamp with time zone |           |          |                                                    | plain    |             |              | 
+Indexes:
+    "external_storage_links_pkey" PRIMARY KEY, btree (id)
+    "idx_external_storage_links_link_type" btree (link_type)
+Access method: heap
+
+
+================================================================
+TABLE: holiday_dates
+================================================================
+                                                                   Table "public.holiday_dates"
+    Column    |           Type           | Collation | Nullable |                  Default                  | Storage  | Compression | Stats target | Description 
+--------------+--------------------------+-----------+----------+-------------------------------------------+----------+-------------+--------------+-------------
+ id           | bigint                   |           | not null | nextval('holiday_dates_id_seq'::regclass) | plain    |             |              | 
+ holiday_date | date                     |           | not null |                                           | plain    |             |              | 
+ holiday_name | character varying(100)   |           | not null |                                           | extended |             |              | 
+ is_deleted   | boolean                  |           | not null | false                                     | plain    |             |              | 
+ created_at   | timestamp with time zone |           |          |                                           | plain    |             |              | 
+ updated_at   | timestamp with time zone |           |          |                                           | plain    |             |              | 
+ deleted_at   | timestamp with time zone |           |          |                                           | plain    |             |              | 
+Indexes:
+    "holiday_dates_pkey" PRIMARY KEY, btree (id)
+    "idx_holiday_dates_holiday_date" UNIQUE, btree (holiday_date)
+Access method: heap
+
+
+================================================================
+TABLE: monthly_attendance_requests
+================================================================
+                                                                    Table "public.monthly_attendance_requests"
+     Column      |           Type           | Collation | Nullable |                         Default                         | Storage  | Compression | Stats target | Description 
+-----------------+--------------------------+-----------+----------+---------------------------------------------------------+----------+-------------+--------------+-------------
+ id              | bigint                   |           | not null | nextval('monthly_attendance_requests_id_seq'::regclass) | plain    |             |              | 
+ user_id         | bigint                   |           | not null |                                                         | plain    |             |              | 
+ target_year     | bigint                   |           | not null |                                                         | plain    |             |              | 
+ target_month    | bigint                   |           | not null |                                                         | plain    |             |              | 
+ status          | character varying(30)    |           | not null |                                                         | extended |             |              | 
+ request_memo    | text                     |           |          |                                                         | extended |             |              | 
+ requested_at    | timestamp with time zone |           |          |                                                         | plain    |             |              | 
+ approved_by     | bigint                   |           |          |                                                         | plain    |             |              | 
+ approved_at     | timestamp with time zone |           |          |                                                         | plain    |             |              | 
+ rejected_reason | text                     |           |          |                                                         | extended |             |              | 
+ rejected_at     | timestamp with time zone |           |          |                                                         | plain    |             |              | 
+ canceled_reason | text                     |           |          |                                                         | extended |             |              | 
+ canceled_at     | timestamp with time zone |           |          |                                                         | plain    |             |              | 
+ is_deleted      | boolean                  |           | not null | false                                                   | plain    |             |              | 
+ created_at      | timestamp with time zone |           |          |                                                         | plain    |             |              | 
+ updated_at      | timestamp with time zone |           |          |                                                         | plain    |             |              | 
+ deleted_at      | timestamp with time zone |           |          |                                                         | plain    |             |              | 
+Indexes:
+    "monthly_attendance_requests_pkey" PRIMARY KEY, btree (id)
+    "idx_monthly_attendance_requests_target_month" btree (target_month)
+    "idx_monthly_attendance_requests_target_year" btree (target_year)
+    "idx_monthly_attendance_requests_user_id" btree (user_id)
+Access method: heap
+
+
+================================================================
+TABLE: monthly_commuter_passes
+================================================================
+                                                                    Table "public.monthly_commuter_passes"
+     Column      |           Type           | Collation | Nullable |                       Default                       | Storage  | Compression | Stats target | Description 
+-----------------+--------------------------+-----------+----------+-----------------------------------------------------+----------+-------------+--------------+-------------
+ id              | bigint                   |           | not null | nextval('monthly_commuter_passes_id_seq'::regclass) | plain    |             |              | 
+ user_id         | bigint                   |           | not null |                                                     | plain    |             |              | 
+ target_year     | bigint                   |           | not null |                                                     | plain    |             |              | 
+ target_month    | bigint                   |           | not null |                                                     | plain    |             |              | 
+ commuter_from   | character varying(100)   |           |          |                                                     | extended |             |              | 
+ commuter_to     | character varying(100)   |           |          |                                                     | extended |             |              | 
+ commuter_method | character varying(50)    |           |          |                                                     | extended |             |              | 
+ commuter_amount | bigint                   |           |          |                                                     | plain    |             |              | 
+ is_deleted      | boolean                  |           | not null | false                                               | plain    |             |              | 
+ created_at      | timestamp with time zone |           |          |                                                     | plain    |             |              | 
+ updated_at      | timestamp with time zone |           |          |                                                     | plain    |             |              | 
+ deleted_at      | timestamp with time zone |           |          |                                                     | plain    |             |              | 
+Indexes:
+    "monthly_commuter_passes_pkey" PRIMARY KEY, btree (id)
+    "idx_monthly_commuter_passes_target_month" btree (target_month)
+    "idx_monthly_commuter_passes_target_year" btree (target_year)
+    "idx_monthly_commuter_passes_user_id" btree (user_id)
+Access method: heap
+
+
+================================================================
+TABLE: notification_reminders
+================================================================
+                                                                         Table "public.notification_reminders"
+          Column           |           Type           | Collation | Nullable |                      Default                       | Storage  | Compression | Stats target | Description 
+---------------------------+--------------------------+-----------+----------+----------------------------------------------------+----------+-------------+--------------+-------------
+ id                        | bigint                   |           | not null | nextval('notification_reminders_id_seq'::regclass) | plain    |             |              | 
+ title                     | character varying(150)   |           | not null |                                                    | extended |             |              | 
+ message                   | text                     |           | not null |                                                    | extended |             |              | 
+ day_offset_from_month_end | bigint                   |           | not null | 0                                                  | plain    |             |              | 
+ send_hour                 | bigint                   |           | not null | 9                                                  | plain    |             |              | 
+ send_minute               | bigint                   |           | not null | 0                                                  | plain    |             |              | 
+ is_enabled                | boolean                  |           | not null | true                                               | plain    |             |              | 
+ is_deleted                | boolean                  |           | not null | false                                              | plain    |             |              | 
+ created_at                | timestamp with time zone |           |          |                                                    | plain    |             |              | 
+ updated_at                | timestamp with time zone |           |          |                                                    | plain    |             |              | 
+ deleted_at                | timestamp with time zone |           |          |                                                    | plain    |             |              | 
+Indexes:
+    "notification_reminders_pkey" PRIMARY KEY, btree (id)
+Access method: heap
+
+
+================================================================
+TABLE: notifications
+================================================================
+                                                                       Table "public.notifications"
+        Column         |           Type           | Collation | Nullable |                  Default                  | Storage  | Compression | Stats target | Description 
+-----------------------+--------------------------+-----------+----------+-------------------------------------------+----------+-------------+--------------+-------------
+ id                    | bigint                   |           | not null | nextval('notifications_id_seq'::regclass) | plain    |             |              | 
+ notification_group_id | character varying(36)    |           |          |                                           | extended |             |              | 
+ user_id               | bigint                   |           | not null |                                           | plain    |             |              | 
+ title                 | character varying(150)   |           | not null |                                           | extended |             |              | 
+ message               | text                     |           | not null |                                           | extended |             |              | 
+ is_read               | boolean                  |           | not null | false                                     | plain    |             |              | 
+ read_at               | timestamp with time zone |           |          |                                           | plain    |             |              | 
+ is_deleted            | boolean                  |           | not null | false                                     | plain    |             |              | 
+ created_at            | timestamp with time zone |           |          |                                           | plain    |             |              | 
+ updated_at            | timestamp with time zone |           |          |                                           | plain    |             |              | 
+ deleted_at            | timestamp with time zone |           |          |                                           | plain    |             |              | 
+Indexes:
+    "notifications_pkey" PRIMARY KEY, btree (id)
+    "idx_notifications_notification_group_id" btree (notification_group_id)
+    "idx_notifications_user_id" btree (user_id)
+Access method: heap
+
+
+================================================================
+TABLE: paid_leave_usages
+================================================================
+                                                                  Table "public.paid_leave_usages"
+   Column   |           Type           | Collation | Nullable |                    Default                    | Storage  | Compression | Stats target | Description 
+------------+--------------------------+-----------+----------+-----------------------------------------------+----------+-------------+--------------+-------------
+ id         | bigint                   |           | not null | nextval('paid_leave_usages_id_seq'::regclass) | plain    |             |              | 
+ user_id    | bigint                   |           | not null |                                               | plain    |             |              | 
+ usage_date | date                     |           | not null |                                               | plain    |             |              | 
+ usage_days | numeric(4,1)             |           | not null |                                               | main     |             |              | 
+ is_manual  | boolean                  |           | not null | false                                         | plain    |             |              | 
+ memo       | character varying(255)   |           |          |                                               | extended |             |              | 
+ is_deleted | boolean                  |           | not null | false                                         | plain    |             |              | 
+ created_at | timestamp with time zone |           |          |                                               | plain    |             |              | 
+ updated_at | timestamp with time zone |           |          |                                               | plain    |             |              | 
+ deleted_at | timestamp with time zone |           |          |                                               | plain    |             |              | 
+Indexes:
+    "paid_leave_usages_pkey" PRIMARY KEY, btree (id)
+    "idx_paid_leave_usages_usage_date" btree (usage_date)
+    "idx_paid_leave_usages_user_id" btree (user_id)
+Foreign-key constraints:
+    "fk_paid_leave_usages_user" FOREIGN KEY (user_id) REFERENCES users(id)
+Access method: heap
+
+
+================================================================
+TABLE: personal_information_drive_folders
+================================================================
+                                                                         Table "public.personal_information_drive_folders"
+          Column          |           Type           | Collation | Nullable |                            Default                             | Storage  | Compression | Stats target | Description 
+--------------------------+--------------------------+-----------+----------+----------------------------------------------------------------+----------+-------------+--------------+-------------
+ id                       | bigint                   |           | not null | nextval('personal_information_drive_folders_id_seq'::regclass) | plain    |             |              | 
+ user_id                  | bigint                   |           | not null |                                                                | plain    |             |              | 
+ external_storage_link_id | bigint                   |           | not null |                                                                | plain    |             |              | 
+ folder_name              | character varying(255)   |           | not null |                                                                | extended |             |              | 
+ drive_folder_id          | character varying(255)   |           | not null |                                                                | extended |             |              | 
+ folder_url               | text                     |           | not null |                                                                | extended |             |              | 
+ synced_at                | timestamp with time zone |           |          |                                                                | plain    |             |              | 
+ is_deleted               | boolean                  |           | not null | false                                                          | plain    |             |              | 
+ created_at               | timestamp with time zone |           |          |                                                                | plain    |             |              | 
+ updated_at               | timestamp with time zone |           |          |                                                                | plain    |             |              | 
+ deleted_at               | timestamp with time zone |           |          |                                                                | plain    |             |              | 
+Indexes:
+    "personal_information_drive_folders_pkey" PRIMARY KEY, btree (id)
+    "idx_personal_information_drive_folders_deleted_at" btree (deleted_at)
+    "idx_personal_information_drive_folders_drive_folder_id" UNIQUE, btree (drive_folder_id)
+    "idx_personal_information_drive_folders_external_storage_link_id" btree (external_storage_link_id)
+    "idx_personal_information_drive_folders_user_id" UNIQUE, btree (user_id)
+Access method: heap
+
+
+================================================================
+TABLE: shared_document_drive_folders
+================================================================
+                                                                    Table "public.shared_document_drive_folders"
+     Column      |           Type           | Collation | Nullable |                          Default                          | Storage  | Compression | Stats target | Description 
+-----------------+--------------------------+-----------+----------+-----------------------------------------------------------+----------+-------------+--------------+-------------
+ id              | bigint                   |           | not null | nextval('shared_document_drive_folders_id_seq'::regclass) | plain    |             |              | 
+ folder_name     | text                     |           | not null |                                                           | extended |             |              | 
+ description     | text                     |           |          |                                                           | extended |             |              | 
+ drive_folder_id | text                     |           | not null |                                                           | extended |             |              | 
+ folder_url      | text                     |           | not null |                                                           | extended |             |              | 
+ synced_at       | timestamp with time zone |           |          |                                                           | plain    |             |              | 
+ is_deleted      | boolean                  |           | not null | false                                                     | plain    |             |              | 
+ created_at      | timestamp with time zone |           |          |                                                           | plain    |             |              | 
+ updated_at      | timestamp with time zone |           |          |                                                           | plain    |             |              | 
+ deleted_at      | timestamp with time zone |           |          |                                                           | plain    |             |              | 
+Indexes:
+    "shared_document_drive_folders_pkey" PRIMARY KEY, btree (id)
+    "idx_shared_document_drive_folders_drive_folder_id" UNIQUE, btree (drive_folder_id)
+Access method: heap
+
+
+================================================================
+TABLE: user_salary_details
+================================================================
+                                                                        Table "public.user_salary_details"
+         Column         |           Type           | Collation | Nullable |                     Default                     | Storage  | Compression | Stats target | Description 
+------------------------+--------------------------+-----------+----------+-------------------------------------------------+----------+-------------+--------------+-------------
+ id                     | bigint                   |           | not null | nextval('user_salary_details_id_seq'::regclass) | plain    |             |              | 
+ user_id                | bigint                   |           | not null |                                                 | plain    |             |              | 
+ salary_type            | character varying(20)    |           | not null |                                                 | extended |             |              | 
+ base_amount            | bigint                   |           | not null | 0                                               | plain    |             |              | 
+ extra_allowance_amount | bigint                   |           | not null | 0                                               | plain    |             |              | 
+ extra_allowance_memo   | text                     |           |          |                                                 | extended |             |              | 
+ fixed_deduction_amount | bigint                   |           | not null | 0                                               | plain    |             |              | 
+ fixed_deduction_memo   | text                     |           |          |                                                 | extended |             |              | 
+ is_payroll_target      | boolean                  |           | not null | true                                            | plain    |             |              | 
+ effective_from         | date                     |           | not null |                                                 | plain    |             |              | 
+ effective_to           | date                     |           |          |                                                 | plain    |             |              | 
+ memo                   | text                     |           |          |                                                 | extended |             |              | 
+ is_deleted             | boolean                  |           | not null | false                                           | plain    |             |              | 
+ created_at             | timestamp with time zone |           |          |                                                 | plain    |             |              | 
+ updated_at             | timestamp with time zone |           |          |                                                 | plain    |             |              | 
+ deleted_at             | timestamp with time zone |           |          |                                                 | plain    |             |              | 
+Indexes:
+    "user_salary_details_pkey" PRIMARY KEY, btree (id)
+    "idx_user_salary_details_deleted_at" btree (deleted_at)
+    "idx_user_salary_details_user_id" btree (user_id)
+Access method: heap
+
+
+================================================================
+TABLE: users
+================================================================
+                                                                       Table "public.users"
+        Column        |           Type           | Collation | Nullable |              Default              | Storage  | Compression | Stats target | Description 
+----------------------+--------------------------+-----------+----------+-----------------------------------+----------+-------------+--------------+-------------
+ id                   | bigint                   |           | not null | nextval('users_id_seq'::regclass) | plain    |             |              | 
+ name                 | character varying(100)   |           | not null |                                   | extended |             |              | 
+ email                | character varying(255)   |           | not null |                                   | extended |             |              | 
+ password_hash        | character varying(255)   |           | not null |                                   | extended |             |              | 
+ role                 | character varying(20)    |           | not null | 'USER'::character varying         | extended |             |              | 
+ department_id        | bigint                   |           |          |                                   | plain    |             |              | 
+ hire_date            | date                     |           | not null |                                   | plain    |             |              | 
+ retirement_date      | date                     |           |          |                                   | plain    |             |              | 
+ must_change_password | boolean                  |           | not null | false                             | plain    |             |              | 
+ password_changed_at  | timestamp with time zone |           |          |                                   | plain    |             |              | 
+ is_deleted           | boolean                  |           | not null | false                             | plain    |             |              | 
+ created_at           | timestamp with time zone |           |          |                                   | plain    |             |              | 
+ updated_at           | timestamp with time zone |           |          |                                   | plain    |             |              | 
+ deleted_at           | timestamp with time zone |           |          |                                   | plain    |             |              | 
+Indexes:
+    "users_pkey" PRIMARY KEY, btree (id)
+    "idx_users_email" UNIQUE, btree (email)
+Referenced by:
+    TABLE "attendance_realtime_events" CONSTRAINT "fk_attendance_realtime_events_user" FOREIGN KEY (user_id) REFERENCES users(id)
+    TABLE "expenses" CONSTRAINT "fk_expenses_user" FOREIGN KEY (user_id) REFERENCES users(id)
+    TABLE "paid_leave_usages" CONSTRAINT "fk_paid_leave_usages_user" FOREIGN KEY (user_id) REFERENCES users(id)
+Access method: heap
+

@@ -1,0 +1,24 @@
+                                                    List of relations
+ Schema |                Name                | Type  |  Owner   | Persistence | Access method |    Size    | Description 
+--------+------------------------------------+-------+----------+-------------+---------------+------------+-------------
+ public | api_operation_logs                 | table | timexeed | permanent   | heap          | 400 kB     | 
+ public | attendance_breaks                  | table | timexeed | permanent   | heap          | 16 kB      | 
+ public | attendance_days                    | table | timexeed | permanent   | heap          | 8192 bytes | 
+ public | attendance_realtime_events         | table | timexeed | permanent   | heap          | 16 kB      | 
+ public | attendance_transport_expenses      | table | timexeed | permanent   | heap          | 16 kB      | 
+ public | attendance_types                   | table | timexeed | permanent   | heap          | 8192 bytes | 
+ public | departments                        | table | timexeed | permanent   | heap          | 8192 bytes | 
+ public | expenses                           | table | timexeed | permanent   | heap          | 16 kB      | 
+ public | external_storage_links             | table | timexeed | permanent   | heap          | 16 kB      | 
+ public | holiday_dates                      | table | timexeed | permanent   | heap          | 0 bytes    | 
+ public | monthly_attendance_requests        | table | timexeed | permanent   | heap          | 8192 bytes | 
+ public | monthly_commuter_passes            | table | timexeed | permanent   | heap          | 8192 bytes | 
+ public | notification_reminders             | table | timexeed | permanent   | heap          | 8192 bytes | 
+ public | notifications                      | table | timexeed | permanent   | heap          | 8192 bytes | 
+ public | paid_leave_usages                  | table | timexeed | permanent   | heap          | 0 bytes    | 
+ public | personal_information_drive_folders | table | timexeed | permanent   | heap          | 16 kB      | 
+ public | shared_document_drive_folders      | table | timexeed | permanent   | heap          | 8192 bytes | 
+ public | user_salary_details                | table | timexeed | permanent   | heap          | 8192 bytes | 
+ public | users                              | table | timexeed | permanent   | heap          | 16 kB      | 
+(19 rows)
+
