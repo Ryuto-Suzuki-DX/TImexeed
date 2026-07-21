@@ -17,28 +17,64 @@ package types
  */
 
 /*
+ * 月次勤怠集計ファイル出力対象種別
+ *
+ * USER:
+ * ・指定したユーザー1人だけを出力する
+ *
+ * DEPARTMENT:
+ * ・指定した複数所属に該当する一般ユーザーを出力する
+ * ・IncludeUnassignedDepartment が true の場合は所属なしユーザーも含める
+ */
+const (
+	MonthlyAttendanceSummaryExportTargetTypeUser       = "USER"
+	MonthlyAttendanceSummaryExportTargetTypeDepartment = "DEPARTMENT"
+)
+
+/*
  * 月次勤怠集計CSV出力 Request
  *
- * TargetUserIDs:
- *   指定がある場合、そのユーザーだけを対象にする。
- *   空の場合は、検索条件に一致するユーザーを対象にする。
+ * TargetType:
+ * ・USER       ：ユーザー単体で出力する
+ * ・DEPARTMENT ：複数所属単位で出力する
  *
- * DepartmentID:
- *   指定がある場合、その所属のユーザーだけを対象にする。
+ * TargetUserID:
+ * ・TargetType が USER の場合に必須
+ * ・選択したユーザー1人のIDを指定する
  *
- * Keyword:
- *   指定がある場合、ユーザー名/メールアドレスなどのフリーワード検索に使う。
+ * DepartmentIDs:
+ * ・TargetType が DEPARTMENT の場合に使用する
+ * ・複数の所属IDを指定できる
+ *
+ * IncludeUnassignedDepartment:
+ * ・TargetType が DEPARTMENT の場合に使用する
+ * ・true の場合は department_id が NULL の所属なしユーザーも対象にする
  *
  * IncludeNotApproved:
- *   true の場合、APPROVED 以外のユーザーもステータスと警告のみCSVへ出力する。
- *   false の場合、APPROVED のユーザーだけ出力する。
+ * ・true の場合、APPROVED 以外のユーザーもステータスと警告のみ出力する
+ * ・false の場合、APPROVED のユーザーだけ出力する
+ *
+ * 注意：
+ * ・CSV出力APIではフリーワード検索を行わない
+ * ・ユーザー検索は /admin/users/search-business-targets を使用する
+ * ・所属一覧取得は /admin/departments/search を使用する
  */
 type ExportMonthlyAttendanceSummaryCsvRequest struct {
-	TargetYear         int    `json:"targetYear"`
-	TargetMonth        int    `json:"targetMonth"`
-	TargetUserIDs      []uint `json:"targetUserIds"`
-	DepartmentID       *uint  `json:"departmentId"`
-	Keyword            string `json:"keyword"`
+	TargetYear  int `json:"targetYear"`
+	TargetMonth int `json:"targetMonth"`
+
+	// USER または DEPARTMENT
+	TargetType string `json:"targetType"`
+
+	// USERの場合のみ使用する
+	TargetUserID *uint `json:"targetUserId"`
+
+	// DEPARTMENTの場合のみ使用する
+	DepartmentIDs []uint `json:"departmentIds"`
+
+	// DEPARTMENTの場合のみ使用する
+	IncludeUnassignedDepartment bool `json:"includeUnassignedDepartment"`
+
 	IncludeNotApproved bool   `json:"includeNotApproved"`
 	Format             string `json:"format"`
 }

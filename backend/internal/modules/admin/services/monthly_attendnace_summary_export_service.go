@@ -62,6 +62,37 @@ func NewMonthlyAttendanceSummaryExportService(
 }
 
 /*
+ * 所属ID配列を正規化する。
+ *
+ * ・0は除外する
+ * ・重複は除外する
+ * ・受け取った順序は維持する
+ */
+func normalizeMonthlyAttendanceSummaryExportDepartmentIDs(departmentIDs []uint) []uint {
+	if len(departmentIDs) == 0 {
+		return []uint{}
+	}
+
+	normalizedDepartmentIDs := make([]uint, 0, len(departmentIDs))
+	seenDepartmentIDs := make(map[uint]struct{}, len(departmentIDs))
+
+	for _, departmentID := range departmentIDs {
+		if departmentID == 0 {
+			continue
+		}
+
+		if _, exists := seenDepartmentIDs[departmentID]; exists {
+			continue
+		}
+
+		seenDepartmentIDs[departmentID] = struct{}{}
+		normalizedDepartmentIDs = append(normalizedDepartmentIDs, departmentID)
+	}
+
+	return normalizedDepartmentIDs
+}
+
+/*
  * 月次勤怠集計ファイル出力
  *
  * format が XLSX の場合は、同じ集計結果を見た目付きExcelとして出力する。
@@ -90,6 +121,50 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		)
 	}
 
+	request.TargetType = strings.ToUpper(strings.TrimSpace(request.TargetType))
+
+	switch request.TargetType {
+	case types.MonthlyAttendanceSummaryExportTargetTypeUser:
+		if request.TargetUserID == nil || *request.TargetUserID == 0 {
+			return nil, "", "", results.BadRequest(
+				"EXPORT_MONTHLY_ATTENDANCE_SUMMARY_TARGET_USER_REQUIRED",
+				"出力対象のユーザーを選択してください",
+				nil,
+			)
+		}
+
+		// ユーザー単体出力では所属条件を使用しない。
+		request.DepartmentIDs = nil
+		request.IncludeUnassignedDepartment = false
+
+	case types.MonthlyAttendanceSummaryExportTargetTypeDepartment:
+		request.DepartmentIDs = normalizeMonthlyAttendanceSummaryExportDepartmentIDs(request.DepartmentIDs)
+
+		if len(request.DepartmentIDs) == 0 && !request.IncludeUnassignedDepartment {
+			return nil, "", "", results.BadRequest(
+				"EXPORT_MONTHLY_ATTENDANCE_SUMMARY_DEPARTMENT_REQUIRED",
+				"出力対象の所属を1つ以上選択してください",
+				nil,
+			)
+		}
+
+		// 所属単位出力ではユーザー単体条件を使用しない。
+		request.TargetUserID = nil
+
+	default:
+		return nil, "", "", results.BadRequest(
+			"EXPORT_MONTHLY_ATTENDANCE_SUMMARY_INVALID_TARGET_TYPE",
+			"出力単位が正しくありません",
+			map[string]any{
+				"targetType": request.TargetType,
+				"allowed": []string{
+					types.MonthlyAttendanceSummaryExportTargetTypeUser,
+					types.MonthlyAttendanceSummaryExportTargetTypeDepartment,
+				},
+			},
+		)
+	}
+
 	targetLocation := jstLocation()
 	targetMonthStart := time.Date(request.TargetYear, time.Month(request.TargetMonth), 1, 0, 0, 0, 0, targetLocation)
 	targetMonthEnd := targetMonthStart.AddDate(0, 1, -1)
@@ -106,6 +181,14 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 	users, usersResult := service.monthlyAttendanceSummaryExportRepository.SearchExportTargetUsers(request)
 	if usersResult.Error {
 		return nil, "", "", usersResult
+	}
+
+	if len(users) == 0 {
+		return nil, "", "", results.NotFound(
+			"MONTHLY_ATTENDANCE_SUMMARY_EXPORT_TARGET_USERS_NOT_FOUND",
+			"選択した条件に該当する出力対象ユーザーが見つかりません",
+			nil,
+		)
 	}
 
 	userIDs := make([]uint, 0, len(users))

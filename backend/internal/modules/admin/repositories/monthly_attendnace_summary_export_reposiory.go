@@ -1,7 +1,6 @@
 package repositories
 
 import (
-	"strings"
 	"time"
 
 	"timexeed/backend/internal/models"
@@ -88,21 +87,31 @@ func (repository *monthlyAttendanceSummaryExportRepository) SearchExportTargetUs
 		Where("users.is_deleted = false").
 		Where("users.role = ?", "USER")
 
-	if len(req.TargetUserIDs) > 0 {
-		query = query.Where("users.id IN ?", req.TargetUserIDs)
-	}
+	switch req.TargetType {
+	case types.MonthlyAttendanceSummaryExportTargetTypeUser:
+		query = query.Where("users.id = ?", *req.TargetUserID)
 
-	if req.DepartmentID != nil && *req.DepartmentID != 0 {
-		query = query.Where("users.department_id = ?", *req.DepartmentID)
-	}
+	case types.MonthlyAttendanceSummaryExportTargetTypeDepartment:
+		switch {
+		case len(req.DepartmentIDs) > 0 && req.IncludeUnassignedDepartment:
+			query = query.Where(
+				"(users.department_id IN ? OR users.department_id IS NULL)",
+				req.DepartmentIDs,
+			)
 
-	if strings.TrimSpace(req.Keyword) != "" {
-		keyword := "%" + strings.TrimSpace(req.Keyword) + "%"
-		query = query.Where("(users.name LIKE ? OR users.email LIKE ?)", keyword, keyword)
+		case len(req.DepartmentIDs) > 0:
+			query = query.Where("users.department_id IN ?", req.DepartmentIDs)
+
+		case req.IncludeUnassignedDepartment:
+			query = query.Where("users.department_id IS NULL")
+		}
 	}
 
 	var users []MonthlyAttendanceSummaryExportUserRecord
-	if err := query.Order("users.id ASC").Scan(&users).Error; err != nil {
+	if err := query.
+		Order("departments.name ASC NULLS LAST").
+		Order("users.id ASC").
+		Scan(&users).Error; err != nil {
 		return nil, results.BadRequest(
 			"SEARCH_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_USERS_FAILED",
 			"月次勤怠集計CSV出力対象ユーザーの取得に失敗しました",

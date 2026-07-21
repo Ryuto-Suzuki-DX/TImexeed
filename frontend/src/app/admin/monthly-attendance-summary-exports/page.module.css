@@ -34,7 +34,7 @@
 
 .contentGrid {
   display: grid;
-  grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+  grid-template-columns: minmax(360px, 500px) minmax(0, 1fr);
   gap: 20px;
   align-items: flex-start;
 }
@@ -89,6 +89,12 @@
   flex-direction: column;
   gap: 7px;
   min-width: 0;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fieldCaption {
   color: #374151;
   font-size: 13px;
   font-weight: 700;
@@ -171,6 +177,120 @@
   appearance: none;
 }
 
+.targetTypeArea {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.targetTypeButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.targetTypeButton,
+.targetTypeButtonActive {
+  min-height: 40px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.targetTypeButton {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+}
+
+.targetTypeButtonActive {
+  border: 1px solid #f97316;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.selectionCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f9fafb;
+  padding: 12px;
+}
+
+.searchRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.selectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.selectionItem,
+.selectionItemActive {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.selectionItem {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.selectionItemActive {
+  border: 1px solid #fb923c;
+  background: #fff7ed;
+}
+
+.selectionItem input,
+.selectionItemActive input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: #f97316;
+  flex-shrink: 0;
+}
+
+.selectionItem span,
+.selectionItemActive span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.selectionItem strong,
+.selectionItemActive strong {
+  color: #111827;
+  font-size: 13px;
+}
+
+.selectionItem small,
+.selectionItemActive small {
+  color: #6b7280;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.emptyText {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
 .checkboxLabel {
   display: flex;
   align-items: flex-start;
@@ -226,7 +346,7 @@
   font-size: 15px;
   font-weight: 800;
   line-height: 1.5;
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .noticeBox {
@@ -327,7 +447,8 @@
     gap: 9px;
   }
 
-  .fieldLabel {
+  .fieldLabel,
+  .fieldCaption {
     gap: 4px;
     font-size: 10px;
   }
@@ -351,6 +472,60 @@
 
   .monthPickerIcon {
     margin-left: 5px;
+    font-size: 9px;
+  }
+
+  .targetTypeButtons {
+    gap: 6px;
+  }
+
+  .targetTypeButton,
+  .targetTypeButtonActive {
+    min-height: 32px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+
+  .selectionCard {
+    gap: 7px;
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  .searchRow {
+    gap: 6px;
+  }
+
+  .selectionList {
+    gap: 5px;
+    max-height: 220px;
+  }
+
+  .selectionItem,
+  .selectionItemActive {
+    gap: 7px;
+    padding: 7px;
+    border-radius: 7px;
+  }
+
+  .selectionItem input,
+  .selectionItemActive input {
+    width: 14px;
+    height: 14px;
+    margin-top: 1px;
+  }
+
+  .selectionItem strong,
+  .selectionItemActive strong {
+    font-size: 10px;
+  }
+
+  .selectionItem small,
+  .selectionItemActive small {
+    font-size: 9px;
+  }
+
+  .emptyText {
     font-size: 9px;
   }
 
@@ -449,6 +624,7 @@
 
   .sectionDescription,
   .fieldLabel,
+  .fieldCaption,
   .checkboxLabel {
     font-size: 9px;
   }
@@ -471,6 +647,16 @@
 
   .monthPickerIcon {
     font-size: 8px;
+  }
+
+  .targetTypeButton,
+  .targetTypeButtonActive {
+    min-height: 30px;
+    font-size: 9px;
+  }
+
+  .searchRow {
+    grid-template-columns: 1fr;
   }
 
   .formActions {
