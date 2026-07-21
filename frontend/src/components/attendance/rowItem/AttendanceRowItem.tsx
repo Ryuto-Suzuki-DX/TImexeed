@@ -197,6 +197,8 @@ export default function AttendanceRowItem({
    */
   const showScheduledWorkMinutesInput = !isHolidayAttendanceType;
   const showActualWorkInput = !syncPlanActual && !isHolidayAttendanceType;
+  const showBreakInput =
+    allowBreakInput && !isHolidayAttendanceType && !syncPlanActual;
 
   /*
    * 予定区分変更時の制御
@@ -247,6 +249,7 @@ export default function AttendanceRowItem({
 
       onChangeRow(row.workDate, "remoteWorkAllowanceFlag", false);
 
+      onChangeRow(row.workDate, "breaks", []);
       onChangeRow(row.workDate, "transportExpenses", []);
       return;
     }
@@ -263,12 +266,17 @@ export default function AttendanceRowItem({
         "actualWorkStatus",
         ACTUAL_WORK_STATUS_NORMAL,
       );
+      onChangeRow(row.workDate, "breaks", []);
     }
 
     onChangeRow(row.workDate, "lateFlag", false);
     onChangeRow(row.workDate, "earlyLeaveFlag", false);
     onChangeRow(row.workDate, "absenceFlag", false);
     onChangeRow(row.workDate, "sickLeaveFlag", false);
+
+    if (!nextType.allowBreakInput) {
+      onChangeRow(row.workDate, "breaks", []);
+    }
 
     if (!nextType.allowTransportInput) {
       onChangeRow(row.workDate, "transportExpenses", []);
@@ -483,7 +491,7 @@ export default function AttendanceRowItem({
       </td>
 
       <td className={styles.td}>
-        {allowBreakInput ? (
+        {showBreakInput && (
           <div className={styles.breakEditArea}>
             <Button
               type="button"
@@ -556,8 +564,6 @@ export default function AttendanceRowItem({
               </div>
             ))}
           </div>
-        ) : (
-          <p className={styles.noBreakText}>対象外</p>
         )}
       </td>
 

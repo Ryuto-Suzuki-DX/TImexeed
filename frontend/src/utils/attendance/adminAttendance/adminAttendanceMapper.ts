@@ -567,7 +567,7 @@ export function buildUpdateMonthlyAttendanceSaveDayRequest(
 
       transportExpenses,
 
-      breaks,
+      breaks: [],
     };
   }
 

@@ -6,6 +6,7 @@ import MessageBox from "@/components/atoms/MessageBox";
 import PageContainer from "@/components/atoms/PageContainer";
 import PageTitle from "@/components/atoms/PageTitle";
 import AdminSideMenu from "@/components/sideMenu/AdminSideMenu";
+import RejectReasonModal from "@/components/modals/rejectReasonModal/RejectReasonModal";
 import AttendanceMonthHeader from "@/components/attendance/monthHeader/AttendanceMonthHeader";
 import AttendanceTable from "@/components/attendance/table/AttendanceTable";
 import MonthlyCommuterPassForm from "@/components/attendance/monthlyCommuterPassForm/MonthlyCommuterPassForm";
@@ -94,6 +95,8 @@ export default function AdminAttendancePage() {
     useState("対象ユーザーを検索して、勤怠を読み込んでください。");
   const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
   const [isPageLoading, setIsPageLoading] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   const { targetYear, targetMonthValue } = useMemo(
     () => parseTargetMonth(targetMonth),
@@ -1031,7 +1034,7 @@ export default function AdminAttendancePage() {
     await loadPageData(loadedUser);
   };
 
-  const handleRejectMonthlyAttendanceRequest = async () => {
+  const handleOpenRejectModal = () => {
     if (!loadedUser || !monthlyAttendanceRequest?.id) {
       setPageMessage("否認対象の月次申請がありません。");
       setPageMessageVariant("error");
@@ -1044,39 +1047,75 @@ export default function AdminAttendancePage() {
       return;
     }
 
-    const rejectedReason = window.prompt("否認理由を入力してください。");
+    setRejectReason("");
+    setIsRejectModalOpen(true);
+  };
 
-    if (rejectedReason === null) {
+  const handleCloseRejectModal = () => {
+    if (isPageLoading) {
       return;
     }
 
-    if (rejectedReason.trim() === "") {
+    setIsRejectModalOpen(false);
+    setRejectReason("");
+  };
+
+  const handleConfirmReject = async () => {
+    if (!loadedUser || !monthlyAttendanceRequest?.id) {
+      setPageMessage("否認対象の月次申請がありません。");
+      setPageMessageVariant("error");
+      return;
+    }
+
+    if (hasUnsavedChanges) {
+      setPageMessage("未保存の変更があります。先に全体保存してください。");
+      setPageMessageVariant("warning");
+      return;
+    }
+
+    const trimmedReason = rejectReason.trim();
+
+    if (trimmedReason === "") {
       setPageMessage("否認理由を入力してください。");
       setPageMessageVariant("error");
       return;
     }
 
+    setIsPageLoading(true);
     setPageMessage("月次申請を否認しています。");
     setPageMessageVariant("info");
 
-    const result = await rejectMonthlyAttendanceRequest({
-      targetRequestId: monthlyAttendanceRequest.id,
-      rejectedReason: rejectedReason.trim(),
-    });
+    try {
+      const result = await rejectMonthlyAttendanceRequest({
+        targetRequestId: monthlyAttendanceRequest.id,
+        rejectedReason: trimmedReason,
+      });
 
-    if (result.error || !result.data) {
-      setPageMessage(result.message || "月次申請の否認に失敗しました。");
+      if (result.error || !result.data) {
+        setPageMessage(result.message || "月次申請の否認に失敗しました。");
+        setPageMessageVariant("error");
+        return;
+      }
+
+      const data = result.data;
+
+      setIsRejectModalOpen(false);
+      setRejectReason("");
+      setMonthlyAttendanceRequest(data.monthlyAttendanceRequest);
+      setPageMessage(result.message || "月次申請を否認しました。");
+      setPageMessageVariant("success");
+
+      await loadPageData(loadedUser);
+    } catch (error) {
+      setPageMessage(
+        error instanceof Error
+          ? error.message
+          : "月次申請の否認中に予期しないエラーが発生しました。",
+      );
       setPageMessageVariant("error");
-      return;
+    } finally {
+      setIsPageLoading(false);
     }
-
-    const data = result.data;
-
-    setMonthlyAttendanceRequest(data.monthlyAttendanceRequest);
-    setPageMessage(result.message || "月次申請を否認しました。");
-    setPageMessageVariant("success");
-
-    await loadPageData(loadedUser);
   };
 
   if (isLoading || !user) {
@@ -1201,7 +1240,7 @@ export default function AdminAttendancePage() {
             canApprove={monthlyAttendanceRequest?.canApprove === true}
             canReject={monthlyAttendanceRequest?.canReject === true}
             onApprove={handleApproveMonthlyAttendanceRequest}
-            onReject={handleRejectMonthlyAttendanceRequest}
+            onReject={handleOpenRejectModal}
           />
 
           <MonthlyCommuterPassForm
@@ -1228,6 +1267,20 @@ export default function AdminAttendancePage() {
           />
         </section>
       </div>
+
+      <RejectReasonModal
+        open={isRejectModalOpen}
+        reason={rejectReason}
+        isSubmitting={isPageLoading}
+        description={
+          loadedUser
+            ? `${loadedUser.name}さんの${targetYear}年${targetMonthValue}月の月次申請を否認します。`
+            : "否認理由を入力してください。"
+        }
+        onChangeReason={setRejectReason}
+        onCancel={handleCloseRejectModal}
+        onConfirm={handleConfirmReject}
+      />
     </PageContainer>
   );
 }

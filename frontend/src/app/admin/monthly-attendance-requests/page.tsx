@@ -6,6 +6,7 @@ import MessageBox from "@/components/atoms/MessageBox";
 import PageContainer from "@/components/atoms/PageContainer";
 import PageTitle from "@/components/atoms/PageTitle";
 import AdminSideMenu from "@/components/sideMenu/AdminSideMenu";
+import RejectReasonModal from "@/components/modals/rejectReasonModal/RejectReasonModal";
 import { useRequireRole } from "@/hooks/useRequireRole";
 import {
   approveMonthlyAttendanceRequest,
@@ -102,6 +103,10 @@ export default function AdminMonthlyAttendanceRequestsPage() {
     useState("対象月と申請状態を指定して、月次申請を検索してください。");
   const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
   const [isPageLoading, setIsPageLoading] = useState(false);
+
+  const [rejectTarget, setRejectTarget] =
+    useState<MonthlyAttendanceRequestListRow | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const { targetYear, targetMonthValue } = useMemo(
     () => parseTargetMonth(targetMonth),
@@ -324,7 +329,7 @@ export default function AdminMonthlyAttendanceRequestsPage() {
     }
   };
 
-  const handleReject = async (row: MonthlyAttendanceRequestListRow) => {
+  const handleOpenRejectModal = (row: MonthlyAttendanceRequestListRow) => {
     const targetRequestId = row.monthlyAttendanceRequest.id;
 
     if (!targetRequestId) {
@@ -333,13 +338,30 @@ export default function AdminMonthlyAttendanceRequestsPage() {
       return;
     }
 
-    const rejectedReason = window.prompt("否認理由を入力してください。");
+    setRejectTarget(row);
+    setRejectReason("");
+  };
 
-    if (rejectedReason === null) {
+  const handleCloseRejectModal = () => {
+    if (isPageLoading) {
       return;
     }
 
-    if (rejectedReason.trim() === "") {
+    setRejectTarget(null);
+    setRejectReason("");
+  };
+
+  const handleConfirmReject = async () => {
+    const targetRequestId = rejectTarget?.monthlyAttendanceRequest.id;
+    const trimmedReason = rejectReason.trim();
+
+    if (!targetRequestId) {
+      setPageMessage("否認対象の月次申請がありません。");
+      setPageMessageVariant("error");
+      return;
+    }
+
+    if (trimmedReason === "") {
       setPageMessage("否認理由を入力してください。");
       setPageMessageVariant("error");
       return;
@@ -352,7 +374,7 @@ export default function AdminMonthlyAttendanceRequestsPage() {
     try {
       const result = await rejectMonthlyAttendanceRequest({
         targetRequestId,
-        rejectedReason: rejectedReason.trim(),
+        rejectedReason: trimmedReason,
       });
 
       if (result.error || !result.data) {
@@ -361,6 +383,8 @@ export default function AdminMonthlyAttendanceRequestsPage() {
         return;
       }
 
+      setRejectTarget(null);
+      setRejectReason("");
       setPageMessage(result.message || "月次申請を否認しました。");
       setPageMessageVariant("success");
 
@@ -581,7 +605,7 @@ export default function AdminMonthlyAttendanceRequestsPage() {
                               type="button"
                               variant="danger"
                               disabled={isPageLoading || !canReject}
-                              onClick={() => handleReject(row)}
+                              onClick={() => handleOpenRejectModal(row)}
                             >
                               否認
                             </Button>
@@ -612,6 +636,23 @@ export default function AdminMonthlyAttendanceRequestsPage() {
           </section>
         </section>
       </div>
+
+      <RejectReasonModal
+        open={rejectTarget !== null}
+        reason={rejectReason}
+        isSubmitting={isPageLoading}
+        description={
+          rejectTarget
+            ? `${rejectTarget.userName}さんの${formatTargetMonth(
+                rejectTarget.targetYear,
+                rejectTarget.targetMonth,
+              )}の月次申請を否認します。`
+            : "否認理由を入力してください。"
+        }
+        onChangeReason={setRejectReason}
+        onCancel={handleCloseRejectModal}
+        onConfirm={handleConfirmReject}
+      />
     </PageContainer>
   );
 }
