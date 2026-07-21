@@ -1,8 +1,6 @@
 package repositories
 
 import (
-	"errors"
-
 	"timexeed/backend/internal/models"
 	"timexeed/backend/internal/results"
 
@@ -10,7 +8,7 @@ import (
 )
 
 type MonthlyCommuterPassRepository interface {
-	FindMonthlyCommuterPass(query *gorm.DB) (models.MonthlyCommuterPass, results.Result)
+	FindMonthlyCommuterPasses(query *gorm.DB) ([]models.MonthlyCommuterPass, results.Result)
 	CreateMonthlyCommuterPass(monthlyCommuterPass models.MonthlyCommuterPass) (models.MonthlyCommuterPass, results.Result)
 	SaveMonthlyCommuterPass(monthlyCommuterPass models.MonthlyCommuterPass) (models.MonthlyCommuterPass, results.Result)
 }
@@ -18,71 +16,50 @@ type MonthlyCommuterPassRepository interface {
 /*
  * 従業員用月次通勤定期Repository
  *
- * 役割：
- * ・Builderで作成されたGORMクエリを実行する
- * ・DBへのCreate / Saveを実行する
- * ・Repository内で発生したエラーはRepositoryでcode/message/detailsを作って返す
- *
- * 注意：
- * ・検索条件や業務ルールは作らない
- * ・クエリ作成はBuilderに任せる
- * ・通勤定期の更新可否、月次申請状態チェックなどはServiceに任せる
- * ・MonthlyCommuterPass は申請状態を持たない
+ * 対象ユーザー・対象年月の通勤定期を複数件扱う。
  */
 type monthlyCommuterPassRepository struct {
 	db *gorm.DB
 }
 
-/*
- * MonthlyCommuterPassRepository生成
- */
 func NewMonthlyCommuterPassRepository(db *gorm.DB) MonthlyCommuterPassRepository {
 	return &monthlyCommuterPassRepository{db: db}
 }
 
 /*
- * 月次通勤定期1件取得
+ * 月次通勤定期一覧取得
+ *
+ * 0件の場合も空配列で成功を返す。
  */
-func (repository *monthlyCommuterPassRepository) FindMonthlyCommuterPass(
+func (repository *monthlyCommuterPassRepository) FindMonthlyCommuterPasses(
 	query *gorm.DB,
-) (models.MonthlyCommuterPass, results.Result) {
+) ([]models.MonthlyCommuterPass, results.Result) {
 	if query == nil {
-		return models.MonthlyCommuterPass{}, results.InternalServerError(
-			"FIND_MONTHLY_COMMUTER_PASS_QUERY_IS_NIL",
+		return nil, results.InternalServerError(
+			"FIND_MONTHLY_COMMUTER_PASSES_QUERY_IS_NIL",
 			"月次通勤定期の取得に失敗しました",
 			nil,
 		)
 	}
 
-	var monthlyCommuterPass models.MonthlyCommuterPass
+	monthlyCommuterPasses := make([]models.MonthlyCommuterPass, 0)
 
-	if err := query.First(&monthlyCommuterPass).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return models.MonthlyCommuterPass{}, results.NotFound(
-				"MONTHLY_COMMUTER_PASS_NOT_FOUND",
-				"対象年月の通勤定期が見つかりません",
-				nil,
-			)
-		}
-
-		return models.MonthlyCommuterPass{}, results.InternalServerError(
-			"FIND_MONTHLY_COMMUTER_PASS_FAILED",
+	if err := query.Order("id ASC").Find(&monthlyCommuterPasses).Error; err != nil {
+		return nil, results.InternalServerError(
+			"FIND_MONTHLY_COMMUTER_PASSES_FAILED",
 			"月次通勤定期の取得に失敗しました",
 			err.Error(),
 		)
 	}
 
-	return monthlyCommuterPass, results.OK(
+	return monthlyCommuterPasses, results.OK(
 		nil,
-		"FIND_MONTHLY_COMMUTER_PASS_SUCCESS",
+		"FIND_MONTHLY_COMMUTER_PASSES_SUCCESS",
 		"",
 		nil,
 	)
 }
 
-/*
- * 月次通勤定期作成
- */
 func (repository *monthlyCommuterPassRepository) CreateMonthlyCommuterPass(
 	monthlyCommuterPass models.MonthlyCommuterPass,
 ) (models.MonthlyCommuterPass, results.Result) {
@@ -102,11 +79,6 @@ func (repository *monthlyCommuterPassRepository) CreateMonthlyCommuterPass(
 	)
 }
 
-/*
- * 月次通勤定期保存
- *
- * 更新・論理削除で使う。
- */
 func (repository *monthlyCommuterPassRepository) SaveMonthlyCommuterPass(
 	monthlyCommuterPass models.MonthlyCommuterPass,
 ) (models.MonthlyCommuterPass, results.Result) {

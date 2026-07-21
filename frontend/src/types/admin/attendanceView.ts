@@ -11,12 +11,6 @@
 
 export type PageMessageVariant = "info" | "success" | "warning" | "error";
 
-/*
- * 休憩1件分の画面用Row
- *
- * APIでは日時は RFC3339。
- * 画面では input type="time" で扱いやすいよう HH:mm で持つ。
- */
 export type AttendanceBreakViewRow = {
   id: number | null;
   breakStartTime: string;
@@ -26,12 +20,6 @@ export type AttendanceBreakViewRow = {
   isDirty: boolean;
 };
 
-/*
- * 日別交通費1件分の画面用Row
- *
- * APIでは金額は number。
- * 画面では input value として扱いやすいよう string で持つ。
- */
 export type AttendanceTransportExpenseViewRow = {
   id: number | null;
   sortOrder: number;
@@ -44,23 +32,6 @@ export type AttendanceTransportExpenseViewRow = {
   isDirty: boolean;
 };
 
-/*
- * 勤怠1日分の画面用Row
- *
- * APIでは日時は RFC3339 だが、
- * 画面では input type="time" で扱いやすいよう HH:mm で持つ。
- *
- * 注意：
- * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
- * ・管理者側では月次申請状態による編集ロックを行わない
- * ・systemMessage は保存せず、画面側で計算して表示する
- * ・日別勤怠に申請メモは持たせない
- * ・日別勤怠の削除はAPIでは行わず、画面stateを初期値に戻して全体保存する
- * ・祝日は HolidayDate API から取得し、画面表示用に保持する
- * ・予定区分は planAttendanceTypeId
- * ・実績状態は actualWorkStatus
- * ・actualAttendanceTypeId は使わない
- */
 export type AttendanceViewRow = {
   workDate: string;
   dayLabel: string;
@@ -72,13 +43,6 @@ export type AttendanceViewRow = {
   attendanceDayId: number | null;
 
   planAttendanceTypeId: number;
-
-  /*
-   * 実績状態
-   *
-   * バックエンド constants/attendance_status_constants.go の固定値。
-   * 例: NORMAL, ABSENCE, SICK_LEAVE, LATE, EARLY_LEAVE
-   */
   actualWorkStatus: string;
 
   commonStartTime: string;
@@ -100,25 +64,29 @@ export type AttendanceViewRow = {
   remoteWorkAllowanceFlag: boolean;
 
   transportExpenses: AttendanceTransportExpenseViewRow[];
-
   breaks: AttendanceBreakViewRow[];
 
   isDirty: boolean;
 };
 
 /*
- * 月次通勤定期の画面用Form
- *
- * APIでは commuterAmount は number | null。
- * 画面では input value として扱いやすいよう string で持つ。
+ * 月次通勤定期1件分の画面用Row
  *
  * 注意：
- * ・月次申請状態は MonthlyAttendanceRequest 側で管理する
+ * ・同じ対象年月に複数件登録できる
+ * ・monthlyCommuterPassId が null の場合は新規登録
+ * ・IDがある場合は既存レコード更新
+ * ・画面から削除した行は全体保存時にバックエンド側で論理削除される
  * ・管理者側では月次申請状態による編集ロックを行わない
  */
 export type CommuterPassViewForm = {
+  monthlyCommuterPassId: number | null;
+
   commuterFrom: string;
   commuterTo: string;
   commuterMethod: string;
   commuterAmount: string;
+
+  isNew: boolean;
+  isDirty: boolean;
 };

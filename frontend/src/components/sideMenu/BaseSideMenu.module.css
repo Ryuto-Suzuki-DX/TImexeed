@@ -34,7 +34,7 @@
 }
 
 .sideMenuOpen {
-  width: 240px;
+  width: 280px;
   background-color: #ffffff;
   border-right: 1px solid #fed7aa;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
@@ -47,36 +47,44 @@
 .sideMenuInner {
   display: flex;
   flex-direction: column;
-  width: 240px;
+  width: 280px;
   height: 100%;
   min-height: 0;
-  padding: 16px 12px;
+  padding: 18px 14px;
   box-sizing: border-box;
 }
 
 .header {
   flex-shrink: 0;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+  overflow: hidden;
 }
 
 .brand {
-  margin: 0 0 2px;
+  margin: 0 0 3px;
   color: #9a3412;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: bold;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .title {
   margin: 0;
+  overflow: hidden;
   color: #ea580c;
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: bold;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .navigation {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -87,17 +95,21 @@
 .menuLink {
   display: block;
   flex-shrink: 0;
-  padding: 8px 10px;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: 8px;
   color: #374151;
   background-color: transparent;
-  font-size: 13px;
+  box-sizing: border-box;
+  font-size: 15px;
   font-weight: normal;
   line-height: 1.4;
   text-decoration: none;
-  white-space: normal;
-  word-break: break-word;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menuLinkActive {
@@ -109,7 +121,7 @@
 
 .logoutArea {
   flex-shrink: 0;
-  padding-top: 10px;
+  padding-top: 12px;
 }
 
 .logoutButton {
@@ -117,38 +129,41 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 36px;
-  padding: 7px 10px;
+  min-height: 40px;
+  padding: 8px 12px;
+  overflow: hidden;
   border: 1px solid #fed7aa;
   border-radius: 8px;
   background-color: #fff7ed;
   color: #9a3412;
   box-sizing: border-box;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: bold;
   line-height: 1;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .toggleButton {
   position: fixed;
-  right: 8px;
-  bottom: 10px;
+  right: 10px;
+  bottom: 12px;
   z-index: 1002;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border: 1px solid #fed7aa;
-  border-radius: 9px;
+  border-radius: 10px;
   background-color: #ffffff;
   color: #ea580c;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
   box-sizing: border-box;
-  font-size: 17px;
+  font-size: 20px;
   font-weight: bold;
   line-height: 1;
   text-align: center;
@@ -156,7 +171,7 @@
 }
 
 .toggleButtonOpen {
-  right: 8px;
+  right: 10px;
 }
 
 .overlay {
@@ -171,7 +186,7 @@
 
 @media (hover: hover) and (pointer: fine) {
   .sideMenu:hover {
-    width: 240px;
+    width: 280px;
     background-color: #ffffff;
     border-right: 1px solid #fed7aa;
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
@@ -188,11 +203,15 @@
 
 @media (hover: none), (pointer: coarse) {
   .sideMenu {
-    width: 240px;
+    width: 270px;
     background-color: #ffffff;
     border-right: 1px solid #fed7aa;
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
     transform: translateX(-100%);
+  }
+
+  .sideMenuInner {
+    width: 270px;
   }
 
   .sideMenu::after {
@@ -200,6 +219,7 @@
   }
 
   .sideMenuOpen {
+    width: 270px;
     transform: translateX(0);
   }
 }
@@ -208,46 +228,46 @@
   .sideMenu,
   .sideMenuOpen,
   .sideMenuInner {
-    width: 220px;
+    width: 260px;
   }
 
   .sideMenuInner {
-    padding: 12px 10px;
+    padding: 14px 12px;
   }
 
   .header {
-    margin-bottom: 10px;
+    margin-bottom: 14px;
   }
 
   .brand {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .title {
-    font-size: 15px;
+    font-size: 18px;
   }
 
   .navigation {
-    gap: 3px;
-    padding-right: 2px;
+    gap: 4px;
+    padding-right: 3px;
   }
 
   .menuLink {
-    padding: 6px 8px;
+    padding: 9px 10px;
     border-radius: 7px;
-    font-size: 10px;
-    line-height: 1.3;
+    font-size: 14px;
+    line-height: 1.35;
   }
 
   .logoutArea {
-    padding-top: 7px;
+    padding-top: 9px;
   }
 
   .logoutButton {
-    min-height: 28px;
-    padding: 4px 7px;
+    min-height: 38px;
+    padding: 7px 10px;
     border-radius: 7px;
-    font-size: 9px;
+    font-size: 13px;
   }
 }
 
@@ -255,38 +275,43 @@
   .sideMenu,
   .sideMenuOpen,
   .sideMenuInner {
-    width: 205px;
+    width: 250px;
   }
 
   .sideMenuInner {
-    padding: 10px 8px;
+    padding: 12px 10px;
   }
 
   .toggleButton {
-    right: 6px;
-    bottom: 8px;
-    width: 29px;
-    height: 29px;
-    border-radius: 8px;
-    font-size: 15px;
+    right: 8px;
+    bottom: 10px;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    font-size: 19px;
   }
 
   .toggleButtonOpen {
-    right: 6px;
+    right: 8px;
+  }
+
+  .brand {
+    font-size: 11px;
   }
 
   .title {
-    font-size: 14px;
+    font-size: 17px;
   }
 
   .menuLink {
-    padding: 5px 7px;
-    font-size: 9px;
+    padding: 8px 9px;
+    font-size: 13px;
+    line-height: 1.35;
   }
 
   .logoutButton {
-    min-height: 26px;
-    padding: 3px 6px;
-    font-size: 8px;
+    min-height: 36px;
+    padding: 6px 8px;
+    font-size: 12px;
   }
 }

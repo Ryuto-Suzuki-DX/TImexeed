@@ -172,13 +172,20 @@ type MonthlyAttendanceSummaryCsvRow struct {
 	OperationRateJudge         string  `json:"operationRateJudge"`
 
 	// 交通費集計
-	DailyTransportationAmount int    `json:"dailyTransportationAmount"`
-	CommuterPassAmount        int    `json:"commuterPassAmount"`
-	TotalTransportationAmount int    `json:"totalTransportationAmount"`
-	CommuterPassFrom          string `json:"commuterPassFrom"`
-	CommuterPassTo            string `json:"commuterPassTo"`
-	CommuterPassMethod        string `json:"commuterPassMethod"`
-	DailyTransportationCount  int    `json:"dailyTransportationCount"`
+	DailyTransportationAmount int `json:"dailyTransportationAmount"`
+
+	// 対象年月に登録された月次通勤定期の金額合計
+	CommuterPassAmount int `json:"commuterPassAmount"`
+
+	// 日別交通費合計 + 月次通勤定期合計
+	TotalTransportationAmount int `json:"totalTransportationAmount"`
+
+	// 月次通勤定期が複数件ある場合は「 / 」で連結する
+	CommuterPassFrom   string `json:"commuterPassFrom"`
+	CommuterPassTo     string `json:"commuterPassTo"`
+	CommuterPassMethod string `json:"commuterPassMethod"`
+
+	DailyTransportationCount int `json:"dailyTransportationCount"`
 
 	// 有給集計
 	PaidLeaveUsedDays    float64 `json:"paidLeaveUsedDays"`

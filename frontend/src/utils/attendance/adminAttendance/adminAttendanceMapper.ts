@@ -340,18 +340,22 @@ export function attachTransportExpensesToAttendanceViewRows(
 /*
  * 月次通勤定期APIレスポンスを画面Formへ変換する
  */
-export function buildCommuterPassViewForm(
-  monthlyCommuterPass: MonthlyCommuterPass | null,
-): CommuterPassViewForm {
-  return {
-    commuterFrom: monthlyCommuterPass?.commuterFrom ?? "",
-    commuterTo: monthlyCommuterPass?.commuterTo ?? "",
-    commuterMethod: monthlyCommuterPass?.commuterMethod ?? "",
+export function buildCommuterPassViewForms(
+  monthlyCommuterPasses: MonthlyCommuterPass[],
+): CommuterPassViewForm[] {
+  return monthlyCommuterPasses.map((monthlyCommuterPass) => ({
+    monthlyCommuterPassId: monthlyCommuterPass.id,
+    commuterFrom: monthlyCommuterPass.commuterFrom ?? "",
+    commuterTo: monthlyCommuterPass.commuterTo ?? "",
+    commuterMethod: monthlyCommuterPass.commuterMethod ?? "",
     commuterAmount:
-      monthlyCommuterPass?.commuterAmount === null || monthlyCommuterPass?.commuterAmount === undefined
+      monthlyCommuterPass.commuterAmount === null ||
+      monthlyCommuterPass.commuterAmount === undefined
         ? ""
         : String(monthlyCommuterPass.commuterAmount),
-  };
+    isNew: false,
+    isDirty: false,
+  }));
 }
 
 /*
@@ -362,13 +366,20 @@ export function buildCommuterPassViewForm(
  * ・画面stateだけを初期化する
  * ・このあと月次勤怠全体保存APIでDBへ反映する
  */
-export function resetCommuterPassViewForm(): CommuterPassViewForm {
+export function buildNewCommuterPassViewForm(): CommuterPassViewForm {
   return {
+    monthlyCommuterPassId: null,
     commuterFrom: "",
     commuterTo: "",
     commuterMethod: "",
     commuterAmount: "",
+    isNew: true,
+    isDirty: true,
   };
+}
+
+export function resetCommuterPassViewForms(): CommuterPassViewForm[] {
+  return [];
 }
 
 /*
@@ -378,6 +389,7 @@ export function buildUpdateMonthlyAttendanceSaveCommuterPassRequest(
   commuterPass: CommuterPassViewForm,
 ): UpdateMonthlyAttendanceSaveCommuterPassRequest {
   return {
+    monthlyCommuterPassId: commuterPass.monthlyCommuterPassId,
     commuterFrom: toNullableString(commuterPass.commuterFrom),
     commuterTo: toNullableString(commuterPass.commuterTo),
     commuterMethod: toNullableString(commuterPass.commuterMethod),
@@ -600,7 +612,7 @@ export function buildUpdateMonthlyAttendanceSaveRequest(
   targetUserId: number,
   targetYear: number,
   targetMonth: number,
-  commuterPass: CommuterPassViewForm,
+  commuterPasses: CommuterPassViewForm[],
   attendanceRows: AttendanceViewRow[],
   attendanceTypes: AttendanceType[],
 ): UpdateMonthlyAttendanceSaveRequest {
@@ -615,7 +627,9 @@ export function buildUpdateMonthlyAttendanceSaveRequest(
     targetUserId,
     targetYear,
     targetMonth,
-    commuterPass: buildUpdateMonthlyAttendanceSaveCommuterPassRequest(commuterPass),
+    commuterPasses: commuterPasses.map(
+      buildUpdateMonthlyAttendanceSaveCommuterPassRequest,
+    ),
     attendanceDays,
   };
 }

@@ -72,7 +72,7 @@ func NewMonthlyAttendanceSaveService(
  * 月次勤怠全体保存
  *
  * 保存順：
- * 1. 月次通勤定期
+ * 1. 月次通勤定期（複数件差分保存）
  * 2. 日別勤怠
  * 3. 日別交通費
  * 4. 既存休憩削除
@@ -135,30 +135,59 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 		return paidLeaveCheckResult
 	}
 
-	savedMonthlyCommuterPass := false
+	savedMonthlyCommuterPassCount := 0
 	savedAttendanceDayCount := 0
 	savedAttendanceTransportExpenseCount := 0
 	savedAttendanceBreakCount := 0
 
-	if req.CommuterPass != nil {
-		updateMonthlyCommuterPassResult := service.monthlyCommuterPassService.UpdateMonthlyCommuterPass(
+	commuterPassRequests := make(
+		[]types.UpdateMonthlyCommuterPassItemRequest,
+		0,
+		len(req.CommuterPasses),
+	)
+
+	for _, commuterPassReq := range req.CommuterPasses {
+		commuterPassRequests = append(
+			commuterPassRequests,
+			types.UpdateMonthlyCommuterPassItemRequest{
+				MonthlyCommuterPassID: commuterPassReq.MonthlyCommuterPassID,
+				CommuterFrom:          commuterPassReq.CommuterFrom,
+				CommuterTo:            commuterPassReq.CommuterTo,
+				CommuterMethod:        commuterPassReq.CommuterMethod,
+				CommuterAmount:        commuterPassReq.CommuterAmount,
+			},
+		)
+	}
+
+	updateMonthlyCommuterPassesResult :=
+		service.monthlyCommuterPassService.UpdateMonthlyCommuterPasses(
 			userID,
-			types.UpdateMonthlyCommuterPassRequest{
+			types.UpdateMonthlyCommuterPassesRequest{
 				TargetYear:     req.TargetYear,
 				TargetMonth:    req.TargetMonth,
-				CommuterFrom:   req.CommuterPass.CommuterFrom,
-				CommuterTo:     req.CommuterPass.CommuterTo,
-				CommuterMethod: req.CommuterPass.CommuterMethod,
-				CommuterAmount: req.CommuterPass.CommuterAmount,
+				CommuterPasses: commuterPassRequests,
 			},
 		)
 
-		if updateMonthlyCommuterPassResult.Error {
-			return updateMonthlyCommuterPassResult
-		}
-
-		savedMonthlyCommuterPass = true
+	if updateMonthlyCommuterPassesResult.Error {
+		return updateMonthlyCommuterPassesResult
 	}
+
+	updateMonthlyCommuterPassesResponse, ok :=
+		updateMonthlyCommuterPassesResult.Data.(types.UpdateMonthlyCommuterPassesResponse)
+	if !ok {
+		return results.InternalServerError(
+			"UPDATE_MONTHLY_ATTENDANCE_INVALID_COMMUTER_PASS_UPDATE_RESPONSE",
+			"月次通勤定期保存結果の形式が正しくありません",
+			map[string]any{
+				"targetYear":  req.TargetYear,
+				"targetMonth": req.TargetMonth,
+			},
+		)
+	}
+
+	savedMonthlyCommuterPassCount =
+		updateMonthlyCommuterPassesResponse.SavedMonthlyCommuterPassCount
 
 	for _, attendanceDayReq := range req.AttendanceDays {
 		/*
@@ -429,7 +458,7 @@ func (service *monthlyAttendanceSaveService) UpdateMonthlyAttendance(
 		types.UpdateMonthlyAttendanceResponse{
 			TargetYear:                           req.TargetYear,
 			TargetMonth:                          req.TargetMonth,
-			SavedMonthlyCommuterPass:             savedMonthlyCommuterPass,
+			SavedMonthlyCommuterPassCount:        savedMonthlyCommuterPassCount,
 			SavedAttendanceDayCount:              savedAttendanceDayCount,
 			SavedAttendanceTransportExpenseCount: savedAttendanceTransportExpenseCount,
 			SavedAttendanceBreakCount:            savedAttendanceBreakCount,

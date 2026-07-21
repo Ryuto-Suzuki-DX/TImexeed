@@ -4,17 +4,18 @@
   border: 1px solid #fed7aa;
   border-radius: 16px;
   background-color: #fff7ed;
+  box-sizing: border-box;
 }
 
 .sectionHeader {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   margin-bottom: 14px;
 }
 
-.sectionHeader > div:first-child {
+.sectionHeadingArea {
   min-width: 0;
   flex: 1;
 }
@@ -29,12 +30,109 @@
   margin: 0;
   color: #666666;
   font-size: 12px;
+  line-height: 1.5;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.summaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid #fdba74;
+  border-radius: 10px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.summaryLabel {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.summaryValue {
+  margin-right: 10px;
+  color: #c2410c;
+  font-size: 14px;
+}
+
+.summaryValue:last-child {
+  margin-right: 0;
+}
+
+.commuterPassList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.commuterPassCard {
+  padding: 14px;
+  border: 1px solid #fdba74;
+  border-radius: 12px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cardTitleArea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cardTitle {
+  margin: 0;
+  color: #9a3412;
+  font-size: 14px;
+}
+
+.savedBadge,
+.newBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  box-sizing: border-box;
+  font-size: 10px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.savedBadge {
+  color: #166534;
+  background-color: #dcfce7;
+}
+
+.newBadge {
+  color: #9a3412;
+  background-color: #ffedd5;
 }
 
 .commuterPassGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr 150px 140px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 150px 140px;
   gap: 10px;
+  align-items: end;
 }
 
 .fieldLabel {
@@ -76,7 +174,68 @@
   background-color: #f3f4f6;
 }
 
+.cardAmountRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #fed7aa;
+}
+
+.cardAmountLabel {
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.cardAmountValue {
+  color: #c2410c;
+  font-size: 13px;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 120px;
+  padding: 20px;
+  border: 1px dashed #fdba74;
+  border-radius: 12px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.emptyStateText {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.footerActionArea {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 @media (max-width: 960px) {
+  .sectionHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
+  }
+
+  .summaryRow {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .commuterPassGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -90,9 +249,8 @@
   }
 
   .sectionHeader {
-    align-items: flex-start;
-    gap: 6px;
-    margin-bottom: 7px;
+    gap: 7px;
+    margin-bottom: 8px;
   }
 
   .sectionTitle {
@@ -101,8 +259,67 @@
   }
 
   .sectionDescription {
+    font-size: 9px;
+    line-height: 1.45;
+  }
+
+  .headerActions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 5px;
+  }
+
+  .headerActions > * {
+    width: 100%;
+  }
+
+  .summaryRow {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    gap: 5px 8px;
+    margin-bottom: 8px;
+    padding: 7px 8px;
+    border-radius: 8px;
+  }
+
+  .summaryLabel {
+    font-size: 9px;
+  }
+
+  .summaryValue {
+    margin-right: 0;
+    font-size: 10px;
+    text-align: right;
+  }
+
+  .commuterPassList {
+    gap: 8px;
+  }
+
+  .commuterPassCard {
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .cardHeader {
+    gap: 6px;
+    margin-bottom: 7px;
+  }
+
+  .cardTitleArea {
+    gap: 5px;
+  }
+
+  .cardTitle {
+    font-size: 11px;
+  }
+
+  .savedBadge,
+  .newBadge {
+    min-height: 18px;
+    padding: 2px 6px;
     font-size: 8px;
-    line-height: 1.35;
   }
 
   .commuterPassGrid {
@@ -124,6 +341,57 @@
     border-radius: 7px;
     font-size: 10px;
   }
+
+  .cardAmountRow {
+    gap: 5px;
+    margin-top: 7px;
+    padding-top: 7px;
+  }
+
+  .cardAmountLabel {
+    font-size: 8px;
+  }
+
+  .cardAmountValue {
+    font-size: 10px;
+  }
+
+  .emptyState {
+    min-height: 90px;
+    gap: 7px;
+    padding: 12px;
+    border-radius: 9px;
+  }
+
+  .emptyStateText {
+    font-size: 9px;
+  }
+
+  .footerActionArea {
+    margin-top: 8px;
+  }
+
+  .footerActionArea > * {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .summaryRow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .summaryValue {
+    text-align: right;
+  }
+
+  .commuterPassGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .cardHeader {
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 400px) {
@@ -131,8 +399,21 @@
     padding: 6px;
   }
 
-  .commuterPassGrid {
-    gap: 4px;
+  .headerActions {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryRow {
+    gap: 4px 6px;
+    padding: 6px;
+  }
+
+  .commuterPassCard {
+    padding: 6px;
+  }
+
+  .cardTitle {
+    font-size: 10px;
   }
 
   .fieldLabelText {
@@ -142,6 +423,14 @@
   .select {
     height: 28px;
     padding: 3px 5px;
+    font-size: 9px;
+  }
+
+  .cardAmountLabel {
+    font-size: 7px;
+  }
+
+  .cardAmountValue {
     font-size: 9px;
   }
 }

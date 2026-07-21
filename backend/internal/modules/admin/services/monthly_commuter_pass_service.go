@@ -8,46 +8,13 @@ import (
 	"timexeed/backend/internal/results"
 )
 
-/*
- * 管理者用月次通勤定期Service interface
- *
- * Controllerや月次勤怠全体保存ServiceがServiceに求める処理だけを定義する。
- *
- * 注意：
- * ・管理者APIでは対象ユーザーIDを targetUserId としてRequestで受け取る
- * ・ControllerではJWTのuserIdを対象ユーザーIDとして使わない
- * ・MonthlyCommuterPass は月次通勤定期データだけを持つ
- * ・管理者側では MonthlyAttendanceRequest の状態による編集ロックを行わない
- */
 type MonthlyCommuterPassService interface {
 	SearchMonthlyCommuterPass(req types.SearchMonthlyCommuterPassRequest) results.Result
+	UpdateMonthlyCommuterPasses(req types.UpdateMonthlyCommuterPassesRequest) results.Result
 	UpdateMonthlyCommuterPass(req types.UpdateMonthlyCommuterPassRequest) results.Result
 	DeleteMonthlyCommuterPass(req types.DeleteMonthlyCommuterPassRequest) results.Result
 }
 
-/*
- * 管理者用月次通勤定期Service
- *
- * 役割：
- * ・Controllerから受け取ったRequestをもとに処理を進める
- * ・Serviceで発生したエラーはServiceでcode/message/detailsを作る
- * ・Builderで検索クエリや保存用Modelを作成する
- * ・Builderで発生したエラーはBuilderから返されたResultをそのまま返す
- * ・RepositoryでDB処理を実行する
- * ・Repositoryで発生したエラーはRepositoryから返されたResultをそのまま返す
- * ・成功時はResponse型に変換してControllerへ返す
- *
- * 状態管理：
- * ・MonthlyCommuterPass 自体は申請状態を持たない
- * ・対象月の申請状態は MonthlyAttendanceRequest 側で管理する
- * ・管理者側では月次申請状態による編集ロックを行わない
- *
- * 注意：
- * ・Controllerにはgin.Contextを渡さない
- * ・Serviceではc.JSONしない
- * ・DBへの直接アクセスはRepositoryに任せる
- * ・Builder/Repositoryのエラー文言をServiceで作り直さない
- */
 type monthlyCommuterPassService struct {
 	monthlyCommuterPassBuilder         builders.MonthlyCommuterPassBuilder
 	monthlyCommuterPassRepository      repositories.MonthlyCommuterPassRepository
@@ -55,9 +22,6 @@ type monthlyCommuterPassService struct {
 	monthlyAttendanceRequestRepository repositories.MonthlyAttendanceRequestRepository
 }
 
-/*
- * MonthlyCommuterPassService生成
- */
 func NewMonthlyCommuterPassService(
 	monthlyCommuterPassBuilder builders.MonthlyCommuterPassBuilder,
 	monthlyCommuterPassRepository repositories.MonthlyCommuterPassRepository,
@@ -72,12 +36,6 @@ func NewMonthlyCommuterPassService(
 	}
 }
 
-/*
- * models.MonthlyCommuterPassをフロント返却用MonthlyCommuterPassResponseへ変換する
- *
- * MonthlyCommuterPass は申請状態を持たない。
- * 月次申請状態は MonthlyAttendanceRequest 側で管理する。
- */
 func toMonthlyCommuterPassResponse(
 	monthlyCommuterPass models.MonthlyCommuterPass,
 ) types.MonthlyCommuterPassResponse {
@@ -100,9 +58,23 @@ func toMonthlyCommuterPassResponse(
 	}
 }
 
-/*
- * 対象ユーザーIDのバリデーション
- */
+func toMonthlyCommuterPassResponses(
+	monthlyCommuterPasses []models.MonthlyCommuterPass,
+) ([]types.MonthlyCommuterPassResponse, int) {
+	responses := make([]types.MonthlyCommuterPassResponse, 0, len(monthlyCommuterPasses))
+	totalCommuterAmount := 0
+
+	for _, monthlyCommuterPass := range monthlyCommuterPasses {
+		responses = append(responses, toMonthlyCommuterPassResponse(monthlyCommuterPass))
+
+		if monthlyCommuterPass.CommuterAmount != nil {
+			totalCommuterAmount += *monthlyCommuterPass.CommuterAmount
+		}
+	}
+
+	return responses, totalCommuterAmount
+}
+
 func validateMonthlyCommuterPassTargetUserID(
 	targetUserID uint,
 	actionCode string,
@@ -111,23 +83,13 @@ func validateMonthlyCommuterPassTargetUserID(
 		return results.BadRequest(
 			actionCode+"_INVALID_TARGET_USER_ID",
 			"対象ユーザーIDが正しくありません",
-			map[string]any{
-				"targetUserId": targetUserID,
-			},
+			map[string]any{"targetUserId": targetUserID},
 		)
 	}
 
-	return results.OK(
-		nil,
-		actionCode+"_VALID_TARGET_USER_ID",
-		"",
-		nil,
-	)
+	return results.OK(nil, actionCode+"_VALID_TARGET_USER_ID", "", nil)
 }
 
-/*
- * 対象年月のバリデーション
- */
 func validateMonthlyCommuterPassTargetMonth(
 	targetYear int,
 	targetMonth int,
@@ -137,9 +99,7 @@ func validateMonthlyCommuterPassTargetMonth(
 		return results.BadRequest(
 			actionCode+"_INVALID_TARGET_YEAR",
 			"対象年が正しくありません",
-			map[string]any{
-				"targetYear": targetYear,
-			},
+			map[string]any{"targetYear": targetYear},
 		)
 	}
 
@@ -147,25 +107,15 @@ func validateMonthlyCommuterPassTargetMonth(
 		return results.BadRequest(
 			actionCode+"_INVALID_TARGET_MONTH",
 			"対象月が正しくありません",
-			map[string]any{
-				"targetMonth": targetMonth,
-			},
+			map[string]any{"targetMonth": targetMonth},
 		)
 	}
 
-	return results.OK(
-		nil,
-		actionCode+"_VALID_TARGET_MONTH",
-		"",
-		nil,
-	)
+	return results.OK(nil, actionCode+"_VALID_TARGET_MONTH", "", nil)
 }
 
 /*
- * 月次通勤定期検索
- *
- * 対象ユーザーの対象年月の通勤定期を取得する。
- * 未登録の場合は monthlyCommuterPass = nil で返す。
+ * 対象ユーザー・対象年月の月次通勤定期をすべて取得する。
  */
 func (service *monthlyCommuterPassService) SearchMonthlyCommuterPass(
 	req types.SearchMonthlyCommuterPassRequest,
@@ -187,43 +137,31 @@ func (service *monthlyCommuterPassService) SearchMonthlyCommuterPass(
 		return validateMonthResult
 	}
 
-	query, buildResult := service.monthlyCommuterPassBuilder.BuildFindMonthlyCommuterPassByUserIDAndTargetYearMonthQuery(
-		req.TargetUserID,
-		req.TargetYear,
-		req.TargetMonth,
-	)
+	query, buildResult := service.monthlyCommuterPassBuilder.
+		BuildFindMonthlyCommuterPassesByUserIDAndTargetYearMonthQuery(
+			req.TargetUserID,
+			req.TargetYear,
+			req.TargetMonth,
+		)
 	if buildResult.Error {
 		return buildResult
 	}
 
-	monthlyCommuterPass, findResult := service.monthlyCommuterPassRepository.FindMonthlyCommuterPass(query)
-
-	if findResult.Error && findResult.Code == "MONTHLY_COMMUTER_PASS_NOT_FOUND" {
-		return results.OK(
-			types.SearchMonthlyCommuterPassResponse{
-				TargetUserID:        req.TargetUserID,
-				TargetYear:          req.TargetYear,
-				TargetMonth:         req.TargetMonth,
-				MonthlyCommuterPass: nil,
-			},
-			"SEARCH_MONTHLY_COMMUTER_PASS_SUCCESS",
-			"月次通勤定期を取得しました",
-			nil,
-		)
-	}
-
+	monthlyCommuterPasses, findResult := service.monthlyCommuterPassRepository.
+		FindMonthlyCommuterPasses(query)
 	if findResult.Error {
 		return findResult
 	}
 
-	response := toMonthlyCommuterPassResponse(monthlyCommuterPass)
+	responses, totalCommuterAmount := toMonthlyCommuterPassResponses(monthlyCommuterPasses)
 
 	return results.OK(
 		types.SearchMonthlyCommuterPassResponse{
-			TargetUserID:        req.TargetUserID,
-			TargetYear:          req.TargetYear,
-			TargetMonth:         req.TargetMonth,
-			MonthlyCommuterPass: &response,
+			TargetUserID:          req.TargetUserID,
+			TargetYear:            req.TargetYear,
+			TargetMonth:           req.TargetMonth,
+			MonthlyCommuterPasses: responses,
+			TotalCommuterAmount:   totalCommuterAmount,
 		},
 		"SEARCH_MONTHLY_COMMUTER_PASS_SUCCESS",
 		"月次通勤定期を取得しました",
@@ -232,23 +170,18 @@ func (service *monthlyCommuterPassService) SearchMonthlyCommuterPass(
 }
 
 /*
- * 月次通勤定期更新
+ * 月次通勤定期差分保存
  *
- * APIとして直接公開しない。
- * monthly_attendances/update の月次全体保存から内部的に使う。
- *
- * 仕様：
- * ・targetUserId + targetYear + targetMonth で既存通勤定期を検索する
- * ・存在しなければ新規作成する
- * ・存在すれば更新する
- * ・管理者側では月次申請状態による編集ロックを行わない
+ * ・IDあり：更新
+ * ・IDなし：新規作成
+ * ・DBに存在するがRequestから消えたID：論理削除
  */
-func (service *monthlyCommuterPassService) UpdateMonthlyCommuterPass(
-	req types.UpdateMonthlyCommuterPassRequest,
+func (service *monthlyCommuterPassService) UpdateMonthlyCommuterPasses(
+	req types.UpdateMonthlyCommuterPassesRequest,
 ) results.Result {
 	validateUserResult := validateMonthlyCommuterPassTargetUserID(
 		req.TargetUserID,
-		"UPDATE_MONTHLY_COMMUTER_PASS",
+		"UPDATE_MONTHLY_COMMUTER_PASSES",
 	)
 	if validateUserResult.Error {
 		return validateUserResult
@@ -257,39 +190,192 @@ func (service *monthlyCommuterPassService) UpdateMonthlyCommuterPass(
 	validateMonthResult := validateMonthlyCommuterPassTargetMonth(
 		req.TargetYear,
 		req.TargetMonth,
-		"UPDATE_MONTHLY_COMMUTER_PASS",
+		"UPDATE_MONTHLY_COMMUTER_PASSES",
 	)
 	if validateMonthResult.Error {
 		return validateMonthResult
 	}
 
-	findQuery, buildFindResult := service.monthlyCommuterPassBuilder.BuildFindMonthlyCommuterPassByUserIDAndTargetYearMonthQuery(
-		req.TargetUserID,
-		req.TargetYear,
-		req.TargetMonth,
-	)
+	findQuery, buildFindResult := service.monthlyCommuterPassBuilder.
+		BuildFindMonthlyCommuterPassesByUserIDAndTargetYearMonthQuery(
+			req.TargetUserID,
+			req.TargetYear,
+			req.TargetMonth,
+		)
 	if buildFindResult.Error {
 		return buildFindResult
 	}
 
-	currentMonthlyCommuterPass, findResult := service.monthlyCommuterPassRepository.FindMonthlyCommuterPass(findQuery)
+	currentMonthlyCommuterPasses, findResult := service.monthlyCommuterPassRepository.
+		FindMonthlyCommuterPasses(findQuery)
+	if findResult.Error {
+		return findResult
+	}
 
-	if findResult.Error && findResult.Code == "MONTHLY_COMMUTER_PASS_NOT_FOUND" {
-		monthlyCommuterPass, buildCreateResult := service.monthlyCommuterPassBuilder.BuildCreateMonthlyCommuterPassModel(
-			req,
+	currentByID := make(map[uint]models.MonthlyCommuterPass, len(currentMonthlyCommuterPasses))
+	for _, current := range currentMonthlyCommuterPasses {
+		currentByID[current.ID] = current
+	}
+
+	requestedIDs := make(map[uint]bool)
+	savedMonthlyCommuterPasses := make([]models.MonthlyCommuterPass, 0, len(req.CommuterPasses))
+	savedCount := 0
+
+	for _, commuterPassReq := range req.CommuterPasses {
+		if commuterPassReq.MonthlyCommuterPassID == nil || *commuterPassReq.MonthlyCommuterPassID == 0 {
+			createModel, buildCreateResult := service.monthlyCommuterPassBuilder.
+				BuildCreateMonthlyCommuterPassModel(
+					req.TargetUserID,
+					req.TargetYear,
+					req.TargetMonth,
+					commuterPassReq,
+				)
+			if buildCreateResult.Error {
+				return buildCreateResult
+			}
+
+			created, createResult := service.monthlyCommuterPassRepository.
+				CreateMonthlyCommuterPass(createModel)
+			if createResult.Error {
+				return createResult
+			}
+
+			savedMonthlyCommuterPasses = append(savedMonthlyCommuterPasses, created)
+			savedCount++
+			continue
+		}
+
+		monthlyCommuterPassID := *commuterPassReq.MonthlyCommuterPassID
+		if requestedIDs[monthlyCommuterPassID] {
+			return results.BadRequest(
+				"UPDATE_MONTHLY_COMMUTER_PASSES_DUPLICATE_ID",
+				"同じ月次通勤定期IDが複数回指定されています",
+				map[string]any{"monthlyCommuterPassId": monthlyCommuterPassID},
+			)
+		}
+		requestedIDs[monthlyCommuterPassID] = true
+
+		current, exists := currentByID[monthlyCommuterPassID]
+		if !exists {
+			return results.NotFound(
+				"MONTHLY_COMMUTER_PASS_NOT_FOUND",
+				"更新対象の月次通勤定期が見つかりません",
+				map[string]any{"monthlyCommuterPassId": monthlyCommuterPassID},
+			)
+		}
+
+		updateModel, buildUpdateResult := service.monthlyCommuterPassBuilder.
+			BuildUpdateMonthlyCommuterPassModel(
+				current,
+				req.TargetUserID,
+				req.TargetYear,
+				req.TargetMonth,
+				commuterPassReq,
+			)
+		if buildUpdateResult.Error {
+			return buildUpdateResult
+		}
+
+		saved, saveResult := service.monthlyCommuterPassRepository.
+			SaveMonthlyCommuterPass(updateModel)
+		if saveResult.Error {
+			return saveResult
+		}
+
+		savedMonthlyCommuterPasses = append(savedMonthlyCommuterPasses, saved)
+		savedCount++
+	}
+
+	for _, current := range currentMonthlyCommuterPasses {
+		if requestedIDs[current.ID] {
+			continue
+		}
+
+		deleteModel, buildDeleteResult := service.monthlyCommuterPassBuilder.
+			BuildDeleteMonthlyCommuterPassModel(current)
+		if buildDeleteResult.Error {
+			return buildDeleteResult
+		}
+
+		_, saveResult := service.monthlyCommuterPassRepository.
+			SaveMonthlyCommuterPass(deleteModel)
+		if saveResult.Error {
+			return saveResult
+		}
+
+		savedCount++
+	}
+
+	responses, totalCommuterAmount := toMonthlyCommuterPassResponses(savedMonthlyCommuterPasses)
+
+	return results.OK(
+		types.UpdateMonthlyCommuterPassesResponse{
+			TargetUserID:                  req.TargetUserID,
+			TargetYear:                    req.TargetYear,
+			TargetMonth:                   req.TargetMonth,
+			MonthlyCommuterPasses:         responses,
+			SavedMonthlyCommuterPassCount: savedCount,
+			TotalCommuterAmount:           totalCommuterAmount,
+		},
+		"UPDATE_MONTHLY_COMMUTER_PASSES_SUCCESS",
+		"月次通勤定期を保存しました",
+		nil,
+	)
+}
+
+/*
+ * 旧単体更新処理（互換用）
+ *
+ * 新しい月次勤怠全体保存では UpdateMonthlyCommuterPasses を使用する。
+ * 既存呼び出しを壊さないため、対象年月の先頭1件を更新し、未登録なら作成する。
+ */
+func (service *monthlyCommuterPassService) UpdateMonthlyCommuterPass(
+	req types.UpdateMonthlyCommuterPassRequest,
+) results.Result {
+	findQuery, buildFindResult := service.monthlyCommuterPassBuilder.
+		BuildFindMonthlyCommuterPassesByUserIDAndTargetYearMonthQuery(
+			req.TargetUserID,
+			req.TargetYear,
+			req.TargetMonth,
 		)
+	if buildFindResult.Error {
+		return buildFindResult
+	}
+
+	currentMonthlyCommuterPasses, findResult := service.monthlyCommuterPassRepository.
+		FindMonthlyCommuterPasses(findQuery)
+	if findResult.Error {
+		return findResult
+	}
+
+	itemReq := types.UpdateMonthlyCommuterPassItemRequest{
+		CommuterFrom:   req.CommuterFrom,
+		CommuterTo:     req.CommuterTo,
+		CommuterMethod: req.CommuterMethod,
+		CommuterAmount: req.CommuterAmount,
+	}
+
+	if len(currentMonthlyCommuterPasses) == 0 {
+		createModel, buildCreateResult := service.monthlyCommuterPassBuilder.
+			BuildCreateMonthlyCommuterPassModel(
+				req.TargetUserID,
+				req.TargetYear,
+				req.TargetMonth,
+				itemReq,
+			)
 		if buildCreateResult.Error {
 			return buildCreateResult
 		}
 
-		createdMonthlyCommuterPass, createResult := service.monthlyCommuterPassRepository.CreateMonthlyCommuterPass(monthlyCommuterPass)
+		created, createResult := service.monthlyCommuterPassRepository.
+			CreateMonthlyCommuterPass(createModel)
 		if createResult.Error {
 			return createResult
 		}
 
 		return results.Created(
 			types.UpdateMonthlyCommuterPassResponse{
-				MonthlyCommuterPass: toMonthlyCommuterPassResponse(createdMonthlyCommuterPass),
+				MonthlyCommuterPass: toMonthlyCommuterPassResponse(created),
 			},
 			"CREATE_MONTHLY_COMMUTER_PASS_SUCCESS",
 			"月次通勤定期を作成しました",
@@ -297,26 +383,30 @@ func (service *monthlyCommuterPassService) UpdateMonthlyCommuterPass(
 		)
 	}
 
-	if findResult.Error {
-		return findResult
-	}
+	current := currentMonthlyCommuterPasses[0]
+	itemReq.MonthlyCommuterPassID = &current.ID
 
-	monthlyCommuterPass, buildUpdateResult := service.monthlyCommuterPassBuilder.BuildUpdateMonthlyCommuterPassModel(
-		currentMonthlyCommuterPass,
-		req,
-	)
+	updateModel, buildUpdateResult := service.monthlyCommuterPassBuilder.
+		BuildUpdateMonthlyCommuterPassModel(
+			current,
+			req.TargetUserID,
+			req.TargetYear,
+			req.TargetMonth,
+			itemReq,
+		)
 	if buildUpdateResult.Error {
 		return buildUpdateResult
 	}
 
-	savedMonthlyCommuterPass, saveResult := service.monthlyCommuterPassRepository.SaveMonthlyCommuterPass(monthlyCommuterPass)
+	saved, saveResult := service.monthlyCommuterPassRepository.
+		SaveMonthlyCommuterPass(updateModel)
 	if saveResult.Error {
 		return saveResult
 	}
 
 	return results.OK(
 		types.UpdateMonthlyCommuterPassResponse{
-			MonthlyCommuterPass: toMonthlyCommuterPassResponse(savedMonthlyCommuterPass),
+			MonthlyCommuterPass: toMonthlyCommuterPassResponse(saved),
 		},
 		"UPDATE_MONTHLY_COMMUTER_PASS_SUCCESS",
 		"月次通勤定期を更新しました",
@@ -325,13 +415,7 @@ func (service *monthlyCommuterPassService) UpdateMonthlyCommuterPass(
 }
 
 /*
- * 月次通勤定期削除
- *
- * APIとして直接公開しない。
- * monthly_attendances/update の月次全体保存から内部的に使う。
- *
- * 注意：
- * ・管理者側では月次申請状態による編集ロックを行わない
+ * 対象年月の月次通勤定期をすべて論理削除する。
  */
 func (service *monthlyCommuterPassService) DeleteMonthlyCommuterPass(
 	req types.DeleteMonthlyCommuterPassRequest,
@@ -353,35 +437,45 @@ func (service *monthlyCommuterPassService) DeleteMonthlyCommuterPass(
 		return validateMonthResult
 	}
 
-	findQuery, buildFindResult := service.monthlyCommuterPassBuilder.BuildFindMonthlyCommuterPassByUserIDAndTargetYearMonthQuery(
-		req.TargetUserID,
-		req.TargetYear,
-		req.TargetMonth,
-	)
+	findQuery, buildFindResult := service.monthlyCommuterPassBuilder.
+		BuildFindMonthlyCommuterPassesByUserIDAndTargetYearMonthQuery(
+			req.TargetUserID,
+			req.TargetYear,
+			req.TargetMonth,
+		)
 	if buildFindResult.Error {
 		return buildFindResult
 	}
 
-	currentMonthlyCommuterPass, findResult := service.monthlyCommuterPassRepository.FindMonthlyCommuterPass(findQuery)
+	currentMonthlyCommuterPasses, findResult := service.monthlyCommuterPassRepository.
+		FindMonthlyCommuterPasses(findQuery)
 	if findResult.Error {
 		return findResult
 	}
 
-	deletedMonthlyCommuterPass, buildDeleteResult := service.monthlyCommuterPassBuilder.BuildDeleteMonthlyCommuterPassModel(currentMonthlyCommuterPass)
-	if buildDeleteResult.Error {
-		return buildDeleteResult
-	}
+	deletedCount := 0
+	for _, current := range currentMonthlyCommuterPasses {
+		deletedModel, buildDeleteResult := service.monthlyCommuterPassBuilder.
+			BuildDeleteMonthlyCommuterPassModel(current)
+		if buildDeleteResult.Error {
+			return buildDeleteResult
+		}
 
-	_, saveResult := service.monthlyCommuterPassRepository.SaveMonthlyCommuterPass(deletedMonthlyCommuterPass)
-	if saveResult.Error {
-		return saveResult
+		_, saveResult := service.monthlyCommuterPassRepository.
+			SaveMonthlyCommuterPass(deletedModel)
+		if saveResult.Error {
+			return saveResult
+		}
+
+		deletedCount++
 	}
 
 	return results.OK(
 		types.DeleteMonthlyCommuterPassResponse{
-			TargetUserID: req.TargetUserID,
-			TargetYear:   req.TargetYear,
-			TargetMonth:  req.TargetMonth,
+			TargetUserID:                    req.TargetUserID,
+			TargetYear:                      req.TargetYear,
+			TargetMonth:                     req.TargetMonth,
+			DeletedMonthlyCommuterPassCount: deletedCount,
 		},
 		"DELETE_MONTHLY_COMMUTER_PASS_SUCCESS",
 		"月次通勤定期を削除しました",

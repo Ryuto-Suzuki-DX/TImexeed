@@ -44,12 +44,13 @@ import {
   attachBreaksToAttendanceViewRows,
   attachTransportExpensesToAttendanceViewRows,
   buildAttendanceViewRows,
-  buildCommuterPassViewForm,
+  buildCommuterPassViewForms,
   buildNewAttendanceBreakViewRow,
   buildNewAttendanceTransportExpenseViewRow,
   buildUpdateMonthlyAttendanceSaveRequest,
   resetAttendanceViewRow,
-  resetCommuterPassViewForm,
+  buildNewCommuterPassViewForm,
+  resetCommuterPassViewForms,
 } from "@/utils/attendance/userAttendance/userAttendanceMapper";
 import {
   isUserAttendanceRowLocked,
@@ -78,16 +79,10 @@ export default function UserAttendancePage() {
   const [pendingTargetMonth, setPendingTargetMonth] = useState<string | null>(null);
   const [attendanceTypes, setAttendanceTypes] = useState<AttendanceType[]>([]);
   const [attendanceRows, setAttendanceRows] = useState<AttendanceViewRow[]>([]);
-  const [commuterPass, setCommuterPass] = useState<CommuterPassViewForm>({
-    commuterFrom: "",
-    commuterTo: "",
-    commuterMethod: "",
-    commuterAmount: "",
-  });
+  const [commuterPasses, setCommuterPasses] = useState<CommuterPassViewForm[]>([]);
   const [monthlyAttendanceRequest, setMonthlyAttendanceRequest] =
     useState<MonthlyAttendanceRequest | null>(null);
   const [paidLeaveBalance, setPaidLeaveBalance] = useState<PaidLeaveBalanceResponse | null>(null);
-  const [isCommuterPassDirty, setIsCommuterPassDirty] = useState(false);
   const [pageMessage, setPageMessage] = useState("対象月の勤怠を入力できます。");
   const [pageMessageVariant, setPageMessageVariant] = useState<PageMessageVariant>("info");
   const [isPageLoading, setIsPageLoading] = useState(false);
@@ -101,7 +96,7 @@ export default function UserAttendancePage() {
 
   const hasUnsavedChanges = useMemo(() => {
     return (
-      isCommuterPassDirty ||
+      commuterPasses.some((commuterPass) => commuterPass.isDirty) ||
       attendanceRows.some(
         (row) =>
           row.isDirty ||
@@ -109,7 +104,7 @@ export default function UserAttendancePage() {
           row.transportExpenses.some((transportExpense) => transportExpense.isDirty),
       )
     );
-  }, [attendanceRows, isCommuterPassDirty]);
+  }, [attendanceRows, commuterPasses]);
 
   const hasNoPaidLeaveBalance = paidLeaveBalance === null || paidLeaveBalance.remainingDays <= 0;
 
@@ -202,7 +197,8 @@ export default function UserAttendancePage() {
         return;
       }
 
-      const nextMonthlyCommuterPass = commuterPassResult.data.monthlyCommuterPass;
+      const nextMonthlyCommuterPasses =
+        commuterPassResult.data.monthlyCommuterPasses;
 
       const monthlyAttendanceRequestResult = await searchMonthlyAttendanceRequest({
         targetYear,
@@ -268,9 +264,10 @@ export default function UserAttendancePage() {
       setAttendanceRows(
         attachBreaksToAttendanceViewRows(rowsWithTransportExpenses, breakMap),
       );
-      setCommuterPass(buildCommuterPassViewForm(nextMonthlyCommuterPass));
+      setCommuterPasses(
+        buildCommuterPassViewForms(nextMonthlyCommuterPasses),
+      );
       setMonthlyAttendanceRequest(nextMonthlyAttendanceRequest);
-      setIsCommuterPassDirty(false);
 
       if (hasBreakLoadError) {
         setPageMessage("勤怠情報を取得しました。一部の日付の休憩取得に失敗しました。");
@@ -356,17 +353,48 @@ export default function UserAttendancePage() {
   };
 
   const updateCommuterPassForm = <K extends keyof CommuterPassViewForm>(
+    index: number,
     key: K,
     value: CommuterPassViewForm[K],
   ) => {
-    setCommuterPass((current) => ({ ...current, [key]: value }));
-    setIsCommuterPassDirty(true);
+    setCommuterPasses((current) =>
+      current.map((commuterPass, currentIndex) =>
+        currentIndex === index
+          ? {
+              ...commuterPass,
+              [key]: value,
+              isDirty: true,
+            }
+          : commuterPass,
+      ),
+    );
   };
 
-  const handleResetCommuterPass = () => {
-    setCommuterPass(resetCommuterPassViewForm());
-    setIsCommuterPassDirty(true);
-    setPageMessage("月次通勤定期を初期値に戻しました。全体保存で反映されます。");
+  const handleAddCommuterPass = () => {
+    setCommuterPasses((current) => [
+      ...current,
+      buildNewCommuterPassViewForm(),
+    ]);
+    setPageMessage("月次通勤定期の入力欄を追加しました。");
+    setPageMessageVariant("info");
+  };
+
+  const handleRemoveCommuterPass = (index: number) => {
+    setCommuterPasses((current) =>
+      current
+        .filter((_, currentIndex) => currentIndex !== index)
+        .map((commuterPass) => ({
+          ...commuterPass,
+          isDirty: true,
+        })),
+    );
+    setPageMessage("月次通勤定期を削除対象にしました。全体保存で反映されます。");
+    setPageMessageVariant("info");
+  };
+
+  const handleResetCommuterPasses = () => {
+    setCommuterPasses(resetCommuterPassViewForms());
+    setPageMessage("月次通勤定期をすべて初期値に戻しました。全体保存で反映されます。");
     setPageMessageVariant("info");
   };
 
@@ -409,7 +437,11 @@ export default function UserAttendancePage() {
         row.transportExpenses.some((transportExpense) => transportExpense.isDirty),
     );
 
-    if (!isCommuterPassDirty && saveTargetRows.length === 0) {
+    const hasDirtyCommuterPass = commuterPasses.some(
+      (commuterPass) => commuterPass.isDirty,
+    );
+
+    if (!hasDirtyCommuterPass && saveTargetRows.length === 0) {
       setPageMessage("保存対象の勤怠はありません。");
       setPageMessageVariant("info");
       return true;
@@ -427,6 +459,31 @@ export default function UserAttendancePage() {
       setPageMessage("有給残数が取得できていない、または残数が0日のため、有給を保存できません。");
       setPageMessageVariant("error");
       return false;
+    }
+
+    for (const commuterPass of commuterPasses) {
+      if (
+        !commuterPass.commuterFrom.trim() ||
+        !commuterPass.commuterTo.trim() ||
+        !commuterPass.commuterMethod.trim()
+      ) {
+        setPageMessage(
+          "月次通勤定期の出発地・目的地・手段を入力してください。",
+        );
+        setPageMessageVariant("error");
+        return false;
+      }
+
+      const commuterAmount = Number(commuterPass.commuterAmount);
+      if (
+        commuterPass.commuterAmount.trim() === "" ||
+        !Number.isFinite(commuterAmount) ||
+        commuterAmount < 0
+      ) {
+        setPageMessage("月次通勤定期の金額を正しく入力してください。");
+        setPageMessageVariant("error");
+        return false;
+      }
     }
 
     for (const row of saveTargetRows) {
@@ -505,7 +562,7 @@ export default function UserAttendancePage() {
       request = buildUpdateMonthlyAttendanceSaveRequest(
         targetYear,
         targetMonthValue,
-        commuterPass,
+        commuterPasses,
         saveTargetRows,
         attendanceTypes,
       );
@@ -862,10 +919,12 @@ export default function UserAttendancePage() {
           </div>
 
           <MonthlyCommuterPassForm
-            commuterPass={commuterPass}
+            commuterPasses={commuterPasses}
             disabled={isUserMonthlyCommuterPassLocked(monthlyStatus)}
             onChange={updateCommuterPassForm}
-            onReset={handleResetCommuterPass}
+            onAdd={handleAddCommuterPass}
+            onRemove={handleRemoveCommuterPass}
+            onReset={handleResetCommuterPasses}
           />
 
           <AttendanceTable

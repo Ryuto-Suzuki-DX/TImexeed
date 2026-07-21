@@ -40,6 +40,7 @@ const monthlyAttendanceSummaryExportContentTypeXLSX = "application/vnd.openxmlfo
  * ・予定区分は AttendanceDay.PlanAttendanceType を見る
  * ・実績状態は AttendanceDay.ActualWorkStatus を見る
  * ・日別交通費は AttendanceTransportExpense を AttendanceDayID 単位で集計する
+ * ・月次通勤定期は対象ユーザー・対象年月の全明細を合計する
  * ・ActualAttendanceTypeID / ActualAttendanceType は使わない
  */
 type monthlyAttendanceSummaryExportService struct {
@@ -350,7 +351,7 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 	attendanceDays []models.AttendanceDay,
 	attendanceBreakMap map[uint][]models.AttendanceBreak,
 	attendanceTransportExpenseMap map[uint][]models.AttendanceTransportExpense,
-	monthlyCommuterPass models.MonthlyCommuterPass,
+	monthlyCommuterPasses []models.MonthlyCommuterPass,
 	paidLeaveUsages []models.PaidLeaveUsage,
 	expenses []models.Expense,
 	targetMonthStart time.Time,
@@ -486,7 +487,7 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 		row.MissingAttendanceDays = 0
 	}
 
-	service.applyCommuterPassToRow(&row, monthlyCommuterPass)
+	service.applyCommuterPassesToRow(&row, monthlyCommuterPasses)
 
 	paidLeaveUsedDays := 0.0
 	paidLeaveUsedMinutes := 0
@@ -864,15 +865,51 @@ func (service *monthlyAttendanceSummaryExportService) applyWeeklyOvertime(
 
 /*
  * 月次通勤定期をCSV行へ反映
+ *
+ * 複数件ある場合：
+ * ・出発地、目的地、手段は「 / 」で連結する
+ * ・金額は有効な全明細を合計する
+ *
+ * 注意：
+ * ・Repository側でも論理削除済みは除外しているが、念のためService側でも除外する
+ * ・空文字は表示用文字列へ追加しない
  */
-func (service *monthlyAttendanceSummaryExportService) applyCommuterPassToRow(
+func (service *monthlyAttendanceSummaryExportService) applyCommuterPassesToRow(
 	row *types.MonthlyAttendanceSummaryCsvRow,
-	monthlyCommuterPass models.MonthlyCommuterPass,
+	monthlyCommuterPasses []models.MonthlyCommuterPass,
 ) {
-	row.CommuterPassFrom = stringPtrValue(monthlyCommuterPass.CommuterFrom)
-	row.CommuterPassTo = stringPtrValue(monthlyCommuterPass.CommuterTo)
-	row.CommuterPassMethod = stringPtrValue(monthlyCommuterPass.CommuterMethod)
-	row.CommuterPassAmount = intPtrValue(monthlyCommuterPass.CommuterAmount)
+	commuterFromValues := make([]string, 0, len(monthlyCommuterPasses))
+	commuterToValues := make([]string, 0, len(monthlyCommuterPasses))
+	commuterMethodValues := make([]string, 0, len(monthlyCommuterPasses))
+	commuterPassAmount := 0
+
+	for _, monthlyCommuterPass := range monthlyCommuterPasses {
+		if monthlyCommuterPass.IsDeleted {
+			continue
+		}
+
+		commuterFrom := strings.TrimSpace(stringPtrValue(monthlyCommuterPass.CommuterFrom))
+		if commuterFrom != "" {
+			commuterFromValues = append(commuterFromValues, commuterFrom)
+		}
+
+		commuterTo := strings.TrimSpace(stringPtrValue(monthlyCommuterPass.CommuterTo))
+		if commuterTo != "" {
+			commuterToValues = append(commuterToValues, commuterTo)
+		}
+
+		commuterMethod := strings.TrimSpace(stringPtrValue(monthlyCommuterPass.CommuterMethod))
+		if commuterMethod != "" {
+			commuterMethodValues = append(commuterMethodValues, commuterMethod)
+		}
+
+		commuterPassAmount += intPtrValue(monthlyCommuterPass.CommuterAmount)
+	}
+
+	row.CommuterPassFrom = strings.Join(commuterFromValues, " / ")
+	row.CommuterPassTo = strings.Join(commuterToValues, " / ")
+	row.CommuterPassMethod = strings.Join(commuterMethodValues, " / ")
+	row.CommuterPassAmount = commuterPassAmount
 }
 
 /*

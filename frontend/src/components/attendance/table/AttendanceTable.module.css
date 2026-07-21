@@ -18,6 +18,78 @@
   font-size: 12px;
 }
 
+.copyStatus {
+  width: fit-content;
+  margin: 8px 0 0;
+  padding: 5px 8px;
+  border: 1px solid #fb923c;
+  border-radius: 999px;
+  background-color: #fff7ed;
+  color: #9a3412;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.topScrollbarArea {
+  position: sticky;
+  top: 6px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 620px);
+  margin: 0 0 8px auto;
+  padding: 5px 7px;
+  border: 1px solid #fed7aa;
+  border-radius: 9px;
+  background-color: rgba(255, 255, 255, 0.96);
+  box-sizing: border-box;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.topScrollbarLabel {
+  flex-shrink: 0;
+  color: #9a3412;
+  font-size: 10px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.topScrollbar {
+  flex: 1;
+  min-width: 0;
+  height: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-color: #fb923c #ffedd5;
+  scrollbar-width: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.topScrollbar::-webkit-scrollbar {
+  height: 12px;
+}
+
+.topScrollbar::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background-color: #ffedd5;
+}
+
+.topScrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid #ffedd5;
+  border-radius: 999px;
+  background-color: #fb923c;
+}
+
+.topScrollbarContent {
+  height: 1px;
+}
+
 .tableWrap {
   width: 100%;
   max-width: 100%;
@@ -33,7 +105,7 @@
 
 .table {
   width: 100%;
-  min-width: 1680px;
+  min-width: 1780px;
   border-collapse: collapse;
 }
 
@@ -51,8 +123,14 @@
   white-space: nowrap;
 }
 
+.copyColumn {
+  width: 96px;
+  min-width: 96px;
+}
+
 .dateColumn {
   width: 72px;
+  min-width: 72px;
 }
 
 .planColumn {
@@ -88,12 +166,20 @@
 .table td:first-child {
   position: sticky;
   left: 0;
-  z-index: 2;
+  z-index: 4;
   box-shadow: 2px 0 5px rgba(15, 23, 42, 0.08);
 }
 
-.table th:first-child {
+.table th:nth-child(2),
+.table td:nth-child(2) {
+  position: sticky;
+  left: 96px;
   z-index: 3;
+  box-shadow: 2px 0 5px rgba(15, 23, 42, 0.08);
+}
+
+.table th:first-child,
+.table th:nth-child(2) {
   background-color: #ffedd5;
 }
 
@@ -113,12 +199,39 @@
     line-height: 1.35;
   }
 
+  .copyStatus {
+    margin-top: 5px;
+    padding: 4px 6px;
+    font-size: 9px;
+  }
+
+  .topScrollbarArea {
+    top: 4px;
+    width: min(100%, 440px);
+    gap: 5px;
+    margin-bottom: 6px;
+    padding: 4px 5px;
+    border-radius: 7px;
+  }
+
+  .topScrollbarLabel {
+    font-size: 8px;
+  }
+
+  .topScrollbar {
+    height: 18px;
+  }
+
+  .topScrollbar::-webkit-scrollbar {
+    height: 14px;
+  }
+
   .tableWrap {
     border-radius: 9px;
   }
 
   .table {
-    min-width: 1280px;
+    min-width: 1380px;
   }
 
   .th {
@@ -126,8 +239,14 @@
     font-size: 9px;
   }
 
+  .copyColumn {
+    width: 84px;
+    min-width: 84px;
+  }
+
   .dateColumn {
     width: 60px;
+    min-width: 60px;
   }
 
   .planColumn {
@@ -158,15 +277,34 @@
     width: 76px;
     min-width: 76px;
   }
+
+  .table th:nth-child(2),
+  .table td:nth-child(2) {
+    left: 84px;
+  }
 }
 
 @media (max-width: 480px) {
+  .topScrollbarArea {
+    width: 100%;
+  }
+
   .table {
-    min-width: 1190px;
+    min-width: 1290px;
   }
 
   .th {
     padding: 5px;
     font-size: 8px;
+  }
+
+  .copyColumn {
+    width: 80px;
+    min-width: 80px;
+  }
+
+  .table th:nth-child(2),
+  .table td:nth-child(2) {
+    left: 80px;
   }
 }

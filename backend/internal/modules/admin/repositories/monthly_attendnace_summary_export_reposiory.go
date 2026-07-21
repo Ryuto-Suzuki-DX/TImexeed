@@ -25,7 +25,7 @@ type MonthlyAttendanceSummaryExportRepository interface {
 	FindAttendanceDays(userIDs []uint, fromDate time.Time, toDate time.Time) ([]models.AttendanceDay, results.Result)
 	FindAttendanceBreaks(attendanceDayIDs []uint) (map[uint][]models.AttendanceBreak, results.Result)
 	FindAttendanceTransportExpenses(attendanceDayIDs []uint) (map[uint][]models.AttendanceTransportExpense, results.Result)
-	FindMonthlyCommuterPasses(userIDs []uint, targetYear int, targetMonth int) (map[uint]models.MonthlyCommuterPass, results.Result)
+	FindMonthlyCommuterPasses(userIDs []uint, targetYear int, targetMonth int) (map[uint][]models.MonthlyCommuterPass, results.Result)
 	FindUserSalaryDetails(userIDs []uint, targetMonthStart time.Time, targetMonthEnd time.Time) (map[uint]models.UserSalaryDetail, results.Result)
 	FindPaidLeaveUsages(userIDs []uint, targetMonthStart time.Time, targetMonthEnd time.Time) (map[uint][]models.PaidLeaveUsage, results.Result)
 	FindExpenses(userIDs []uint, targetMonthStart time.Time) (map[uint][]models.Expense, results.Result)
@@ -312,13 +312,20 @@ func (repository *monthlyAttendanceSummaryExportRepository) FindAttendanceTransp
 
 /*
  * 月次通勤定期取得
+ *
+ * ユーザーIDごとに、対象年月の有効な月次通勤定期を複数件まとめて返す。
+ *
+ * 注意：
+ * ・同じユーザー・対象年月に複数件登録できる
+ * ・論理削除済みの定期は対象外
+ * ・金額の合計と表示文字列の生成はServiceで行う
  */
 func (repository *monthlyAttendanceSummaryExportRepository) FindMonthlyCommuterPasses(
 	userIDs []uint,
 	targetYear int,
 	targetMonth int,
-) (map[uint]models.MonthlyCommuterPass, results.Result) {
-	monthlyCommuterPassMap := map[uint]models.MonthlyCommuterPass{}
+) (map[uint][]models.MonthlyCommuterPass, results.Result) {
+	monthlyCommuterPassMap := map[uint][]models.MonthlyCommuterPass{}
 
 	if len(userIDs) == 0 {
 		return monthlyCommuterPassMap, results.OK(
@@ -335,6 +342,7 @@ func (repository *monthlyAttendanceSummaryExportRepository) FindMonthlyCommuterP
 		Where("user_id IN ?", userIDs).
 		Where("target_year = ?", targetYear).
 		Where("target_month = ?", targetMonth).
+		Order("user_id ASC, id ASC").
 		Find(&monthlyCommuterPasses).Error; err != nil {
 		return nil, results.BadRequest(
 			"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_COMMUTER_PASSES_FAILED",
@@ -346,7 +354,10 @@ func (repository *monthlyAttendanceSummaryExportRepository) FindMonthlyCommuterP
 	}
 
 	for _, monthlyCommuterPass := range monthlyCommuterPasses {
-		monthlyCommuterPassMap[monthlyCommuterPass.UserID] = monthlyCommuterPass
+		monthlyCommuterPassMap[monthlyCommuterPass.UserID] = append(
+			monthlyCommuterPassMap[monthlyCommuterPass.UserID],
+			monthlyCommuterPass,
+		)
 	}
 
 	return monthlyCommuterPassMap, results.OK(

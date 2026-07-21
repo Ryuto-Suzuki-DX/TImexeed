@@ -26,6 +26,10 @@ type AttendanceRowItemProps = {
   row: AttendanceViewRow;
   attendanceTypes: AttendanceType[];
   locked: boolean;
+  copiedSourceWorkDate: string | null;
+  pasteDisabled: boolean;
+  onCopyRow: (row: AttendanceViewRow) => void;
+  onPasteRow: (row: AttendanceViewRow) => void;
   onChangeRow: <K extends keyof AttendanceViewRow>(
     workDate: string,
     key: K,
@@ -94,7 +98,10 @@ function hasRowInput(row: AttendanceViewRow) {
  * ・表示専用
  * ・遅刻/早退/欠勤/病欠のフラグは使わない
  */
-function buildRowSystemMessage(row: AttendanceViewRow, selectedPlanType: AttendanceType | undefined) {
+function buildRowSystemMessage(
+  row: AttendanceViewRow,
+  selectedPlanType: AttendanceType | undefined,
+) {
   if (!selectedPlanType) {
     return "勤務区分未選択";
   }
@@ -134,6 +141,10 @@ export default function AttendanceRowItem({
   row,
   attendanceTypes,
   locked,
+  copiedSourceWorkDate,
+  pasteDisabled,
+  onCopyRow,
+  onPasteRow,
   onChangeRow,
   onDeleteRow,
   onAddBreak,
@@ -160,13 +171,18 @@ export default function AttendanceRowItem({
   const isHolidayAttendanceType = selectedPlanType?.code === "HOLIDAY";
   const syncPlanActual = selectedPlanType?.syncPlanActual === true;
   const requiresRequest = selectedPlanType?.requiresRequest === true;
-  const allowBreakInput = selectedPlanType ? selectedPlanType.allowBreakInput === true : true;
-  const allowTransportInput = selectedPlanType ? selectedPlanType.allowTransportInput === true : true;
+  const allowBreakInput = selectedPlanType
+    ? selectedPlanType.allowBreakInput === true
+    : true;
+  const allowTransportInput = selectedPlanType
+    ? selectedPlanType.allowTransportInput === true
+    : true;
   const allowActualTimeInput = selectedPlanType
     ? selectedPlanType.allowActualTimeInput === true
     : true;
   const rowSystemMessage = buildRowSystemMessage(row, selectedPlanType);
   const resetDisabled = locked || !hasRowInput(row);
+  const isCopiedSource = copiedSourceWorkDate === row.workDate;
 
   /*
    * syncPlanActual=true かつ休日ではない区分は、
@@ -195,12 +211,18 @@ export default function AttendanceRowItem({
    * ・在宅勤務補助ありをクリア
    */
   const handlePlanAttendanceTypeChange = (attendanceTypeId: number) => {
-    const nextType = attendanceTypes.find((attendanceType) => attendanceType.id === attendanceTypeId);
+    const nextType = attendanceTypes.find(
+      (attendanceType) => attendanceType.id === attendanceTypeId,
+    );
 
     onChangeRow(row.workDate, "planAttendanceTypeId", attendanceTypeId);
 
     if (!nextType) {
-      onChangeRow(row.workDate, "actualWorkStatus", ACTUAL_WORK_STATUS_NORMAL);
+      onChangeRow(
+        row.workDate,
+        "actualWorkStatus",
+        ACTUAL_WORK_STATUS_NORMAL,
+      );
       return;
     }
 
@@ -212,7 +234,11 @@ export default function AttendanceRowItem({
       onChangeRow(row.workDate, "actualStartTime", "");
       onChangeRow(row.workDate, "actualEndTime", "");
       onChangeRow(row.workDate, "scheduledWorkMinutes", "");
-      onChangeRow(row.workDate, "actualWorkStatus", ACTUAL_WORK_STATUS_NORMAL);
+      onChangeRow(
+        row.workDate,
+        "actualWorkStatus",
+        ACTUAL_WORK_STATUS_NORMAL,
+      );
 
       onChangeRow(row.workDate, "lateFlag", false);
       onChangeRow(row.workDate, "earlyLeaveFlag", false);
@@ -232,7 +258,11 @@ export default function AttendanceRowItem({
       onChangeRow(row.workDate, "planEndTime", "");
       onChangeRow(row.workDate, "actualStartTime", "");
       onChangeRow(row.workDate, "actualEndTime", "");
-      onChangeRow(row.workDate, "actualWorkStatus", ACTUAL_WORK_STATUS_NORMAL);
+      onChangeRow(
+        row.workDate,
+        "actualWorkStatus",
+        ACTUAL_WORK_STATUS_NORMAL,
+      );
     }
 
     onChangeRow(row.workDate, "lateFlag", false);
@@ -245,15 +275,18 @@ export default function AttendanceRowItem({
     }
   };
 
-  const dailyTransportTotal = row.transportExpenses.reduce((total, transportExpense) => {
-    const amount = Number(transportExpense.transportAmount);
+  const dailyTransportTotal = row.transportExpenses.reduce(
+    (total, transportExpense) => {
+      const amount = Number(transportExpense.transportAmount);
 
-    if (!Number.isFinite(amount)) {
-      return total;
-    }
+      if (!Number.isFinite(amount)) {
+        return total;
+      }
 
-    return total + amount;
-  }, 0);
+      return total + amount;
+    },
+    0,
+  );
 
   return (
     <tr
@@ -261,10 +294,36 @@ export default function AttendanceRowItem({
         requiresRequest ? styles.rowRequestRequired : ""
       } ${locked ? styles.rowLocked : ""}`}
     >
-      <td className={styles.td}>
+      <td className={`${styles.td} ${styles.copyCell}`}>
+        <div className={styles.copyActionList}>
+          <button
+            type="button"
+            className={`${styles.copyButton} ${
+              isCopiedSource ? styles.copyButtonActive : ""
+            }`}
+            onClick={() => onCopyRow(row)}
+            disabled={locked}
+          >
+            {isCopiedSource ? "コピー中" : "コピー"}
+          </button>
+
+          <button
+            type="button"
+            className={styles.pasteButton}
+            onClick={() => onPasteRow(row)}
+            disabled={locked || pasteDisabled || isCopiedSource}
+          >
+            ペースト
+          </button>
+        </div>
+      </td>
+
+      <td className={`${styles.td} ${styles.dateCell}`}>
         <p className={styles.dayLabel}>{row.dayLabel}</p>
         <p className={styles.weekday}>{row.weekday}</p>
-        {row.holidayName && <p className={styles.holidayName}>{row.holidayName}</p>}
+        {row.holidayName && (
+          <p className={styles.holidayName}>{row.holidayName}</p>
+        )}
         {row.isDirty && <p className={styles.unsavedText}>未保存</p>}
       </td>
 
@@ -273,7 +332,9 @@ export default function AttendanceRowItem({
           <select
             aria-label={`${row.dayLabel}の予定区分`}
             value={row.planAttendanceTypeId}
-            onChange={(event) => handlePlanAttendanceTypeChange(Number(event.target.value))}
+            onChange={(event) =>
+              handlePlanAttendanceTypeChange(Number(event.target.value))
+            }
             className={styles.select}
             disabled={locked}
           >
@@ -294,13 +355,25 @@ export default function AttendanceRowItem({
               <Input
                 type="time"
                 value={row.planStartTime}
-                onChange={(event) => onChangeRow(row.workDate, "planStartTime", event.target.value)}
+                onChange={(event) =>
+                  onChangeRow(
+                    row.workDate,
+                    "planStartTime",
+                    event.target.value,
+                  )
+                }
                 disabled={locked}
               />
               <Input
                 type="time"
                 value={row.planEndTime}
-                onChange={(event) => onChangeRow(row.workDate, "planEndTime", event.target.value)}
+                onChange={(event) =>
+                  onChangeRow(
+                    row.workDate,
+                    "planEndTime",
+                    event.target.value,
+                  )
+                }
                 disabled={locked}
               />
             </>
@@ -308,17 +381,23 @@ export default function AttendanceRowItem({
         </div>
 
         {isHolidayAttendanceType && (
-          <p className={styles.subText}>休日は時間なしで予定・実績へ反映します。</p>
+          <p className={styles.subText}>
+            休日は時間なしで予定・実績へ反映します。
+          </p>
         )}
         {syncPlanActual && !isHolidayAttendanceType && (
-          <p className={styles.subText}>開始/終了ではなく所定労働時間で扱います。</p>
+          <p className={styles.subText}>
+            開始/終了ではなく所定労働時間で扱います。
+          </p>
         )}
       </td>
 
       <td className={styles.td}>
         <div className={styles.horizontalBlock}>
           {isHolidayAttendanceType ? (
-            <p className={styles.syncText}>実績状態：通常 / 時間入力なし</p>
+            <p className={styles.syncText}>
+              実績状態：通常 / 時間入力なし
+            </p>
           ) : syncPlanActual ? (
             <p className={styles.syncText}>
               実績状態：通常 / {selectedPlanType?.name ?? "未選択"}
@@ -327,9 +406,15 @@ export default function AttendanceRowItem({
             <>
               <select
                 aria-label={`${row.dayLabel}の実績状態`}
-                value={row.actualWorkStatus || ACTUAL_WORK_STATUS_NORMAL}
+                value={
+                  row.actualWorkStatus || ACTUAL_WORK_STATUS_NORMAL
+                }
                 onChange={(event) =>
-                  onChangeRow(row.workDate, "actualWorkStatus", event.target.value)
+                  onChangeRow(
+                    row.workDate,
+                    "actualWorkStatus",
+                    event.target.value,
+                  )
                 }
                 className={`${styles.select} ${styles.actualStatusSelect}`}
                 disabled={locked}
@@ -345,7 +430,11 @@ export default function AttendanceRowItem({
                 type="time"
                 value={row.actualStartTime}
                 onChange={(event) =>
-                  onChangeRow(row.workDate, "actualStartTime", event.target.value)
+                  onChangeRow(
+                    row.workDate,
+                    "actualStartTime",
+                    event.target.value,
+                  )
                 }
                 disabled={locked || !allowActualTimeInput}
               />
@@ -354,7 +443,11 @@ export default function AttendanceRowItem({
                 type="time"
                 value={row.actualEndTime}
                 onChange={(event) =>
-                  onChangeRow(row.workDate, "actualEndTime", event.target.value)
+                  onChangeRow(
+                    row.workDate,
+                    "actualEndTime",
+                    event.target.value,
+                  )
                 }
                 disabled={locked || !allowActualTimeInput}
               />
@@ -373,7 +466,13 @@ export default function AttendanceRowItem({
               type="number"
               placeholder="例：480"
               value={row.scheduledWorkMinutes}
-              onChange={(event) => onChangeRow(row.workDate, "scheduledWorkMinutes", event.target.value)}
+              onChange={(event) =>
+                onChangeRow(
+                  row.workDate,
+                  "scheduledWorkMinutes",
+                  event.target.value,
+                )
+              }
               disabled={locked}
             />
             <span className={styles.scheduledHelp}>8時間=480</span>
@@ -386,19 +485,34 @@ export default function AttendanceRowItem({
       <td className={styles.td}>
         {allowBreakInput ? (
           <div className={styles.breakEditArea}>
-            <Button type="button" variant="secondary" onClick={() => onAddBreak(row.workDate)} disabled={locked}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onAddBreak(row.workDate)}
+              disabled={locked}
+            >
               休憩追加
             </Button>
 
-            {row.breaks.length === 0 && <p className={styles.noBreakText}>なし</p>}
+            {row.breaks.length === 0 && (
+              <p className={styles.noBreakText}>なし</p>
+            )}
 
             {row.breaks.map((breakRow, breakIndex) => (
-              <div key={`${breakRow.id ?? "new"}-${breakIndex}`} className={styles.breakEditRow}>
+              <div
+                key={`${breakRow.id ?? "new"}-${breakIndex}`}
+                className={styles.breakEditRow}
+              >
                 <Input
                   type="time"
                   value={breakRow.breakStartTime}
                   onChange={(event) =>
-                    onChangeBreak(row.workDate, breakIndex, "breakStartTime", event.target.value)
+                    onChangeBreak(
+                      row.workDate,
+                      breakIndex,
+                      "breakStartTime",
+                      event.target.value,
+                    )
                   }
                   disabled={locked}
                 />
@@ -407,7 +521,12 @@ export default function AttendanceRowItem({
                   type="time"
                   value={breakRow.breakEndTime}
                   onChange={(event) =>
-                    onChangeBreak(row.workDate, breakIndex, "breakEndTime", event.target.value)
+                    onChangeBreak(
+                      row.workDate,
+                      breakIndex,
+                      "breakEndTime",
+                      event.target.value,
+                    )
                   }
                   disabled={locked}
                 />
@@ -416,7 +535,12 @@ export default function AttendanceRowItem({
                   placeholder="メモ"
                   value={breakRow.breakMemo}
                   onChange={(event) =>
-                    onChangeBreak(row.workDate, breakIndex, "breakMemo", event.target.value)
+                    onChangeBreak(
+                      row.workDate,
+                      breakIndex,
+                      "breakMemo",
+                      event.target.value,
+                    )
                   }
                   disabled={locked}
                 />
@@ -444,10 +568,14 @@ export default function AttendanceRowItem({
               <button
                 type="button"
                 className={styles.transportSummaryButton}
-                onClick={() => setIsTransportOpen((current) => !current)}
+                onClick={() =>
+                  setIsTransportOpen((current) => !current)
+                }
               >
                 <span>{row.transportExpenses.length}件</span>
-                <span>合計 ¥{dailyTransportTotal.toLocaleString()}</span>
+                <span>
+                  合計 ¥{dailyTransportTotal.toLocaleString()}
+                </span>
                 <span>{isTransportOpen ? "閉じる" : "開く"}</span>
               </button>
 
@@ -456,7 +584,9 @@ export default function AttendanceRowItem({
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => onAddTransportExpense(row.workDate)}
+                    onClick={() =>
+                      onAddTransportExpense(row.workDate)
+                    }
                     disabled={locked}
                   >
                     交通費追加
@@ -466,115 +596,144 @@ export default function AttendanceRowItem({
                     <p className={styles.noBreakText}>なし</p>
                   )}
 
-                  {row.transportExpenses.map((transportExpense, transportExpenseIndex) => (
-                    <div
-                      key={`${transportExpense.id ?? "new"}-${transportExpenseIndex}`}
-                      className={styles.transportExpenseRow}
-                    >
-                      <label className={styles.miniField}>
-                        <span className={styles.miniLabel}>出発地</span>
-                        <Input
-                          placeholder="例：新宿"
-                          value={transportExpense.transportFrom}
-                          onChange={(event) =>
-                            onChangeTransportExpense(
-                              row.workDate,
-                              transportExpenseIndex,
-                              "transportFrom",
-                              event.target.value,
-                            )
-                          }
-                          disabled={locked}
-                        />
-                      </label>
+                  {row.transportExpenses.map(
+                    (transportExpense, transportExpenseIndex) => (
+                      <div
+                        key={`${
+                          transportExpense.id ?? "new"
+                        }-${transportExpenseIndex}`}
+                        className={styles.transportExpenseRow}
+                      >
+                        <label className={styles.miniField}>
+                          <span className={styles.miniLabel}>
+                            出発地
+                          </span>
+                          <Input
+                            placeholder="例：新宿"
+                            value={transportExpense.transportFrom}
+                            onChange={(event) =>
+                              onChangeTransportExpense(
+                                row.workDate,
+                                transportExpenseIndex,
+                                "transportFrom",
+                                event.target.value,
+                              )
+                            }
+                            disabled={locked}
+                          />
+                        </label>
 
-                      <label className={styles.miniField}>
-                        <span className={styles.miniLabel}>目的地</span>
-                        <Input
-                          placeholder="例：品川"
-                          value={transportExpense.transportTo}
-                          onChange={(event) =>
-                            onChangeTransportExpense(
-                              row.workDate,
-                              transportExpenseIndex,
-                              "transportTo",
-                              event.target.value,
-                            )
-                          }
-                          disabled={locked}
-                        />
-                      </label>
+                        <label className={styles.miniField}>
+                          <span className={styles.miniLabel}>
+                            目的地
+                          </span>
+                          <Input
+                            placeholder="例：品川"
+                            value={transportExpense.transportTo}
+                            onChange={(event) =>
+                              onChangeTransportExpense(
+                                row.workDate,
+                                transportExpenseIndex,
+                                "transportTo",
+                                event.target.value,
+                              )
+                            }
+                            disabled={locked}
+                          />
+                        </label>
 
-                      <label className={styles.miniField}>
-                        <span className={styles.miniLabel}>手段</span>
-                        <select
-                          aria-label={`${row.dayLabel}の交通手段${transportExpenseIndex + 1}`}
-                          value={transportExpense.transportMethod}
-                          onChange={(event) =>
-                            onChangeTransportExpense(
-                              row.workDate,
+                        <label className={styles.miniField}>
+                          <span className={styles.miniLabel}>
+                            手段
+                          </span>
+                          <select
+                            aria-label={`${row.dayLabel}の交通手段${
+                              transportExpenseIndex + 1
+                            }`}
+                            value={
+                              transportExpense.transportMethod
+                            }
+                            onChange={(event) =>
+                              onChangeTransportExpense(
+                                row.workDate,
+                                transportExpenseIndex,
+                                "transportMethod",
+                                event.target.value,
+                              )
+                            }
+                            className={styles.select}
+                            disabled={locked}
+                          >
+                            <option value="">選択</option>
+                            <option value="電車">電車</option>
+                            <option value="バス">バス</option>
+                            <option value="車">車</option>
+                            <option value="徒歩">徒歩</option>
+                            <option value="その他">その他</option>
+                          </select>
+                        </label>
+
+                        <label className={styles.miniField}>
+                          <span className={styles.miniLabel}>
+                            金額
+                          </span>
+                          <Input
+                            placeholder="例：320"
+                            type="number"
+                            value={
+                              transportExpense.transportAmount
+                            }
+                            onChange={(event) =>
+                              onChangeTransportExpense(
+                                row.workDate,
+                                transportExpenseIndex,
+                                "transportAmount",
+                                event.target.value,
+                              )
+                            }
+                            disabled={locked}
+                          />
+                        </label>
+
+                        <label
+                          className={`${styles.miniField} ${styles.transportMemoField}`}
+                        >
+                          <span className={styles.miniLabel}>
+                            備考
+                          </span>
+                          <Input
+                            placeholder="任意"
+                            value={
+                              transportExpense.transportMemo
+                            }
+                            onChange={(event) =>
+                              onChangeTransportExpense(
+                                row.workDate,
+                                transportExpenseIndex,
+                                "transportMemo",
+                                event.target.value,
+                              )
+                            }
+                            disabled={locked}
+                          />
+                        </label>
+
+                        <Button
+                          type="button"
+                          variant="danger"
+                          onClick={() =>
+                            onDeleteTransportExpense(
+                              row,
                               transportExpenseIndex,
-                              "transportMethod",
-                              event.target.value,
                             )
                           }
-                          className={styles.select}
                           disabled={locked}
                         >
-                          <option value="">選択</option>
-                          <option value="電車">電車</option>
-                          <option value="バス">バス</option>
-                          <option value="車">車</option>
-                          <option value="徒歩">徒歩</option>
-                          <option value="その他">その他</option>
-                        </select>
-                      </label>
-
-                      <label className={styles.miniField}>
-                        <span className={styles.miniLabel}>金額</span>
-                        <Input
-                          placeholder="例：320"
-                          type="number"
-                          value={transportExpense.transportAmount}
-                          onChange={(event) =>
-                            onChangeTransportExpense(
-                              row.workDate,
-                              transportExpenseIndex,
-                              "transportAmount",
-                              event.target.value,
-                            )
-                          }
-                          disabled={locked}
-                        />
-                      </label>
-
-                      <label className={`${styles.miniField} ${styles.transportMemoField}`}>
-                        <span className={styles.miniLabel}>備考</span>
-                        <Input
-                          placeholder="任意"
-                          value={transportExpense.transportMemo}
-                          onChange={(event) =>
-                            onChangeTransportExpense(
-                              row.workDate,
-                              transportExpenseIndex,
-                              "transportMemo",
-                              event.target.value,
-                            )
-                          }
-                          disabled={locked}
-                        />
-                      </label>
-
-                      <Button
-                        type="button"
-                        variant="danger"
-                        onClick={() => onDeleteTransportExpense(row, transportExpenseIndex)}
-                        disabled={locked}
-                      >
-                        削除
-                      </Button>
-                    </div>
-                  ))}
+                          削除
+                        </Button>
+                      </div>
+                    ),
+                  )}
                 </div>
               )}
             </div>
@@ -583,12 +742,20 @@ export default function AttendanceRowItem({
           )}
 
           {!isHolidayAttendanceType && (
-            <label className={`${styles.checkLabel} ${locked ? styles.checkLabelDisabled : ""}`}>
+            <label
+              className={`${styles.checkLabel} ${
+                locked ? styles.checkLabelDisabled : ""
+              }`}
+            >
               <input
                 type="checkbox"
                 checked={row.remoteWorkAllowanceFlag}
                 onChange={(event) =>
-                  onChangeRow(row.workDate, "remoteWorkAllowanceFlag", event.target.checked)
+                  onChangeRow(
+                    row.workDate,
+                    "remoteWorkAllowanceFlag",
+                    event.target.checked,
+                  )
                 }
                 disabled={locked}
               />
@@ -605,12 +772,21 @@ export default function AttendanceRowItem({
 
         <p className={styles.rowMessage}>{rowSystemMessage}</p>
 
-        {requiresRequest && <p className={styles.warningText}>月次申請前に確認してください</p>}
+        {requiresRequest && (
+          <p className={styles.warningText}>
+            月次申請前に確認してください
+          </p>
+        )}
       </td>
 
       <td className={styles.td}>
         <div className={styles.actionList}>
-          <Button type="button" variant="danger" onClick={() => onDeleteRow(row)} disabled={resetDisabled}>
+          <Button
+            type="button"
+            variant="danger"
+            onClick={() => onDeleteRow(row)}
+            disabled={resetDisabled}
+          >
             リセット
           </Button>
 
