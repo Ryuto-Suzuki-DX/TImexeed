@@ -30,6 +30,31 @@ type Department = {
   name: string;
 };
 
+
+type SearchBusinessTargetUsersResponse = {
+  users: BusinessTargetUser[];
+  total?: number;
+  offset?: number;
+  limit?: number;
+  hasMore?: boolean;
+};
+
+type SearchDepartmentsResponse = {
+  departments: Department[];
+  total?: number;
+  offset?: number;
+  limit?: number;
+  hasMore?: boolean;
+};
+
+type ApiResponse<TData> = {
+  data: TData | null;
+  error: boolean;
+  code: string;
+  message: string;
+  details?: unknown;
+};
+
 type ExportFormState = {
   targetMonth: string;
   targetType: ExportTargetType;
@@ -144,31 +169,37 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
        * 既存の共通API関数がある場合は、このfetch部分を
        * searchDepartments(...) の呼び出しに置き換えてよい。
        */
-      const response = await fetch("/api/admin/departments/search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        buildApiUrl("/admin/departments/search"),
+        {
+          method: "POST",
+          headers: {
+            ...buildAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            keyword: "",
+            includeDeleted: false,
+            offset: 0,
+            limit: 50,
+          }),
         },
-        body: JSON.stringify({
-          keyword: "",
-          includeDeleted: false,
-          offset: 0,
-          limit: 50,
-        }),
-      });
+      );
 
-      if (!response.ok) {
-        throw new Error("所属一覧の取得に失敗しました。");
+      const payload =
+        (await response.json()) as ApiResponse<SearchDepartmentsResponse>;
+
+      if (!response.ok || payload.error) {
+        throw new Error(
+          payload.message || "所属一覧の取得に失敗しました。",
+        );
       }
 
-      const json = await response.json();
+      if (!payload.data) {
+        throw new Error("所属一覧の取得結果が空です。");
+      }
 
-      const departmentList =
-        json?.data?.departments ??
-        json?.departments ??
-        [];
-
-      setDepartments(departmentList);
+      setDepartments(payload.data.departments);
     } catch (error) {
       setPageMessage({
         variant: "error",
@@ -197,10 +228,11 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
        * searchBusinessTargetUsers(...) の呼び出しに置き換えてよい。
        */
       const response = await fetch(
-        "/api/admin/users/search-business-targets",
+        buildApiUrl("/admin/users/search-business-targets"),
         {
           method: "POST",
           headers: {
+            ...buildAuthHeaders(),
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -211,16 +243,20 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
         },
       );
 
-      if (!response.ok) {
-        throw new Error("ユーザー検索に失敗しました。");
+      const payload =
+        (await response.json()) as ApiResponse<SearchBusinessTargetUsersResponse>;
+
+      if (!response.ok || payload.error) {
+        throw new Error(
+          payload.message || "ユーザー検索に失敗しました。",
+        );
       }
 
-      const json = await response.json();
+      if (!payload.data) {
+        throw new Error("ユーザー検索の取得結果が空です。");
+      }
 
-      const users =
-        json?.data?.users ??
-        json?.users ??
-        [];
+      const users = payload.data.users;
 
       setBusinessTargetUsers(users);
       setExportForm((current) => ({
@@ -861,4 +897,39 @@ function formatMonthPickerLabel(
   return `${year}年${month}月`;
 }
 
+function buildApiUrl(path: string) {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_BASE_URL ??
+    "http://localhost:8080";
+
+  const normalizedBaseUrl = baseUrl.endsWith("/")
+    ? baseUrl.slice(0, -1)
+    : baseUrl;
+
+  const normalizedPath = path.startsWith("/")
+    ? path
+    : `/${path}`;
+
+  return `${normalizedBaseUrl}${normalizedPath}`;
+}
+
+function buildAuthHeaders(): HeadersInit {
+  const token = getAccessToken();
+
+  if (!token) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+function getAccessToken() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem("accessToken");
+}
 
