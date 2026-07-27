@@ -110,6 +110,18 @@ export default function AdminUsersPage() {
     return departments.some((department) => String(department.id) === form.departmentId);
   }, [departments, form.departmentId]);
 
+  const departmentNameMap = useMemo(() => {
+    return new Map(departments.map((department) => [department.id, department.name]));
+  }, [departments]);
+
+  const getDepartmentName = (departmentId: number | null | undefined) => {
+    if (departmentId === null || departmentId === undefined) {
+      return "未所属";
+    }
+
+    return departmentNameMap.get(departmentId) ?? "所属情報を取得できません";
+  };
+
   const resetForm = () => {
     setForm(initialForm);
     setIsEditing(false);
@@ -469,7 +481,7 @@ export default function AdminUsersPage() {
 
                         <p className={styles.userEmail}>{targetUser.email}</p>
                         <p className={styles.userMeta}>
-                          所属ID：{targetUser.departmentId ?? "-"} / 入社日：{formatDate(targetUser.hireDate)} / 退職日：
+                          所属：{getDepartmentName(targetUser.departmentId)} / 入社日：{formatDate(targetUser.hireDate)} / 退職日：
                           {formatDate(targetUser.retirementDate)}
                         </p>
                       </div>
@@ -569,7 +581,7 @@ export default function AdminUsersPage() {
                     <option value="">未所属</option>
 
                     {!currentDepartmentExists && form.departmentId && (
-                      <option value={form.departmentId}>現在の所属ID：{form.departmentId}</option>
+                      <option value={form.departmentId}>現在の所属情報を取得できません</option>
                     )}
 
                     {departments.map((department) => (
