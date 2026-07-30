@@ -249,11 +249,46 @@
   margin: 18px 0 12px;
 }
 
+.resultSummary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
 .resultCount {
   margin: 0;
   color: #9a3412;
   font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.resultAmountTotal {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #fdba74;
+  border-radius: 10px;
+  background-color: #fff7ed;
+  color: #9a3412;
+}
+
+.resultAmountTotal span {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.resultAmountTotal strong {
+  min-width: 0;
+  color: #c2410c;
+  font-size: 16px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .tableWrap {
@@ -586,9 +621,30 @@
     margin: 8px 0 6px;
   }
 
-  .resultCount {
+  .resultSummary {
     flex: 1;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .resultCount {
+    flex: 0 0 auto;
     font-size: 9px;
+  }
+
+  .resultAmountTotal {
+    gap: 4px;
+    padding: 4px 6px;
+    border-radius: 7px;
+  }
+
+  .resultAmountTotal span {
+    font-size: 8px;
+  }
+
+  .resultAmountTotal strong {
+    font-size: 10px;
   }
 
   .tableWrap {
@@ -761,6 +817,18 @@
 
   .resultCount {
     font-size: 8px;
+  }
+
+  .resultAmountTotal {
+    padding: 3px 5px;
+  }
+
+  .resultAmountTotal span {
+    font-size: 7px;
+  }
+
+  .resultAmountTotal strong {
+    font-size: 9px;
   }
 
   .table {

@@ -317,11 +317,46 @@
   margin: 18px 0 12px;
 }
 
+.resultSummary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
 .resultCount {
   margin: 0;
   color: #374151;
   font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.resultAmountTotal {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.resultAmountTotal span {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.resultAmountTotal strong {
+  min-width: 0;
+  color: #c2410c;
+  font-size: 16px;
+  font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .tableWrap {
@@ -628,8 +663,26 @@
     margin: 10px 0 8px;
   }
 
+  .resultSummary {
+    gap: 6px;
+  }
+
   .resultCount {
     font-size: 10px;
+  }
+
+  .resultAmountTotal {
+    gap: 5px;
+    padding: 5px 7px;
+    border-radius: 7px;
+  }
+
+  .resultAmountTotal span {
+    font-size: 9px;
+  }
+
+  .resultAmountTotal strong {
+    font-size: 11px;
   }
 
   .tableWrap {
@@ -689,6 +742,10 @@
   .resultHeader {
     flex-direction: row;
     align-items: center;
+  }
+
+  .resultSummary {
+    flex-wrap: wrap;
   }
 
   .resultHeader > :global(button) {

@@ -120,6 +120,15 @@ export default function AdminExpensesPage() {
     return `表示 ${expenses.length}件 / 全${total}件`;
   }, [expenses.length, total]);
 
+  const displayedAmountTotal = useMemo(
+    () =>
+      expenses.reduce((sum, expense) => {
+        const amount = Number(expense.amount);
+        return Number.isFinite(amount) ? sum + amount : sum;
+      }, 0),
+    [expenses],
+  );
+
   useEffect(() => {
     if (!user) {
       return;
@@ -737,7 +746,14 @@ export default function AdminExpensesPage() {
               </form>
 
               <div className={styles.resultHeader}>
-                <p className={styles.resultCount}>{shownCountText}</p>
+                <div className={styles.resultSummary}>
+                  <p className={styles.resultCount}>{shownCountText}</p>
+
+                  <p className={styles.resultAmountTotal}>
+                    <span>表示中の合計</span>
+                    <strong>{formatYen(displayedAmountTotal)}</strong>
+                  </p>
+                </div>
 
                 {hasMore && (
                   <Button
