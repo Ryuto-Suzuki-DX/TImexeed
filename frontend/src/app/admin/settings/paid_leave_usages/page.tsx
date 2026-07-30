@@ -150,10 +150,11 @@ export default function AdminPaidLeaveUsagesPage() {
 
     const result = await searchUsers({
       keyword: searchKeyword,
+      role: "USER",
       includeDeleted: false,
       offset: nextOffset,
       limit: 50,
-    });
+    } as Parameters<typeof searchUsers>[0] & { role: "USER" });
 
     if (result.error || !result.data) {
       setPageMessage(result.message || "ユーザー検索に失敗しました。");
@@ -164,8 +165,18 @@ export default function AdminPaidLeaveUsagesPage() {
 
     const searchData = result.data;
 
+    // API側へ一般ユーザー固定で検索条件を渡す。
+    // 既存APIがrole条件を無視する環境でも、レスポンスにroleが含まれていれば
+    // 管理者を画面へ表示しないように二重で防御する。
+    const generalUsers = searchData.users.filter((targetUser) => {
+      const role = (targetUser as UserResponse & { role?: string }).role;
+      return role === undefined || role === "USER";
+    });
+
     setSearchedKeyword(searchKeyword);
-    setUsers((current) => (append ? [...current, ...searchData.users] : searchData.users));
+    setUsers((current) => (append ? [...current, ...generalUsers] : generalUsers));
+
+    // ページングのoffsetは、除外後の件数ではなくAPIが返した件数で進める。
     setUserOffset(nextOffset + searchData.users.length);
     setUserHasMore(searchData.hasMore);
 
@@ -178,8 +189,8 @@ export default function AdminPaidLeaveUsagesPage() {
       resetForm();
     }
 
-    setPageMessage(searchData.users.length === 0 ? "該当するユーザーが見つかりませんでした。" : "ユーザー検索が完了しました。");
-    setPageMessageVariant(searchData.users.length === 0 ? "warning" : "success");
+    setPageMessage(generalUsers.length === 0 ? "該当する一般ユーザーが見つかりませんでした。" : "ユーザー検索が完了しました。");
+    setPageMessageVariant(generalUsers.length === 0 ? "warning" : "success");
     setIsUserSearching(false);
   };
 
