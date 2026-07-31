@@ -15,34 +15,34 @@ import type {
 export function searchUserSalaryDetails(request: SearchUserSalaryDetailsRequest) {
   return apiPost<SearchUserSalaryDetailsResponse, SearchUserSalaryDetailsRequest>(
     "/admin/user-salary-details/search",
-    request
+    request,
   );
 }
 
 export function getUserSalaryDetail(request: GetUserSalaryDetailRequest) {
   return apiPost<GetUserSalaryDetailResponse, GetUserSalaryDetailRequest>(
     "/admin/user-salary-details/get",
-    request
+    request,
   );
 }
 
 export function createUserSalaryDetail(request: CreateUserSalaryDetailRequest) {
   return apiPost<CreateUserSalaryDetailResponse, CreateUserSalaryDetailRequest>(
     "/admin/user-salary-details/create",
-    request
+    request,
   );
 }
 
 export function updateUserSalaryDetail(request: UpdateUserSalaryDetailRequest) {
   return apiPost<UpdateUserSalaryDetailResponse, UpdateUserSalaryDetailRequest>(
     "/admin/user-salary-details/update",
-    request
+    request,
   );
 }
 
 export function deleteUserSalaryDetail(request: DeleteUserSalaryDetailRequest) {
   return apiPost<DeleteUserSalaryDetailResponse, DeleteUserSalaryDetailRequest>(
     "/admin/user-salary-details/delete",
-    request
+    request,
   );
 }

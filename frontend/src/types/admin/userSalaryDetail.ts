@@ -20,41 +20,21 @@ export type GetUserSalaryDetailRequest = {
 
 export type CreateUserSalaryDetailRequest = {
   targetUserId: number;
-
   salaryType: SalaryType;
   baseAmount: number;
-
-  extraAllowanceAmount: number;
-  extraAllowanceMemo: string;
-
-  fixedDeductionAmount: number;
-  fixedDeductionMemo: string;
-
   isPayrollTarget: boolean;
-
   effectiveFrom: string;
   effectiveTo: string | null;
-
   memo: string;
 };
 
 export type UpdateUserSalaryDetailRequest = {
   userSalaryDetailId: number;
-
   salaryType: SalaryType;
   baseAmount: number;
-
-  extraAllowanceAmount: number;
-  extraAllowanceMemo: string;
-
-  fixedDeductionAmount: number;
-  fixedDeductionMemo: string;
-
   isPayrollTarget: boolean;
-
   effectiveFrom: string;
   effectiveTo: string | null;
-
   memo: string;
 };
 
@@ -64,25 +44,13 @@ export type DeleteUserSalaryDetailRequest = {
 
 export type UserSalaryDetailResponse = {
   id: number;
-
   userId: number;
-
   salaryType: SalaryType;
   baseAmount: number;
-
-  extraAllowanceAmount: number;
-  extraAllowanceMemo: string;
-
-  fixedDeductionAmount: number;
-  fixedDeductionMemo: string;
-
   isPayrollTarget: boolean;
-
   effectiveFrom: string;
   effectiveTo: string | null;
-
   memo: string;
-
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
@@ -91,9 +59,6 @@ export type UserSalaryDetailResponse = {
 
 export type SearchUserSalaryDetailsResponse = {
   userSalaryDetails: UserSalaryDetailResponse[];
-  total: number;
-  offset: number;
-  limit: number;
   hasMore: boolean;
 };
 

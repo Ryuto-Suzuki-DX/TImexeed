@@ -18,10 +18,16 @@ type SalaryMenuItem = {
 
 const salaryMenuItems: SalaryMenuItem[] = [
   {
-    title: "ユーザー給与詳細",
-    description: "ユーザーごとの給与区分、基本金額、固定手当、固定控除、適用期間を管理します。",
+    title: "ユーザー給与・月次手当管理",
+    description: "ユーザーごとの給与区分、基本金額、適用期間と、月ごとの手当を管理します。",
     href: "/admin/salary/user-salary-details",
     statusLabel: "個人設定",
+  },
+  {
+    title: "手当種別管理",
+    description: "固定残業手当、在宅手当、資格手当など、月次手当で選択する種別を追加・編集できます。",
+    href: "/admin/salary/allowance-types",
+    statusLabel: "給与設定",
   },
 ];
 
@@ -49,10 +55,10 @@ export default function AdminSalaryPage() {
       <div className={styles.pageWrap}>
         <section className={styles.pageCard}>
           <div className={styles.headerArea}>
-            <PageTitle title="給与管理" description="給与計算に使う全体設定とユーザーごとの給与詳細を管理します。" />
+            <PageTitle title="給与管理" description="給与計算に使う設定とユーザーごとの給与・手当を管理します。" />
 
             <MessageBox variant="info">
-              管理したい項目を選択してください。会社全体の給与設定と、ユーザーごとの給与詳細設定をここにまとめます。
+              管理したい項目を選択してください。手当種別を先に登録すると、ユーザーごとの月次手当入力で選択できます。
             </MessageBox>
           </div>
 
