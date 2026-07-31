@@ -9,6 +9,7 @@ import AdminSideMenu from "@/components/sideMenu/AdminSideMenu";
 import {
   createExpense,
   deleteExpense,
+  exportExpenses,
   openExpenseReceiptInNewTab,
   searchExpenses,
   updateExpense,
@@ -105,6 +106,7 @@ export default function AdminExpensesPage() {
   const [deleteTarget, setDeleteTarget] = useState<ExpenseListItemResponse | null>(null);
   const [isViewingReceiptId, setIsViewingReceiptId] = useState<number | null>(null);
   const [isTargetUserSearching, setIsTargetUserSearching] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [pageMessage, setPageMessage] = useState<PageMessage>({
     variant: "info",
     text: "対象月の期間と従業員キーワードで経費を検索できます。",
@@ -235,6 +237,64 @@ export default function AdminExpensesPage() {
       });
     } finally {
       setIsTargetUserSearching(false);
+    }
+  }
+
+
+
+  function handleSelectSelf() {
+    if (!user) {
+      return;
+    }
+
+    const selfCandidate: TargetUserCandidate = {
+      id: user.userId,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isDeleted: false,
+    };
+
+    handleSelectTargetUser(selfCandidate);
+    setPageMessage({
+      variant: "success",
+      text: "自分を登録対象の従業員として選択しました。",
+    });
+  }
+
+  async function handleExportExpenses() {
+    if (!searchForm.targetMonthFrom || !searchForm.targetMonthTo) {
+      setPageMessage({
+        variant: "warning",
+        text: "出力する対象月を指定してください。",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    setPageMessage({
+      variant: "info",
+      text: "経費集計Excelと領収書を作成しています。",
+    });
+
+    try {
+      const fileName = await exportExpenses({
+        keyword: searchForm.keyword.trim(),
+        targetMonthFrom: searchForm.targetMonthFrom,
+        targetMonthTo: searchForm.targetMonthTo,
+      });
+
+      setPageMessage({
+        variant: "success",
+        text: `${fileName} をダウンロードしました。`,
+      });
+    } catch (error) {
+      setPageMessage({
+        variant: "error",
+        text: error instanceof Error ? error.message : "経費一式の出力に失敗しました。",
+      });
+    } finally {
+      setIsExporting(false);
     }
   }
 
@@ -493,9 +553,15 @@ export default function AdminExpensesPage() {
                     />
                   </label>
 
-                  <Button type="button" variant="secondary" onClick={handleSearchTargetUsers} disabled={isTargetUserSearching}>
-                    {isTargetUserSearching ? "検索中..." : "従業員検索"}
-                  </Button>
+                  <div className={styles.userSearchActions}>
+                    <Button type="button" variant="secondary" onClick={handleSearchTargetUsers} disabled={isTargetUserSearching}>
+                      {isTargetUserSearching ? "検索中..." : "従業員検索"}
+                    </Button>
+
+                    <Button type="button" variant="secondary" onClick={handleSelectSelf} disabled={isTargetUserSearching || isSaving}>
+                      自分を選択
+                    </Button>
+                  </div>
                 </div>
 
                 {selectedTargetUser && (
@@ -755,16 +821,27 @@ export default function AdminExpensesPage() {
                   </p>
                 </div>
 
-                {hasMore && (
+                <div className={styles.resultActions}>
                   <Button
                     type="button"
-                    variant="secondary"
-                    onClick={() => void handleSearch(expenses.length, true)}
-                    disabled={isSearching}
+                    variant="primary"
+                    onClick={() => void handleExportExpenses()}
+                    disabled={isSearching || isExporting || total === 0}
                   >
-                    さらに表示
+                    {isExporting ? "出力中..." : "経費一式ダウンロード"}
                   </Button>
-                )}
+
+                  {hasMore && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => void handleSearch(expenses.length, true)}
+                      disabled={isSearching || isExporting}
+                    >
+                      さらに表示
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className={styles.tableWrap}>
@@ -1056,3 +1133,5 @@ function getAccessToken() {
 
   return window.localStorage.getItem("accessToken");
 }
+
+

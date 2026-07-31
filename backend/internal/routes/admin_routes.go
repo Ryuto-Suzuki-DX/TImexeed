@@ -280,6 +280,7 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		admin.POST("/expenses/update", expenseController.UpdateExpense)
 		admin.POST("/expenses/delete", expenseController.DeleteExpense)
 		admin.POST("/expenses/receipt/view", expenseController.ViewExpenseReceipt)
+		admin.POST("/expenses/export", expenseController.ExportExpenses)
 
 		// お知らせ
 		admin.POST("/notifications/search", notificationController.SearchNotifications)

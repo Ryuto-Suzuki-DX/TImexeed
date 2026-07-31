@@ -997,3 +997,21 @@
     width: 100%;
   }
 }
+
+
+
+
+.userSearchActions,
+.resultActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.userSearchActions > :global(button),
+.resultActions > :global(button) {
+  width: auto;
+  white-space: nowrap;
+}

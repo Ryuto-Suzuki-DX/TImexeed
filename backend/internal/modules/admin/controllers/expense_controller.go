@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -210,6 +211,35 @@ func (controller *ExpenseController) ViewExpenseReceipt(c *gin.Context) {
 }
 
 /*
+ * 経費検索結果一式出力
+ *
+ * POST /admin/expenses/export
+ *
+ * 成功時は、Excelと領収書フォルダを格納したZIP本体を返す。
+ */
+func (controller *ExpenseController) ExportExpenses(c *gin.Context) {
+	var req types.ExportExpensesRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		responses.JSON(c, results.BadRequest(
+			"EXPORT_EXPENSES_INVALID_REQUEST",
+			"経費出力のリクエスト形式が正しくありません",
+			err.Error(),
+		))
+		return
+	}
+
+	fileResponse, result := controller.expenseService.ExportExpenses(c.Request.Context(), req)
+	if result.Error {
+		responses.JSON(c, result)
+		return
+	}
+
+	c.Header("Content-Disposition", buildExpenseExportContentDisposition(fileResponse.FileName))
+	c.Data(http.StatusOK, fileResponse.ContentType, fileResponse.Body)
+}
+
+/*
  * multipart/form-data からCreateExpenseRequestを作成する。
  */
 func buildCreateExpenseRequestFromMultipart(c *gin.Context) (types.CreateExpenseRequest, results.Result) {
@@ -359,4 +389,9 @@ func optionalStringPointer(value string) *string {
 	}
 
 	return &trimmedValue
+}
+
+func buildExpenseExportContentDisposition(fileName string) string {
+	encodedFileName := strings.ReplaceAll(url.QueryEscape(fileName), "+", "%20")
+	return "attachment; filename=expense_export.zip; filename*=UTF-8''" + encodedFileName
 }

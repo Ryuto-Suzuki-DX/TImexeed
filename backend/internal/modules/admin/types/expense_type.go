@@ -178,3 +178,26 @@ type ExpenseReceiptFileResponse struct {
 	MimeType  string
 	SizeBytes int64
 }
+
+/*
+ * 経費一式出力Request
+ *
+ * 画面の検索条件と同じ条件を受け取り、ページングせず全件出力する。
+ */
+type ExportExpensesRequest struct {
+	Keyword string `json:"keyword"`
+
+	TargetMonthFrom string `json:"targetMonthFrom"`
+	TargetMonthTo   string `json:"targetMonthTo"`
+}
+
+/*
+ * 経費一式ZIP Response
+ *
+ * ControllerからZIP本体として返すための内部受け渡し用。
+ */
+type ExpenseExportFileResponse struct {
+	Body        []byte
+	FileName    string
+	ContentType string
+}

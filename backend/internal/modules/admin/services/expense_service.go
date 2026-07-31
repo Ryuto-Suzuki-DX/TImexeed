@@ -28,6 +28,7 @@ type ExpenseService interface {
 	UpdateExpense(ctx context.Context, req types.UpdateExpenseRequest) results.Result
 	DeleteExpense(req types.DeleteExpenseRequest) results.Result
 	DownloadExpenseReceipt(ctx context.Context, req types.ViewExpenseReceiptRequest) (types.ExpenseReceiptFileResponse, results.Result)
+	ExportExpenses(ctx context.Context, req types.ExportExpensesRequest) (types.ExpenseExportFileResponse, results.Result)
 }
 
 /*
@@ -416,6 +417,61 @@ func (service *expenseService) DownloadExpenseReceipt(ctx context.Context, req t
 			"",
 			nil,
 		)
+}
+
+/*
+ * 経費検索結果一式をZIPで出力する。
+ *
+ * 出力内容：
+ * ・検索条件に一致する全経費をまとめたExcel
+ * ・Google Driveから取得した領収書画像/PDF
+ *
+ * 生成物はDriveやサーバーへ永続保存せず、そのままControllerへ返す。
+ */
+func (service *expenseService) ExportExpenses(ctx context.Context, req types.ExportExpensesRequest) (types.ExpenseExportFileResponse, results.Result) {
+	req.Keyword = strings.TrimSpace(req.Keyword)
+
+	query, buildResult := service.expenseBuilder.BuildExportExpensesQuery(req)
+	if buildResult.Error {
+		return types.ExpenseExportFileResponse{}, buildResult
+	}
+
+	expenses, findResult := service.expenseRepository.FindExpenses(query)
+	if findResult.Error {
+		return types.ExpenseExportFileResponse{}, findResult
+	}
+
+	if len(expenses) == 0 {
+		return types.ExpenseExportFileResponse{}, results.NotFound(
+			"EXPORT_EXPENSES_NOT_FOUND",
+			"出力対象の経費がありません",
+			nil,
+		)
+	}
+
+	if service.googleDriveService == nil && hasExpenseReceipt(expenses) {
+		return types.ExpenseExportFileResponse{}, results.InternalServerError(
+			"GOOGLE_DRIVE_SERVICE_NOT_INITIALIZED",
+			"Google Drive連携が初期化されていません",
+			nil,
+		)
+	}
+
+	fileResponse, err := buildExpenseExportZip(ctx, expenses, service.googleDriveService, time.Now())
+	if err != nil {
+		return types.ExpenseExportFileResponse{}, results.InternalServerError(
+			"EXPORT_EXPENSES_FAILED",
+			"経費一式の作成に失敗しました",
+			err.Error(),
+		)
+	}
+
+	return fileResponse, results.OK(
+		nil,
+		"EXPORT_EXPENSES_SUCCESS",
+		"",
+		nil,
+	)
 }
 
 /*

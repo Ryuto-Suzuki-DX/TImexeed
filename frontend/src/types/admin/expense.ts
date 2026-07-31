@@ -1,19 +1,3 @@
-/*
- * 管理者 経費 Type
- *
- * 注意：
- * ・経費は申請ではなく、上長確認済みの経費登録として扱う
- * ・承認/否認ステータスは持たない
- * ・対象月は year / month に分けず、"2026-05" のような文字列で扱う
- * ・DBには月初日 date として保存する
- * ・画像本体は一覧検索では取得しない
- * ・領収書はクリック時に /admin/expenses/receipt/view で取得する
- * ・create/update は multipart/form-data で送信する
- */
-
-/*
- * 共通APIレスポンス
- */
 export type ApiResponse<TData> = {
   data: TData;
   error: boolean;
@@ -164,4 +148,14 @@ export type DeleteExpenseResponse = {
  */
 export type ViewExpenseReceiptRequest = {
   expenseId: number;
+};
+
+
+/*
+ * 経費検索結果一式出力Request
+ */
+export type ExportExpensesRequest = {
+  keyword: string;
+  targetMonthFrom: string;
+  targetMonthTo: string;
 };

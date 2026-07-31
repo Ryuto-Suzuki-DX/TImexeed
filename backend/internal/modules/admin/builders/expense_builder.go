@@ -17,6 +17,7 @@ const ExpenseReceiptExternalStorageLinkType = "EXPENSE_RECEIPT_BOX"
  */
 type ExpenseBuilder interface {
 	BuildSearchExpensesQuery(req types.SearchExpensesRequest) (*gorm.DB, *gorm.DB, results.Result)
+	BuildExportExpensesQuery(req types.ExportExpensesRequest) (*gorm.DB, results.Result)
 	BuildFindExpenseByIDQuery(expenseID uint) (*gorm.DB, results.Result)
 	BuildFindExpenseReceiptStorageLinkQuery() (*gorm.DB, results.Result)
 	BuildCreateExpenseModel(req types.CreateExpenseRequest) (models.Expense, results.Result)
@@ -143,6 +144,71 @@ func (builder *expenseBuilder) BuildSearchExpensesQuery(req types.SearchExpenses
 	return searchQuery, countQuery, results.OK(
 		nil,
 		"BUILD_SEARCH_EXPENSES_QUERY_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 経費一式出力用クエリ作成
+ *
+ * 検索画面と同じ条件を適用するが、offset / limit は付けず全件取得する。
+ */
+func (builder *expenseBuilder) BuildExportExpensesQuery(req types.ExportExpensesRequest) (*gorm.DB, results.Result) {
+	if req.TargetMonthFrom == "" {
+		return nil, results.BadRequest(
+			"BUILD_EXPORT_EXPENSES_QUERY_EMPTY_TARGET_MONTH_FROM",
+			"経費出力条件の作成に失敗しました",
+			nil,
+		)
+	}
+
+	if req.TargetMonthTo == "" {
+		return nil, results.BadRequest(
+			"BUILD_EXPORT_EXPENSES_QUERY_EMPTY_TARGET_MONTH_TO",
+			"経費出力条件の作成に失敗しました",
+			nil,
+		)
+	}
+
+	targetMonthFrom, parseFromResult := parseExpenseTargetMonth(req.TargetMonthFrom, "BUILD_EXPORT_EXPENSES_QUERY_INVALID_TARGET_MONTH_FROM")
+	if parseFromResult.Error {
+		return nil, parseFromResult
+	}
+
+	targetMonthTo, parseToResult := parseExpenseTargetMonth(req.TargetMonthTo, "BUILD_EXPORT_EXPENSES_QUERY_INVALID_TARGET_MONTH_TO")
+	if parseToResult.Error {
+		return nil, parseToResult
+	}
+
+	if targetMonthFrom.After(targetMonthTo) {
+		return nil, results.BadRequest(
+			"BUILD_EXPORT_EXPENSES_QUERY_INVALID_TARGET_MONTH_RANGE",
+			"対象月Fromは対象月To以前を指定してください",
+			nil,
+		)
+	}
+
+	searchRequest := types.SearchExpensesRequest{
+		Keyword:         req.Keyword,
+		TargetMonthFrom: req.TargetMonthFrom,
+		TargetMonthTo:   req.TargetMonthTo,
+	}
+
+	query := builder.db.
+		Model(&models.Expense{}).
+		Preload("User").
+		Joins("JOIN users ON users.id = expenses.user_id")
+
+	query = applySearchExpensesCondition(query, searchRequest, targetMonthFrom, targetMonthTo)
+	query = query.
+		Order("expenses.target_month ASC").
+		Order("expenses.expense_date ASC").
+		Order("expenses.id ASC")
+
+	return query, results.OK(
+		nil,
+		"BUILD_EXPORT_EXPENSES_QUERY_SUCCESS",
 		"",
 		nil,
 	)

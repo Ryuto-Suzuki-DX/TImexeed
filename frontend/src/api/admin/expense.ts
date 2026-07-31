@@ -7,6 +7,7 @@ import type {
   DeleteExpenseResponse,
   ExpenseDetailRequest,
   ExpenseDetailResponse,
+  ExportExpensesRequest,
   SearchExpensesRequest,
   SearchExpensesResponse,
   UpdateExpenseRequest,
@@ -101,6 +102,69 @@ export async function openExpenseReceiptInNewTab(request: ViewExpenseReceiptRequ
   window.setTimeout(() => {
     URL.revokeObjectURL(objectUrl);
   }, 60_000);
+}
+
+
+
+/*
+ * 管理者 経費検索結果一式出力
+ *
+ * POST /admin/expenses/export
+ *
+ * Excelと領収書フォルダをまとめたZIPをダウンロードする。
+ */
+export async function exportExpenses(request: ExportExpensesRequest) {
+  const response = await fetch(buildApiUrl("/admin/expenses/export"), {
+    method: "POST",
+    headers: {
+      ...buildAuthHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorPayload = await readErrorPayload(response);
+    throw new Error(errorPayload);
+  }
+
+  const blob = await response.blob();
+  const fileName = getDownloadFileName(response.headers.get("Content-Disposition")) ?? "経費一式.zip";
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+
+  return fileName;
+}
+
+function getDownloadFileName(contentDisposition: string | null) {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const utf8Match = contentDisposition.match(/filename\\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const quotedMatch = contentDisposition.match(/filename="([^"]+)"/i);
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1];
+  }
+
+  const plainMatch = contentDisposition.match(/filename=([^;]+)/i);
+  return plainMatch?.[1]?.trim() ?? null;
 }
 
 /*
@@ -260,3 +324,21 @@ async function readErrorPayload(response: Response) {
     return "API request failed";
   }
 }
+
+
+/*
+ * 管理者 経費 Type
+ *
+ * 注意：
+ * ・経費は申請ではなく、上長確認済みの経費登録として扱う
+ * ・承認/否認ステータスは持たない
+ * ・対象月は year / month に分けず、"2026-05" のような文字列で扱う
+ * ・DBには月初日 date として保存する
+ * ・画像本体は一覧検索では取得しない
+ * ・領収書はクリック時に /admin/expenses/receipt/view で取得する
+ * ・create/update は multipart/form-data で送信する
+ */
+
+/*
+ * 共通APIレスポンス
+ */
