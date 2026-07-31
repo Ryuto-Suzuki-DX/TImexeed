@@ -2,7 +2,10 @@
 
 import type { ExportMonthlyAttendanceSummaryCsvRequest } from "@/types/admin/monthlyAttendanceSummaryExport";
 
-export type MonthlyAttendanceSummaryExportFormat = "CSV" | "XLSX";
+export type MonthlyAttendanceSummaryExportFormat =
+  | "CSV"
+  | "XLSX"
+  | "DAILY_DETAIL_XLSX";
 
 export type ExportMonthlyAttendanceSummaryRequest = ExportMonthlyAttendanceSummaryCsvRequest & {
   format?: MonthlyAttendanceSummaryExportFormat;
@@ -158,8 +161,11 @@ export async function downloadMonthlyAttendanceSummaryExcel(
 function normalizeExportFormat(
   format: ExportMonthlyAttendanceSummaryRequest["format"]
 ): MonthlyAttendanceSummaryExportFormat {
-  if (format === "XLSX") {
-    return "XLSX";
+  if (
+    format === "XLSX" ||
+    format === "DAILY_DETAIL_XLSX"
+  ) {
+    return format;
   }
 
   return "CSV";
@@ -196,6 +202,10 @@ function buildFallbackFileName(params: {
 }) {
   const paddedMonth = String(params.targetMonth).padStart(2, "0");
 
+  if (params.format === "DAILY_DETAIL_XLSX") {
+    return `${params.targetYear}年${paddedMonth}月_全従業員_日別勤怠明細.xlsx`;
+  }
+
   if (params.format === "XLSX") {
     return `monthly_attendance_summary_${params.targetYear}_${paddedMonth}.xlsx`;
   }
@@ -206,10 +216,36 @@ function buildFallbackFileName(params: {
 /*
  * エラーメッセージ
  */
-function getDefaultExportErrorMessage(format: MonthlyAttendanceSummaryExportFormat) {
+function getDefaultExportErrorMessage(
+  format: MonthlyAttendanceSummaryExportFormat,
+) {
+  if (format === "DAILY_DETAIL_XLSX") {
+    return "全従業員の日別勤怠明細Excelの出力に失敗しました。";
+  }
+
   if (format === "XLSX") {
     return "月次勤怠集計Excelの出力に失敗しました。";
   }
 
   return "月次勤怠集計CSVの出力に失敗しました。";
+}
+
+/*
+ * 対象月に在籍している一般ユーザー全員の日別勤怠明細を、
+ * 1つのExcelへユーザー別シートで出力する。
+ */
+export async function downloadAllUsersDailyAttendanceDetailExcel(params: {
+  targetYear: number;
+  targetMonth: number;
+}) {
+  return downloadMonthlyAttendanceSummaryExport({
+    targetYear: params.targetYear,
+    targetMonth: params.targetMonth,
+    targetType: "ALL",
+    targetUserId: null,
+    departmentIds: [],
+    includeUnassignedDepartment: true,
+    includeNotApproved: true,
+    format: "DAILY_DETAIL_XLSX",
+  });
 }

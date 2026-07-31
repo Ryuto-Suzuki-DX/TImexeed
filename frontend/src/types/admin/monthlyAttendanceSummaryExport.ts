@@ -11,11 +11,13 @@
 
 export type MonthlyAttendanceSummaryExportTargetType =
   | "USER"
-  | "DEPARTMENT";
+  | "DEPARTMENT"
+  | "ALL";
 
 export type MonthlyAttendanceSummaryExportFormat =
   | "CSV"
-  | "XLSX";
+  | "XLSX"
+  | "DAILY_DETAIL_XLSX";
 
 /*
  * 月次勤怠集計出力 Request

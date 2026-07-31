@@ -27,6 +27,8 @@ type MonthlyAttendanceSummaryExportBuilder interface {
 	BuildExcel(rows []types.MonthlyAttendanceSummaryCsvRow, allowanceColumns []types.MonthlyAttendanceSummaryAllowanceColumn, targetYear int, targetMonth int) ([]byte, results.Result)
 	BuildFileName(targetYear int, targetMonth int) string
 	BuildExcelFileName(targetYear int, targetMonth int) string
+	BuildDailyDetailExcel(userSheets []types.MonthlyAttendanceDailyDetailUserSheet, targetYear int, targetMonth int) ([]byte, results.Result)
+	BuildDailyDetailExcelFileName(targetYear int, targetMonth int) string
 }
 
 /*

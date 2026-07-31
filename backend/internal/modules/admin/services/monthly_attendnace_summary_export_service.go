@@ -23,6 +23,7 @@ import (
 type MonthlyAttendanceSummaryExportService interface {
 	ExportMonthlyAttendanceSummaryFile(request types.ExportMonthlyAttendanceSummaryCsvRequest) ([]byte, string, string, results.Result)
 	ExportMonthlyAttendanceSummaryCsv(request types.ExportMonthlyAttendanceSummaryCsvRequest) ([]byte, string, results.Result)
+	ExportAllUsersDailyAttendanceDetailExcel(request types.ExportMonthlyAttendanceSummaryCsvRequest) ([]byte, string, results.Result)
 }
 
 const monthlyAttendanceSummaryExportContentTypeCSV = "text/csv; charset=utf-8"
@@ -101,6 +102,12 @@ func normalizeMonthlyAttendanceSummaryExportDepartmentIDs(departmentIDs []uint) 
 func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSummaryFile(
 	request types.ExportMonthlyAttendanceSummaryCsvRequest,
 ) ([]byte, string, string, results.Result) {
+	normalizedRequestedFormat := strings.ToUpper(strings.TrimSpace(request.Format))
+	if normalizedRequestedFormat == types.MonthlyAttendanceSummaryExportFormatDailyDetailXLSX {
+		fileBytes, fileName, result := service.ExportAllUsersDailyAttendanceDetailExcel(request)
+		return fileBytes, fileName, monthlyAttendanceSummaryExportContentTypeXLSX, result
+	}
+
 	if request.TargetYear <= 0 {
 		return nil, "", "", results.BadRequest(
 			"EXPORT_MONTHLY_ATTENDANCE_SUMMARY_CSV_INVALID_TARGET_YEAR",

@@ -29,6 +29,7 @@ package types
 const (
 	MonthlyAttendanceSummaryExportTargetTypeUser       = "USER"
 	MonthlyAttendanceSummaryExportTargetTypeDepartment = "DEPARTMENT"
+	MonthlyAttendanceSummaryExportTargetTypeAll        = "ALL"
 )
 
 /*
@@ -375,6 +376,7 @@ type MonthlyAttendanceSummaryWarning struct {
  */
 const MonthlyAttendanceSummaryExportFormatCSV = "CSV"
 const MonthlyAttendanceSummaryExportFormatXLSX = "XLSX"
+const MonthlyAttendanceSummaryExportFormatDailyDetailXLSX = "DAILY_DETAIL_XLSX"
 
 /*
  * 出力ステータス
@@ -403,3 +405,46 @@ const MonthlyAttendanceSummaryMonthlyStatusApproved = "APPROVED"
 const MonthlyAttendanceSummaryOperationRateJudgeNotAvailable = "判定不可"
 const MonthlyAttendanceSummaryOperationRateJudgeOver80 = "80%以上"
 const MonthlyAttendanceSummaryOperationRateJudgeUnder80 = "80%未満"
+
+/*
+ * 全従業員日別勤怠明細Excel 1日分
+ *
+ * 既存の月次集計行とは分離し、日別明細Excel専用で使用する。
+ */
+type MonthlyAttendanceDailyDetailRow struct {
+	WorkDate             string
+	Weekday              string
+	PlanAttendanceType   string
+	ActualWorkStatus     string
+	PlanStart            string
+	PlanEnd              string
+	ActualStart          string
+	ActualEnd            string
+	ScheduledWorkMinutes int
+	GrossWorkMinutes     int
+	BreakMinutes         int
+	BreakDetails         string
+	ActualWorkMinutes    int
+	RegularWorkMinutes   int
+	OvertimeMinutes      int
+	LateNightWorkMinutes int
+	HolidayWorkMinutes   int
+	LateMinutes          int
+	EarlyLeaveMinutes    int
+	TransportAmount      int
+	Warnings             string
+	IsSaturday           bool
+	IsSunday             bool
+}
+
+/*
+ * 全従業員日別勤怠明細Excel ユーザー単位
+ */
+type MonthlyAttendanceDailyDetailUserSheet struct {
+	UserID         uint
+	UserName       string
+	UserEmail      string
+	DepartmentName string
+	MonthlyStatus  string
+	Rows           []MonthlyAttendanceDailyDetailRow
+}
