@@ -61,6 +61,12 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 	userSalaryDetailService := services.NewUserSalaryDetailService(userSalaryDetailBuilder, userSalaryDetailRepository)
 	userSalaryDetailController := controllers.NewUserSalaryDetailController(userSalaryDetailService)
 
+	// 手当種別マスター・月次手当
+	allowanceBuilder := builders.NewAllowanceBuilder(db)
+	allowanceRepository := repositories.NewAllowanceRepository(db)
+	allowanceService := services.NewAllowanceService(db, allowanceBuilder, allowanceRepository)
+	allowanceController := controllers.NewAllowanceController(allowanceService)
+
 	// 勤怠区分マスタ
 	attendanceTypeBuilder := builders.NewAttendanceTypeBuilder(db)
 	attendanceTypeRepository := repositories.NewAttendanceTypeRepository(db)
@@ -208,6 +214,20 @@ func RegisterAdminRoutes(r *gin.Engine, db *gorm.DB) {
 		admin.POST("/user-salary-details/create", userSalaryDetailController.CreateUserSalaryDetail)
 		admin.POST("/user-salary-details/update", userSalaryDetailController.UpdateUserSalaryDetail)
 		admin.POST("/user-salary-details/delete", userSalaryDetailController.DeleteUserSalaryDetail)
+
+		// 手当種別マスター
+		admin.POST("/allowance-types/search", allowanceController.SearchAllowanceTypes)
+		admin.POST("/allowance-types/detail", allowanceController.GetAllowanceTypeDetail)
+		admin.POST("/allowance-types/create", allowanceController.CreateAllowanceType)
+		admin.POST("/allowance-types/update", allowanceController.UpdateAllowanceType)
+		admin.POST("/allowance-types/delete", allowanceController.DeleteAllowanceType)
+
+		// 月次手当
+		admin.POST("/monthly-allowances/search", allowanceController.SearchMonthlyAllowances)
+		admin.POST("/monthly-allowances/detail", allowanceController.GetMonthlyAllowanceDetail)
+		admin.POST("/monthly-allowances/create", allowanceController.CreateMonthlyAllowance)
+		admin.POST("/monthly-allowances/update", allowanceController.UpdateMonthlyAllowance)
+		admin.POST("/monthly-allowances/delete", allowanceController.DeleteMonthlyAllowance)
 
 		// 勤怠区分マスタ（検索のみ）
 		admin.POST("/attendance-types/search", attendanceTypeController.SearchAttendanceTypes)

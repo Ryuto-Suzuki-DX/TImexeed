@@ -80,12 +80,6 @@ func toUserSalaryDetailResponse(userSalaryDetail models.UserSalaryDetail) types.
 
 		BaseAmount: userSalaryDetail.BaseAmount,
 
-		ExtraAllowanceAmount: userSalaryDetail.ExtraAllowanceAmount,
-		ExtraAllowanceMemo:   userSalaryDetail.ExtraAllowanceMemo,
-
-		FixedDeductionAmount: userSalaryDetail.FixedDeductionAmount,
-		FixedDeductionMemo:   userSalaryDetail.FixedDeductionMemo,
-
 		IsPayrollTarget: userSalaryDetail.IsPayrollTarget,
 
 		EffectiveFrom: userSalaryFormatDate(userSalaryDetail.EffectiveFrom),
@@ -230,10 +224,8 @@ func validateUserSalaryType(salaryType string, errorCode string) results.Result 
 /*
  * 金額項目を検証する
  */
-func validateUserSalaryAmounts(
+func validateUserSalaryAmount(
 	baseAmount int,
-	extraAllowanceAmount int,
-	fixedDeductionAmount int,
 	errorCode string,
 ) results.Result {
 	if baseAmount < 0 {
@@ -243,28 +235,6 @@ func validateUserSalaryAmounts(
 			map[string]any{
 				"field": "baseAmount",
 				"value": baseAmount,
-			},
-		)
-	}
-
-	if extraAllowanceAmount < 0 {
-		return results.BadRequest(
-			errorCode,
-			"その他固定手当は0円以上で入力してください",
-			map[string]any{
-				"field": "extraAllowanceAmount",
-				"value": extraAllowanceAmount,
-			},
-		)
-	}
-
-	if fixedDeductionAmount < 0 {
-		return results.BadRequest(
-			errorCode,
-			"その他固定控除は0円以上で入力してください",
-			map[string]any{
-				"field": "fixedDeductionAmount",
-				"value": fixedDeductionAmount,
 			},
 		)
 	}
@@ -424,10 +394,8 @@ func (service *userSalaryDetailService) CreateUserSalaryDetail(req types.CreateU
 		return validateResult
 	}
 
-	if validateResult := validateUserSalaryAmounts(
+	if validateResult := validateUserSalaryAmount(
 		req.BaseAmount,
-		req.ExtraAllowanceAmount,
-		req.FixedDeductionAmount,
 		"CREATE_USER_SALARY_DETAIL_INVALID_AMOUNT",
 	); validateResult.Error {
 		return validateResult
@@ -532,10 +500,8 @@ func (service *userSalaryDetailService) UpdateUserSalaryDetail(req types.UpdateU
 		return validateResult
 	}
 
-	if validateResult := validateUserSalaryAmounts(
+	if validateResult := validateUserSalaryAmount(
 		req.BaseAmount,
-		req.ExtraAllowanceAmount,
-		req.FixedDeductionAmount,
 		"UPDATE_USER_SALARY_DETAIL_INVALID_AMOUNT",
 	); validateResult.Error {
 		return validateResult

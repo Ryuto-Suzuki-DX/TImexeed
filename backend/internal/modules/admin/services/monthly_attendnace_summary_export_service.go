@@ -239,6 +239,35 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		return nil, "", "", commuterPassResult
 	}
 
+	userSalaryDetailMap, salaryDetailResult := service.monthlyAttendanceSummaryExportRepository.FindUserSalaryDetails(
+		userIDs,
+		targetMonthStart,
+		targetMonthEnd,
+	)
+	if salaryDetailResult.Error {
+		return nil, "", "", salaryDetailResult
+	}
+
+	allowanceTypes, allowanceTypesResult := service.monthlyAttendanceSummaryExportRepository.FindAllowanceTypesForExport(
+		userIDs,
+		request.TargetYear,
+		request.TargetMonth,
+	)
+	if allowanceTypesResult.Error {
+		return nil, "", "", allowanceTypesResult
+	}
+
+	monthlyAllowanceMap, monthlyAllowanceResult := service.monthlyAttendanceSummaryExportRepository.FindMonthlyAllowances(
+		userIDs,
+		request.TargetYear,
+		request.TargetMonth,
+	)
+	if monthlyAllowanceResult.Error {
+		return nil, "", "", monthlyAllowanceResult
+	}
+
+	allowanceColumns := buildMonthlyAttendanceSummaryAllowanceColumns(allowanceTypes)
+
 	paidLeaveUsageMap, paidLeaveUsageResult := service.monthlyAttendanceSummaryExportRepository.FindPaidLeaveUsages(
 		userIDs,
 		targetMonthStart,
@@ -287,12 +316,17 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 			continue
 		}
 
+		userSalaryDetail, hasUserSalaryDetail := userSalaryDetailMap[user.ID]
+
 		calculatedRow := service.calculateApprovedUserRow(
 			row,
 			attendanceDaysByUserID[user.ID],
 			attendanceBreakMap,
 			attendanceTransportExpenseMap,
 			monthlyCommuterPassMap[user.ID],
+			userSalaryDetail,
+			hasUserSalaryDetail,
+			monthlyAllowanceMap[user.ID],
 			paidLeaveUsageMap[user.ID],
 			expenseMap[user.ID],
 			targetMonthStart,
@@ -306,6 +340,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 	if format == types.MonthlyAttendanceSummaryExportFormatXLSX {
 		excelBytes, excelResult := service.monthlyAttendanceSummaryExportBuilder.BuildExcel(
 			rows,
+			allowanceColumns,
 			request.TargetYear,
 			request.TargetMonth,
 		)
@@ -328,7 +363,7 @@ func (service *monthlyAttendanceSummaryExportService) ExportMonthlyAttendanceSum
 		)
 	}
 
-	csvBytes, csvResult := service.monthlyAttendanceSummaryExportBuilder.BuildCSV(rows)
+	csvBytes, csvResult := service.monthlyAttendanceSummaryExportBuilder.BuildCSV(rows, allowanceColumns)
 	if csvResult.Error {
 		return nil, "", "", csvResult
 	}
@@ -406,6 +441,7 @@ func (service *monthlyAttendanceSummaryExportService) buildBaseCsvRow(
 		MonthlyStatus:                    types.MonthlyAttendanceSummaryMonthlyStatusNotSubmitted,
 		CompanyDailyStandardWorkMinutes:  constants.CompanyDailyStandardWorkMinutes,
 		CompanyWeeklyStandardWorkMinutes: constants.CompanyWeeklyStandardWorkMinutes,
+		AllowanceAmounts:                 map[uint]int{},
 	}
 
 	if !hasMonthlyAttendanceRequest {
@@ -435,6 +471,9 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 	attendanceBreakMap map[uint][]models.AttendanceBreak,
 	attendanceTransportExpenseMap map[uint][]models.AttendanceTransportExpense,
 	monthlyCommuterPasses []models.MonthlyCommuterPass,
+	userSalaryDetail models.UserSalaryDetail,
+	hasUserSalaryDetail bool,
+	monthlyAllowances []models.MonthlyAllowance,
 	paidLeaveUsages []models.PaidLeaveUsage,
 	expenses []models.Expense,
 	targetMonthStart time.Time,
@@ -443,6 +482,10 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 	row.CalculationStatus = types.MonthlyAttendanceSummaryCalculationStatusCalculated
 	row.CalendarDays = targetMonthEnd.Day()
 	row.WorkingDayCount = countWeekdays(targetMonthStart, targetMonthEnd)
+
+	warnings := []string{}
+	service.applyUserSalaryDetailToRow(&row, userSalaryDetail, hasUserSalaryDetail, &warnings)
+	service.applyMonthlyAllowancesToRow(&row, monthlyAllowances)
 
 	workRows := service.buildWorkRows(
 		attendanceDays,
@@ -457,7 +500,6 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 
 	attendanceDaysInMonth := 0
 	dateWithAttendance := map[string]bool{}
-	warnings := []string{}
 
 	for _, workRow := range workRows {
 		workDate, err := parseDate(workRow.WorkDate)
@@ -597,6 +639,85 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 	row.HasDataWarning = row.WarningCount > 0
 
 	return row
+}
+
+/*
+ * 手当種別マスターを出力用動的列へ変換する
+ */
+func buildMonthlyAttendanceSummaryAllowanceColumns(
+	allowanceTypes []models.AllowanceType,
+) []types.MonthlyAttendanceSummaryAllowanceColumn {
+	columns := make([]types.MonthlyAttendanceSummaryAllowanceColumn, 0, len(allowanceTypes))
+
+	for _, allowanceType := range allowanceTypes {
+		columns = append(columns, types.MonthlyAttendanceSummaryAllowanceColumn{
+			AllowanceTypeID: allowanceType.ID,
+			Name:            allowanceType.Name,
+		})
+	}
+
+	return columns
+}
+
+/*
+ * 対象月に有効な給与詳細をCSV行へ反映する
+ */
+func (service *monthlyAttendanceSummaryExportService) applyUserSalaryDetailToRow(
+	row *types.MonthlyAttendanceSummaryCsvRow,
+	userSalaryDetail models.UserSalaryDetail,
+	hasUserSalaryDetail bool,
+	warnings *[]string,
+) {
+	if !hasUserSalaryDetail {
+		row.HasSalarySettingWarning = true
+		*warnings = append(*warnings, "給与設定警告: 対象月に有効な給与詳細が登録されていません")
+		return
+	}
+
+	row.UserSalaryDetailID = userSalaryDetail.ID
+	row.SalaryType = userSalaryDetail.SalaryType
+	row.IsPayrollTarget = userSalaryDetail.IsPayrollTarget
+	row.SalaryEffectiveFrom = formatDate(userSalaryDetail.EffectiveFrom)
+	if userSalaryDetail.EffectiveTo != nil {
+		row.SalaryEffectiveTo = formatDate(*userSalaryDetail.EffectiveTo)
+	}
+
+	switch userSalaryDetail.SalaryType {
+	case types.SalaryTypeMonthly:
+		row.BaseSalary = userSalaryDetail.BaseAmount
+	case types.SalaryTypeHourly:
+		row.HourlyWage = userSalaryDetail.BaseAmount
+	case types.SalaryTypeDaily:
+		row.DailyWage = userSalaryDetail.BaseAmount
+	}
+
+	if !userSalaryDetail.IsPayrollTarget {
+		row.HasPayrollExcludedWarning = true
+		*warnings = append(*warnings, "給与対象外警告: 対象月の給与詳細が給与計算対象外です")
+	}
+}
+
+/*
+ * 対象月の月次手当をCSV行へ反映する
+ *
+ * 同じ手当種別が複数件ある場合は合算する。
+ */
+func (service *monthlyAttendanceSummaryExportService) applyMonthlyAllowancesToRow(
+	row *types.MonthlyAttendanceSummaryCsvRow,
+	monthlyAllowances []models.MonthlyAllowance,
+) {
+	if row.AllowanceAmounts == nil {
+		row.AllowanceAmounts = map[uint]int{}
+	}
+
+	for _, monthlyAllowance := range monthlyAllowances {
+		if monthlyAllowance.IsDeleted {
+			continue
+		}
+
+		row.AllowanceAmounts[monthlyAllowance.AllowanceTypeID] += monthlyAllowance.Amount
+		row.TotalAllowanceAmount += monthlyAllowance.Amount
+	}
 }
 
 /*

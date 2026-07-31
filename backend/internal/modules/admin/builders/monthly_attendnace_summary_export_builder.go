@@ -23,8 +23,8 @@ import (
  * ・勤怠計算そのものはServiceで行う
  */
 type MonthlyAttendanceSummaryExportBuilder interface {
-	BuildCSV(rows []types.MonthlyAttendanceSummaryCsvRow) ([]byte, results.Result)
-	BuildExcel(rows []types.MonthlyAttendanceSummaryCsvRow, targetYear int, targetMonth int) ([]byte, results.Result)
+	BuildCSV(rows []types.MonthlyAttendanceSummaryCsvRow, allowanceColumns []types.MonthlyAttendanceSummaryAllowanceColumn) ([]byte, results.Result)
+	BuildExcel(rows []types.MonthlyAttendanceSummaryCsvRow, allowanceColumns []types.MonthlyAttendanceSummaryAllowanceColumn, targetYear int, targetMonth int) ([]byte, results.Result)
 	BuildFileName(targetYear int, targetMonth int) string
 	BuildExcelFileName(targetYear int, targetMonth int) string
 }
@@ -66,6 +66,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildExcelFileName(targetY
  */
 func (builder *monthlyAttendanceSummaryExportBuilder) BuildCSV(
 	rows []types.MonthlyAttendanceSummaryCsvRow,
+	allowanceColumns []types.MonthlyAttendanceSummaryAllowanceColumn,
 ) ([]byte, results.Result) {
 	buffer := &bytes.Buffer{}
 
@@ -74,7 +75,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildCSV(
 
 	writer := csv.NewWriter(buffer)
 
-	if err := writer.Write(builder.buildHeader()); err != nil {
+	if err := writer.Write(builder.buildHeader(allowanceColumns)); err != nil {
 		return nil, results.BadRequest(
 			"BUILD_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_CSV_HEADER_FAILED",
 			"月次勤怠集計CSVのヘッダー生成に失敗しました",
@@ -85,7 +86,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildCSV(
 	}
 
 	for _, row := range rows {
-		if err := writer.Write(builder.buildRecord(row)); err != nil {
+		if err := writer.Write(builder.buildRecord(row, allowanceColumns)); err != nil {
 			return nil, results.BadRequest(
 				"BUILD_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_CSV_RECORD_FAILED",
 				"月次勤怠集計CSVの行生成に失敗しました",
@@ -121,8 +122,10 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildCSV(
  * 経理提出・給与確認に必要な集計結果だけを中心に出力する。
  * 内部ID、権限、給与設定の詳細、計算途中の基準値、boolean警告フラグは出力しない。
  */
-func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
-	return []string{
+func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader(
+	allowanceColumns []types.MonthlyAttendanceSummaryAllowanceColumn,
+) []string {
+	header := []string{
 		"対象年",
 		"対象月",
 		"出力日時",
@@ -138,6 +141,17 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 		"月次申請状態",
 		"申請日時",
 		"承認日時",
+
+		"給与区分",
+		"基本金額",
+	}
+
+	for _, allowanceColumn := range allowanceColumns {
+		header = append(header, allowanceColumn.Name)
+	}
+
+	header = append(header,
+		"手当合計",
 
 		"暦日数",
 		"勤怠登録日数",
@@ -198,16 +212,21 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader() []string {
 		"警告内容",
 		"休憩不整合件数",
 		"時刻不整合件数",
-	}
+	)
+
+	return header
 }
 
 /*
  * CSVレコード生成
  */
-func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.MonthlyAttendanceSummaryCsvRow) []string {
+func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(
+	row types.MonthlyAttendanceSummaryCsvRow,
+	allowanceColumns []types.MonthlyAttendanceSummaryAllowanceColumn,
+) []string {
 	calculated := row.CalculationStatus == types.MonthlyAttendanceSummaryCalculationStatusCalculated
 
-	return []string{
+	record := []string{
 		strconv.Itoa(row.ExportTargetYear),
 		strconv.Itoa(row.ExportTargetMonth),
 		row.ExportedAt,
@@ -223,6 +242,20 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		monthlyStatusLabel(row.MonthlyStatus),
 		row.RequestedAt,
 		row.ApprovedAt,
+
+		calcStringToString(calculated, salaryTypeLabel(row.SalaryType)),
+		calcIntToString(calculated, monthlyAttendanceSummaryBaseAmount(row)),
+	}
+
+	for _, allowanceColumn := range allowanceColumns {
+		record = append(
+			record,
+			calcIntToString(calculated, row.AllowanceAmounts[allowanceColumn.AllowanceTypeID]),
+		)
+	}
+
+	record = append(record,
+		calcIntToString(calculated, row.TotalAllowanceAmount),
 
 		calcIntToString(calculated, row.CalendarDays),
 		calcIntToString(calculated, row.RegisteredAttendanceDays),
@@ -283,7 +316,42 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
 		row.Warnings,
 		intToString(row.InvalidBreakCount),
 		intToString(row.InvalidTimeCount),
+	)
+
+	return record
+}
+
+func monthlyAttendanceSummaryBaseAmount(row types.MonthlyAttendanceSummaryCsvRow) int {
+	switch row.SalaryType {
+	case types.SalaryTypeMonthly:
+		return row.BaseSalary
+	case types.SalaryTypeHourly:
+		return row.HourlyWage
+	case types.SalaryTypeDaily:
+		return row.DailyWage
+	default:
+		return 0
 	}
+}
+
+func salaryTypeLabel(value string) string {
+	switch value {
+	case types.SalaryTypeMonthly:
+		return "月給"
+	case types.SalaryTypeHourly:
+		return "時給"
+	case types.SalaryTypeDaily:
+		return "日給"
+	default:
+		return value
+	}
+}
+
+func calcStringToString(calculated bool, value string) string {
+	if !calculated {
+		return ""
+	}
+	return value
 }
 
 /*
@@ -294,13 +362,14 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(row types.Mont
  */
 func (builder *monthlyAttendanceSummaryExportBuilder) BuildExcel(
 	rows []types.MonthlyAttendanceSummaryCsvRow,
+	allowanceColumns []types.MonthlyAttendanceSummaryAllowanceColumn,
 	targetYear int,
 	targetMonth int,
 ) ([]byte, results.Result) {
-	header := builder.buildHeader()
+	header := builder.buildHeader(allowanceColumns)
 	records := make([][]string, 0, len(rows))
 	for _, row := range rows {
-		records = append(records, builder.buildRecord(row))
+		records = append(records, builder.buildRecord(row, allowanceColumns))
 	}
 
 	buffer := &bytes.Buffer{}

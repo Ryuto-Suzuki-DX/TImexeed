@@ -26,6 +26,8 @@ type MonthlyAttendanceSummaryExportRepository interface {
 	FindAttendanceTransportExpenses(attendanceDayIDs []uint) (map[uint][]models.AttendanceTransportExpense, results.Result)
 	FindMonthlyCommuterPasses(userIDs []uint, targetYear int, targetMonth int) (map[uint][]models.MonthlyCommuterPass, results.Result)
 	FindUserSalaryDetails(userIDs []uint, targetMonthStart time.Time, targetMonthEnd time.Time) (map[uint]models.UserSalaryDetail, results.Result)
+	FindAllowanceTypesForExport(userIDs []uint, targetYear int, targetMonth int) ([]models.AllowanceType, results.Result)
+	FindMonthlyAllowances(userIDs []uint, targetYear int, targetMonth int) (map[uint][]models.MonthlyAllowance, results.Result)
 	FindPaidLeaveUsages(userIDs []uint, targetMonthStart time.Time, targetMonthEnd time.Time) (map[uint][]models.PaidLeaveUsage, results.Result)
 	FindExpenses(userIDs []uint, targetMonthStart time.Time) (map[uint][]models.Expense, results.Result)
 }
@@ -427,6 +429,116 @@ func (repository *monthlyAttendanceSummaryExportRepository) FindUserSalaryDetail
 	return userSalaryDetailMap, results.OK(
 		nil,
 		"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_USER_SALARY_DETAILS_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 月次勤怠集計出力対象の手当種別取得
+ *
+ * 対象：
+ * ・削除されていない手当種別
+ * ・削除済みでも、対象ユーザー・対象年月に有効な月次手当実績がある手当種別
+ *
+ * 注意：
+ * ・利用停止中の手当種別も出力する
+ * ・過去実績の列欠落を防ぐため、実績がある削除済み種別も出力する
+ * ・列順は display_order、id の順
+ */
+func (repository *monthlyAttendanceSummaryExportRepository) FindAllowanceTypesForExport(
+	userIDs []uint,
+	targetYear int,
+	targetMonth int,
+) ([]models.AllowanceType, results.Result) {
+	if len(userIDs) == 0 {
+		return []models.AllowanceType{}, results.OK(
+			nil,
+			"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_ALLOWANCE_TYPES_EMPTY",
+			"",
+			nil,
+		)
+	}
+
+	usedAllowanceTypeIDsQuery := repository.db.
+		Model(&models.MonthlyAllowance{}).
+		Select("allowance_type_id").
+		Where("is_deleted = false").
+		Where("user_id IN ?", userIDs).
+		Where("target_year = ?", targetYear).
+		Where("target_month = ?", targetMonth)
+
+	var allowanceTypes []models.AllowanceType
+	if err := repository.db.
+		Where("is_deleted = false OR id IN (?)", usedAllowanceTypeIDsQuery).
+		Order("display_order ASC, id ASC").
+		Find(&allowanceTypes).Error; err != nil {
+		return nil, results.BadRequest(
+			"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_ALLOWANCE_TYPES_FAILED",
+			"月次勤怠集計出力用の手当種別取得に失敗しました",
+			map[string]any{
+				"error": err.Error(),
+			},
+		)
+	}
+
+	return allowanceTypes, results.OK(
+		nil,
+		"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_ALLOWANCE_TYPES_SUCCESS",
+		"",
+		nil,
+	)
+}
+
+/*
+ * 月次手当取得
+ *
+ * ユーザーIDごとに、対象年月の有効な月次手当明細をまとめて返す。
+ * 同一手当種別の合計はServiceで行う。
+ */
+func (repository *monthlyAttendanceSummaryExportRepository) FindMonthlyAllowances(
+	userIDs []uint,
+	targetYear int,
+	targetMonth int,
+) (map[uint][]models.MonthlyAllowance, results.Result) {
+	monthlyAllowanceMap := map[uint][]models.MonthlyAllowance{}
+
+	if len(userIDs) == 0 {
+		return monthlyAllowanceMap, results.OK(
+			nil,
+			"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_MONTHLY_ALLOWANCES_EMPTY",
+			"",
+			nil,
+		)
+	}
+
+	var monthlyAllowances []models.MonthlyAllowance
+	if err := repository.db.
+		Where("is_deleted = false").
+		Where("user_id IN ?", userIDs).
+		Where("target_year = ?", targetYear).
+		Where("target_month = ?", targetMonth).
+		Order("user_id ASC, allowance_type_id ASC, id ASC").
+		Find(&monthlyAllowances).Error; err != nil {
+		return nil, results.BadRequest(
+			"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_MONTHLY_ALLOWANCES_FAILED",
+			"月次手当の取得に失敗しました",
+			map[string]any{
+				"error": err.Error(),
+			},
+		)
+	}
+
+	for _, monthlyAllowance := range monthlyAllowances {
+		monthlyAllowanceMap[monthlyAllowance.UserID] = append(
+			monthlyAllowanceMap[monthlyAllowance.UserID],
+			monthlyAllowance,
+		)
+	}
+
+	return monthlyAllowanceMap, results.OK(
+		nil,
+		"FIND_MONTHLY_ATTENDANCE_SUMMARY_EXPORT_MONTHLY_ALLOWANCES_SUCCESS",
 		"",
 		nil,
 	)

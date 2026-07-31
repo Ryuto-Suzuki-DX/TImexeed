@@ -135,18 +135,20 @@ type MonthlyAttendanceSummaryCsvRow struct {
 	CanceledAt       string `json:"canceledAt"`
 
 	// 給与設定情報
-	UserSalaryDetailID   uint   `json:"userSalaryDetailId"`
-	SalaryType           string `json:"salaryType"`
-	BaseSalary           int    `json:"baseSalary"`
-	HourlyWage           int    `json:"hourlyWage"`
-	DailyWage            int    `json:"dailyWage"`
-	ExtraAllowanceAmount int    `json:"extraAllowanceAmount"`
-	ExtraAllowanceMemo   string `json:"extraAllowanceMemo"`
-	FixedDeductionAmount int    `json:"fixedDeductionAmount"`
-	FixedDeductionMemo   string `json:"fixedDeductionMemo"`
-	IsPayrollTarget      bool   `json:"isPayrollTarget"`
-	SalaryEffectiveFrom  string `json:"salaryEffectiveFrom"`
-	SalaryEffectiveTo    string `json:"salaryEffectiveTo"`
+	UserSalaryDetailID  uint   `json:"userSalaryDetailId"`
+	SalaryType          string `json:"salaryType"`
+	BaseSalary          int    `json:"baseSalary"`
+	HourlyWage          int    `json:"hourlyWage"`
+	DailyWage           int    `json:"dailyWage"`
+	IsPayrollTarget     bool   `json:"isPayrollTarget"`
+	SalaryEffectiveFrom string `json:"salaryEffectiveFrom"`
+	SalaryEffectiveTo   string `json:"salaryEffectiveTo"`
+
+	// 手当種別IDごとの対象月合計
+	AllowanceAmounts map[uint]int `json:"allowanceAmounts"`
+
+	// 対象月に登録された全手当の合計
+	TotalAllowanceAmount int `json:"totalAllowanceAmount"`
 
 	// 勤怠日数集計
 	CalendarDays             int `json:"calendarDays"`
@@ -248,6 +250,20 @@ type MonthlyAttendanceSummaryCsvRow struct {
 	HasAttendanceMissingWarning      bool   `json:"hasAttendanceMissingWarning"`
 	HasScheduleActualMismatchWarning bool   `json:"hasScheduleActualMismatchWarning"`
 	HasExpenseCategoryWarning        bool   `json:"hasExpenseCategoryWarning"`
+}
+
+/*
+ * 月次勤怠集計出力用の動的手当列
+ *
+ * AllowanceTypeID：
+ * ・MonthlyAttendanceSummaryCsvRow.AllowanceAmounts の参照キー
+ *
+ * Name：
+ * ・CSV / Excelの列名
+ */
+type MonthlyAttendanceSummaryAllowanceColumn struct {
+	AllowanceTypeID uint
+	Name            string
 }
 
 /*

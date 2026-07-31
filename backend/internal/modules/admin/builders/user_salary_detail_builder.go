@@ -274,12 +274,6 @@ func (builder *userSalaryDetailBuilder) BuildCreateUserSalaryDetailModel(
 
 		BaseAmount: req.BaseAmount,
 
-		ExtraAllowanceAmount: req.ExtraAllowanceAmount,
-		ExtraAllowanceMemo:   req.ExtraAllowanceMemo,
-
-		FixedDeductionAmount: req.FixedDeductionAmount,
-		FixedDeductionMemo:   req.FixedDeductionMemo,
-
 		IsPayrollTarget: req.IsPayrollTarget,
 
 		EffectiveFrom: effectiveFrom,
@@ -334,12 +328,6 @@ func (builder *userSalaryDetailBuilder) BuildUpdateUserSalaryDetailModel(
 	currentUserSalaryDetail.SalaryType = strings.TrimSpace(req.SalaryType)
 
 	currentUserSalaryDetail.BaseAmount = req.BaseAmount
-
-	currentUserSalaryDetail.ExtraAllowanceAmount = req.ExtraAllowanceAmount
-	currentUserSalaryDetail.ExtraAllowanceMemo = req.ExtraAllowanceMemo
-
-	currentUserSalaryDetail.FixedDeductionAmount = req.FixedDeductionAmount
-	currentUserSalaryDetail.FixedDeductionMemo = req.FixedDeductionMemo
 
 	currentUserSalaryDetail.IsPayrollTarget = req.IsPayrollTarget
 

@@ -13,44 +13,26 @@ import (
  */
 func RunMigrations(db *gorm.DB) error {
 	return db.AutoMigrate(
-
-		// 所属
 		&models.Department{},
-		// ユーザー
 		&models.User{},
-		// 各ユーザーの給与詳細
 		&models.UserSalaryDetail{},
-		// 資料共有Driveフォルダ
+		&models.AllowanceType{},
+		&models.MonthlyAllowance{},
 		&models.SharedDocumentDriveFolder{},
-		// 勤怠区分マスタ
 		&models.AttendanceType{},
-		// 勤怠/日
 		&models.AttendanceDay{},
-		// 勤怠/日別交通費
 		&models.AttendanceTransportExpense{},
-		// 休憩/日
 		&models.AttendanceBreak{},
-		// 通勤定期/月
 		&models.MonthlyCommuterPass{},
-		// 有給使用日
 		&models.PaidLeaveUsage{},
-		// 勤怠申請系
 		&models.MonthlyAttendanceRequest{},
-		// お知らせ
 		&models.Notification{},
-		// 自動お知らせ機能
 		&models.NotificationReminder{},
-		// 祝日
 		&models.HolidayDate{},
-		// 外部ストレージリンク
 		&models.ExternalStorageLink{},
-		// API操作ログ
 		&models.ApiOperationLog{},
-		// 個人情報Driveフォルダ
 		&models.PersonalInformationDriveFolder{},
-		// 経費
 		&models.Expense{},
-		// 勤怠リアルタイムイベント
 		&models.AttendanceRealtimeEvent{},
 	)
 }
