@@ -363,7 +363,18 @@ func buildExpenseSheetXML(
 	totalRow := len(expenses) + 6
 	rows.WriteString(`<row r="` + strconv.Itoa(totalRow) + `" ht="24" customHeight="1">`)
 	rows.WriteString(inlineStringCell(cellReference(7, totalRow), "合計", 9))
-	rows.WriteString(formulaCell(cellReference(8, totalRow), fmt.Sprintf("SUM(H6:H%d)", totalRow-1), sumExpenseAmounts(expenses), 10))
+	if len(expenses) > 0 {
+		rows.WriteString(
+			formulaCell(
+				cellReference(8, totalRow),
+				fmt.Sprintf("SUM(H6:H%d)", totalRow-1),
+				sumExpenseAmounts(expenses),
+				10,
+			),
+		)
+	} else {
+		rows.WriteString(numberCell(cellReference(8, totalRow), 0, 10))
+	}
 	rows.WriteString(`</row>`)
 
 	dimension := fmt.Sprintf("A1:I%d", totalRow)
@@ -385,8 +396,8 @@ func buildExpenseSheetXML(
 		`<col min="9" max="9" width="18" customWidth="1"/>` +
 		`</cols>` +
 		`<sheetData>` + rows.String() + `</sheetData>` +
-		`<mergeCells count="1"><mergeCell ref="A1:I1"/></mergeCells>` +
-		`<autoFilter ref="` + autoFilter + `"/>`
+		`<autoFilter ref="` + autoFilter + `"/>` +
+		`<mergeCells count="1"><mergeCell ref="A1:I1"/></mergeCells>`
 
 	if hyperlinks.Len() > 0 {
 		sheet += `<hyperlinks>` + hyperlinks.String() + `</hyperlinks>`
@@ -425,9 +436,38 @@ func formulaCell(reference string, formula string, value int, style int) string 
 }
 
 func xmlEscape(value string) string {
+	value = removeInvalidXMLCharacters(value)
+
 	var buffer bytes.Buffer
 	_ = xml.EscapeText(&buffer, []byte(value))
 	return buffer.String()
+}
+
+/*
+ * XML 1.0で使用できない制御文字を除去する。
+ *
+ * メモや経費内容にコピー＆ペースト由来の制御文字が含まれていても、
+ * sheet1.xml全体が壊れないようにする。
+ */
+func removeInvalidXMLCharacters(value string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == 0x09:
+			return r
+		case r == 0x0A:
+			return r
+		case r == 0x0D:
+			return r
+		case r >= 0x20 && r <= 0xD7FF:
+			return r
+		case r >= 0xE000 && r <= 0xFFFD:
+			return r
+		case r >= 0x10000 && r <= 0x10FFFF:
+			return r
+		default:
+			return -1
+		}
+	}, value)
 }
 
 func cellReference(column int, row int) string {
