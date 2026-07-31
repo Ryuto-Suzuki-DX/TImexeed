@@ -133,12 +133,27 @@ type DeleteSharedDocumentDriveFolderResponse struct {
 }
 
 /*
+ * 共有資料Driveフォルダ権限同期失敗情報
+ */
+type SharedDocumentDrivePermissionSyncFailure struct {
+	SharedDocumentDriveFolderID   uint   `json:"sharedDocumentDriveFolderId"`
+	SharedDocumentDriveFolderName string `json:"sharedDocumentDriveFolderName"`
+	EmailAddress                  string `json:"emailAddress"`
+	Operation                     string `json:"operation"`
+	Error                         string `json:"error"`
+}
+
+/*
  * 管理者用 共有資料Driveフォルダ同期Response
  */
 type SyncSharedDocumentDriveFolderResponse struct {
-	SharedDocumentDriveFolders []SharedDocumentDriveFolderResponse `json:"sharedDocumentDriveFolders"`
-	SyncedFolderCount          int                                 `json:"syncedFolderCount"`
-	TargetAdminCount           int                                 `json:"targetAdminCount"`
-	TargetUserCount            int                                 `json:"targetUserCount"`
-	SyncedAt                   time.Time                           `json:"syncedAt"`
+	SharedDocumentDriveFolders []SharedDocumentDriveFolderResponse        `json:"sharedDocumentDriveFolders"`
+	SyncedFolderCount          int                                        `json:"syncedFolderCount"`
+	TargetAdminCount           int                                        `json:"targetAdminCount"`
+	TargetUserCount            int                                        `json:"targetUserCount"`
+	PermissionSuccessCount     int                                        `json:"permissionSuccessCount"`
+	PermissionFailureCount     int                                        `json:"permissionFailureCount"`
+	PermissionFailures         []SharedDocumentDrivePermissionSyncFailure `json:"permissionFailures"`
+	HasPermissionFailures      bool                                       `json:"hasPermissionFailures"`
+	SyncedAt                   time.Time                                  `json:"syncedAt"`
 }

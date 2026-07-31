@@ -36,9 +36,6 @@ export type SharedDocumentDriveFolderDetailRequest = {
 
 /*
  * 管理者用 共有資料Driveフォルダ作成Request
- *
- * Drive親フォルダはバックエンド側で
- * external_storage_links の SHARED_DOCUMENT_DRIVE_ROOT から取得する。
  */
 export type CreateSharedDocumentDriveFolderRequest = {
   folderName: string;
@@ -47,9 +44,6 @@ export type CreateSharedDocumentDriveFolderRequest = {
 
 /*
  * 管理者用 共有資料Driveフォルダ更新Request
- *
- * DriveフォルダID/URLは更新しない。
- * Timexeed上の表示名・説明のみ更新する。
  */
 export type UpdateSharedDocumentDriveFolderRequest = {
   targetSharedDocumentDriveFolderId: number;
@@ -66,12 +60,6 @@ export type DeleteSharedDocumentDriveFolderRequest = {
 
 /*
  * 管理者用 共有資料Driveフォルダ同期Request
- *
- * targetSharedDocumentDriveFolderId = 0:
- * ・有効な共有資料Driveフォルダ全件を同期する
- *
- * targetSharedDocumentDriveFolderId > 0:
- * ・指定した共有資料Driveフォルダ1件だけ同期する
  */
 export type SyncSharedDocumentDriveFolderRequest = {
   targetSharedDocumentDriveFolderId: number;
@@ -82,13 +70,11 @@ export type SyncSharedDocumentDriveFolderRequest = {
  */
 export type SharedDocumentDriveFolderSearchRow = {
   id: number;
-
   folderName: string;
   description: string | null;
   driveFolderId: string;
   folderUrl: string;
   syncedAt: string | null;
-
   createdAt: string;
   updatedAt: string;
 };
@@ -98,13 +84,11 @@ export type SharedDocumentDriveFolderSearchRow = {
  */
 export type SharedDocumentDriveFolder = {
   id: number;
-
   folderName: string;
   description: string | null;
   driveFolderId: string;
   folderUrl: string;
   syncedAt: string | null;
-
   createdAt: string;
   updatedAt: string;
 };
@@ -149,6 +133,17 @@ export type DeleteSharedDocumentDriveFolderResponse = {
 };
 
 /*
+ * 共有資料Driveフォルダ権限同期失敗情報
+ */
+export type SharedDocumentDrivePermissionSyncFailure = {
+  sharedDocumentDriveFolderId: number;
+  sharedDocumentDriveFolderName: string;
+  emailAddress: string;
+  operation: string;
+  error: string;
+};
+
+/*
  * 管理者用 共有資料Driveフォルダ同期Response
  */
 export type SyncSharedDocumentDriveFolderResponse = {
@@ -156,5 +151,9 @@ export type SyncSharedDocumentDriveFolderResponse = {
   syncedFolderCount: number;
   targetAdminCount: number;
   targetUserCount: number;
+  permissionSuccessCount: number;
+  permissionFailureCount: number;
+  permissionFailures: SharedDocumentDrivePermissionSyncFailure[];
+  hasPermissionFailures: boolean;
   syncedAt: string;
 };

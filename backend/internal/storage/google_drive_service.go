@@ -54,6 +54,7 @@ type GoogleDriveService interface {
 	CreateFolder(ctx context.Context, parentFolderID string, folderName string) (GoogleDriveFolderMetadata, error)
 	GetFolderMetadata(ctx context.Context, folderID string) (GoogleDriveFolderMetadata, error)
 	SyncPermissions(ctx context.Context, fileOrFolderID string, permissions []GoogleDrivePermissionSetting, removeUnexpectedDirectPermissions bool) error
+	SyncPermissionsWithResult(ctx context.Context, fileOrFolderID string, permissions []GoogleDrivePermissionSetting, removeUnexpectedDirectPermissions bool) (GoogleDrivePermissionSyncResult, error)
 }
 
 type googleDriveService struct {
@@ -123,6 +124,24 @@ type GoogleDriveFolderMetadata struct {
 type GoogleDrivePermissionSetting struct {
 	EmailAddress string
 	Role         string
+}
+
+/*
+ * Google Drive権限同期失敗情報
+ */
+type GoogleDrivePermissionSyncFailure struct {
+	EmailAddress string `json:"emailAddress"`
+	Operation    string `json:"operation"`
+	Error        string `json:"error"`
+}
+
+/*
+ * Google Drive権限同期結果
+ */
+type GoogleDrivePermissionSyncResult struct {
+	SuccessCount int                                `json:"successCount"`
+	FailureCount int                                `json:"failureCount"`
+	Failures     []GoogleDrivePermissionSyncFailure `json:"failures"`
 }
 
 /*
@@ -658,6 +677,133 @@ func (service *googleDriveService) SyncPermissions(
 	}
 
 	return nil
+}
+
+/*
+ * Google Drive権限同期（結果付き）
+ *
+ * SyncPermissionsとの違い：
+ * ・ユーザー単位の権限作成/更新エラーでは処理を中断しない
+ * ・失敗したメールアドレスとエラー内容を結果へ記録する
+ * ・権限一覧の取得失敗など、同期処理そのものを継続できない場合のみerrorを返す
+ *
+ * 既存のSyncPermissionsは個人情報Drive等で利用しているため、
+ * 従来どおり「1件失敗した時点でerrorを返す」挙動を維持する。
+ */
+func (service *googleDriveService) SyncPermissionsWithResult(
+	ctx context.Context,
+	fileOrFolderID string,
+	permissions []GoogleDrivePermissionSetting,
+	removeUnexpectedDirectPermissions bool,
+) (GoogleDrivePermissionSyncResult, error) {
+	result := GoogleDrivePermissionSyncResult{
+		Failures: make([]GoogleDrivePermissionSyncFailure, 0),
+	}
+
+	fileOrFolderID = strings.TrimSpace(fileOrFolderID)
+	if fileOrFolderID == "" {
+		return result, errors.New("google drive file or folder id is empty")
+	}
+
+	normalizedPermissions := normalizePermissionSettings(permissions)
+	if len(normalizedPermissions) == 0 {
+		return result, errors.New("google drive permissions are empty")
+	}
+
+	existingPermissions, err := service.driveService.Permissions.
+		List(fileOrFolderID).
+		Fields("permissions(id,type,emailAddress,role,deleted,permissionDetails)").
+		SupportsAllDrives(true).
+		Context(ctx).
+		Do()
+	if err != nil {
+		return result, fmt.Errorf("failed to list google drive permissions: %w", err)
+	}
+
+	existingUserPermissionsByEmail := make(map[string]*drive.Permission)
+	allowedEmails := make(map[string]bool)
+
+	for _, permission := range normalizedPermissions {
+		allowedEmails[permission.EmailAddress] = true
+	}
+
+	for _, existingPermission := range existingPermissions.Permissions {
+		email := strings.ToLower(strings.TrimSpace(existingPermission.EmailAddress))
+		if email != "" && existingPermission.Type == "user" && !existingPermission.Deleted {
+			existingUserPermissionsByEmail[email] = existingPermission
+		}
+	}
+
+	for _, permission := range normalizedPermissions {
+		existingPermission, exists := existingUserPermissionsByEmail[permission.EmailAddress]
+		if !exists {
+			createPermission := &drive.Permission{
+				Type:         "user",
+				Role:         permission.Role,
+				EmailAddress: permission.EmailAddress,
+			}
+
+			if _, err := service.driveService.Permissions.
+				Create(fileOrFolderID, createPermission).
+				SendNotificationEmail(true).
+				SupportsAllDrives(true).
+				Context(ctx).
+				Do(); err != nil {
+				result.Failures = append(result.Failures, GoogleDrivePermissionSyncFailure{
+					EmailAddress: permission.EmailAddress,
+					Operation:    "create",
+					Error:        err.Error(),
+				})
+				result.FailureCount++
+				continue
+			}
+
+			result.SuccessCount++
+			continue
+		}
+
+		if existingPermission.Role != permission.Role &&
+			existingPermission.Role != "owner" &&
+			!isInheritedGoogleDrivePermission(existingPermission) {
+			updatePermission := &drive.Permission{Role: permission.Role}
+
+			if _, err := service.driveService.Permissions.
+				Update(fileOrFolderID, existingPermission.Id, updatePermission).
+				SupportsAllDrives(true).
+				Context(ctx).
+				Do(); err != nil {
+				result.Failures = append(result.Failures, GoogleDrivePermissionSyncFailure{
+					EmailAddress: permission.EmailAddress,
+					Operation:    "update",
+					Error:        err.Error(),
+				})
+				result.FailureCount++
+				continue
+			}
+		}
+
+		result.SuccessCount++
+	}
+
+	if !removeUnexpectedDirectPermissions {
+		return result, nil
+	}
+
+	for _, existingPermission := range existingPermissions.Permissions {
+		if shouldKeepGoogleDrivePermission(existingPermission, allowedEmails) {
+			continue
+		}
+
+		if err := service.driveService.Permissions.
+			Delete(fileOrFolderID, existingPermission.Id).
+			SupportsAllDrives(true).
+			Context(ctx).
+			Do(); err != nil {
+			return result, fmt.Errorf("failed to delete unexpected google drive permission: %w", err)
+		}
+	}
+
+	return result, nil
 }
 
 /*

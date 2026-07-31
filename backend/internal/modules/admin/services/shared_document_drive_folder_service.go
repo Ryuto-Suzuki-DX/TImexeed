@@ -349,9 +349,18 @@ func (service *sharedDocumentDriveFolderService) SyncSharedDocumentDriveFolder(r
 
 	syncedAt := time.Now()
 	syncedFolders := make([]models.SharedDocumentDriveFolder, 0, len(folders))
+	permissionFailures := make([]types.SharedDocumentDrivePermissionSyncFailure, 0)
+	permissionSuccessCount := 0
+	permissionFailureCount := 0
 
 	for _, folder := range folders {
-		if err := service.googleDriveService.SyncPermissions(context.Background(), folder.DriveFolderID, permissions, false); err != nil {
+		permissionSyncResult, err := service.googleDriveService.SyncPermissionsWithResult(
+			context.Background(),
+			folder.DriveFolderID,
+			permissions,
+			false,
+		)
+		if err != nil {
 			return results.InternalServerError(
 				"SYNC_SHARED_DOCUMENT_DRIVE_FOLDER_PERMISSIONS_FAILED",
 				"共有資料Driveフォルダの権限同期に失敗しました",
@@ -361,6 +370,19 @@ func (service *sharedDocumentDriveFolderService) SyncSharedDocumentDriveFolder(r
 					"error":                       err.Error(),
 				},
 			)
+		}
+
+		permissionSuccessCount += permissionSyncResult.SuccessCount
+		permissionFailureCount += permissionSyncResult.FailureCount
+
+		for _, failure := range permissionSyncResult.Failures {
+			permissionFailures = append(permissionFailures, types.SharedDocumentDrivePermissionSyncFailure{
+				SharedDocumentDriveFolderID:   folder.ID,
+				SharedDocumentDriveFolderName: folder.FolderName,
+				EmailAddress:                  failure.EmailAddress,
+				Operation:                     failure.Operation,
+				Error:                         failure.Error,
+			})
 		}
 
 		syncedFolderModel, buildSyncedFolderResult := service.sharedDocumentDriveFolderBuilder.BuildSyncedSharedDocumentDriveFolderModel(folder, syncedAt)
@@ -376,16 +398,28 @@ func (service *sharedDocumentDriveFolderService) SyncSharedDocumentDriveFolder(r
 		syncedFolders = append(syncedFolders, syncedFolder)
 	}
 
+	hasPermissionFailures := permissionFailureCount > 0
+	messageCode := "SYNC_SHARED_DOCUMENT_DRIVE_FOLDER_SUCCESS"
+	message := "共有資料Driveフォルダの権限を同期しました"
+	if hasPermissionFailures {
+		messageCode = "SYNC_SHARED_DOCUMENT_DRIVE_FOLDER_PARTIAL_SUCCESS"
+		message = "共有資料Driveフォルダの権限同期が一部完了しました"
+	}
+
 	return results.OK(
 		types.SyncSharedDocumentDriveFolderResponse{
 			SharedDocumentDriveFolders: toSharedDocumentDriveFolderResponses(syncedFolders),
 			SyncedFolderCount:          len(syncedFolders),
 			TargetAdminCount:           len(adminUsers),
 			TargetUserCount:            len(generalUsers),
+			PermissionSuccessCount:     permissionSuccessCount,
+			PermissionFailureCount:     permissionFailureCount,
+			PermissionFailures:         permissionFailures,
+			HasPermissionFailures:      hasPermissionFailures,
 			SyncedAt:                   syncedAt,
 		},
-		"SYNC_SHARED_DOCUMENT_DRIVE_FOLDER_SUCCESS",
-		"共有資料Driveフォルダの権限を同期しました",
+		messageCode,
+		message,
 		nil,
 	)
 }

@@ -18,6 +18,7 @@ import {
 import type {
   SharedDocumentDriveFolder,
   SharedDocumentDriveFolderSearchRow,
+  SyncSharedDocumentDriveFolderResponse,
 } from "@/types/admin/sharedDocumentDriveFolder";
 import styles from "./page.module.css";
 
@@ -71,6 +72,8 @@ export default function AdminSharedDocumentDriveFoldersPage() {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [processingFolderId, setProcessingFolderId] = useState<number | null>(null);
+  const [syncResult, setSyncResult] =
+    useState<SyncSharedDocumentDriveFolderResponse | null>(null);
 
   const selectedFolderId = selectedFolder?.id ?? null;
 
@@ -377,6 +380,7 @@ export default function AdminSharedDocumentDriveFoldersPage() {
     }
 
     setIsSyncing(true);
+    setSyncResult(null);
     setProcessingFolderId(isAllFolders ? null : targetSharedDocumentDriveFolderId);
     setPageMessage("Google Drive権限を同期しています。");
     setPageMessageVariant("info");
@@ -411,10 +415,19 @@ export default function AdminSharedDocumentDriveFoldersPage() {
         }
       }
 
-      setPageMessage(
-        `Google Drive権限を同期しました。同期フォルダ数：${result.data.syncedFolderCount}件 / 管理者：${result.data.targetAdminCount}人 / 一般ユーザー：${result.data.targetUserCount}人`,
-      );
-      setPageMessageVariant("success");
+      setSyncResult(result.data);
+
+      if (result.data.hasPermissionFailures) {
+        setPageMessage(
+          `Google Drive権限の同期が一部完了しました。成功：${result.data.permissionSuccessCount}件 / 失敗：${result.data.permissionFailureCount}件`,
+        );
+        setPageMessageVariant("warning");
+      } else {
+        setPageMessage(
+          `Google Drive権限を同期しました。成功：${result.data.permissionSuccessCount}件 / 同期フォルダ数：${result.data.syncedFolderCount}件`,
+        );
+        setPageMessageVariant("success");
+      }
 
       void loadFolders(0, false);
     } catch (error) {
@@ -481,6 +494,93 @@ export default function AdminSharedDocumentDriveFoldersPage() {
               {isPageLoading ? "読み込み中..." : pageMessage}
             </MessageBox>
           </div>
+
+          {syncResult && (
+            <section
+              className={`${styles.syncResultCard} ${
+                syncResult.hasPermissionFailures
+                  ? styles.syncResultWarning
+                  : styles.syncResultSuccess
+              }`}
+            >
+              <div className={styles.syncResultHeader}>
+                <div>
+                  <h2 className={styles.syncResultTitle}>権限同期結果</h2>
+                  <p className={styles.syncResultDescription}>
+                    Google Driveへの権限付与処理結果です。
+                  </p>
+                </div>
+                <span
+                  className={`${styles.syncResultBadge} ${
+                    syncResult.hasPermissionFailures
+                      ? styles.syncResultBadgeWarning
+                      : styles.syncResultBadgeSuccess
+                  }`}
+                >
+                  {syncResult.hasPermissionFailures ? "一部失敗" : "完了"}
+                </span>
+              </div>
+
+              <div className={styles.syncResultSummaryGrid}>
+                <div className={styles.syncResultSummaryItem}>
+                  <p className={styles.syncResultSummaryLabel}>同期フォルダ</p>
+                  <p className={styles.syncResultSummaryValue}>
+                    {syncResult.syncedFolderCount}件
+                  </p>
+                </div>
+                <div className={styles.syncResultSummaryItem}>
+                  <p className={styles.syncResultSummaryLabel}>権限同期成功</p>
+                  <p className={styles.syncResultSummaryValue}>
+                    {syncResult.permissionSuccessCount}件
+                  </p>
+                </div>
+                <div className={styles.syncResultSummaryItem}>
+                  <p className={styles.syncResultSummaryLabel}>権限同期失敗</p>
+                  <p className={styles.syncResultSummaryValue}>
+                    {syncResult.permissionFailureCount}件
+                  </p>
+                </div>
+                <div className={styles.syncResultSummaryItem}>
+                  <p className={styles.syncResultSummaryLabel}>対象ユーザー</p>
+                  <p className={styles.syncResultSummaryValue}>
+                    管理者 {syncResult.targetAdminCount}人 / 一般 {syncResult.targetUserCount}人
+                  </p>
+                </div>
+              </div>
+
+              {syncResult.hasPermissionFailures &&
+                syncResult.permissionFailures.length > 0 && (
+                  <div className={styles.syncFailureArea}>
+                    <h3 className={styles.syncFailureTitle}>
+                      権限を同期できなかったユーザー
+                    </h3>
+                    <div className={styles.syncFailureList}>
+                      {syncResult.permissionFailures.map((failure, index) => (
+                        <article
+                          key={`${failure.sharedDocumentDriveFolderId}-${failure.emailAddress}-${failure.operation}-${index}`}
+                          className={styles.syncFailureItem}
+                        >
+                          <div className={styles.syncFailureMain}>
+                            <p className={styles.syncFailureEmail}>
+                              {failure.emailAddress || "メールアドレス不明"}
+                            </p>
+                            <p className={styles.syncFailureFolder}>
+                              フォルダ：{failure.sharedDocumentDriveFolderName}（ID: {failure.sharedDocumentDriveFolderId}）
+                            </p>
+                          </div>
+                          <p className={styles.syncFailureOperation}>
+                            処理：{failure.operation || "不明"}
+                          </p>
+                          <p className={styles.syncFailureError}>
+                            {failure.error || "詳細なエラー情報はありません。"}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                )}
+            </section>
+          )}
 
           <section className={styles.searchCard}>
             <div className={styles.sectionHeader}>
