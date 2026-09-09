@@ -95,14 +95,14 @@
 }
 
 .copyCell {
-  width: 96px;
-  min-width: 96px;
+  width: 80px;
+  min-width: 80px;
   box-sizing: border-box;
 }
 
 .dateCell {
   position: sticky;
-  left: var(--attendance-copy-column-width, 96px);
+  left: var(--attendance-copy-column-width, 80px);
   z-index: 3;
   width: 72px;
   min-width: 72px;
@@ -438,8 +438,8 @@
   }
 
   .copyCell {
-    width: 84px;
-    min-width: 84px;
+    width: 70px;
+    min-width: 70px;
   }
 
  .dateCell {
@@ -454,7 +454,7 @@
   .copyButton,
   .pasteButton {
     min-height: 28px;
-    padding: 4px 5px;
+    padding: 4px 3px;
     border-radius: 7px;
     font-size: 10px;
   }
@@ -607,8 +607,8 @@
   }
 
   .copyCell {
-    width: 80px;
-    min-width: 80px;
+    width: 64px;
+    min-width: 64px;
   }
 
   .copyButton,

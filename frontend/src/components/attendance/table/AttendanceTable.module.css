@@ -105,7 +105,7 @@
 }
 
 .table {
-  --attendance-copy-column-width: 96px;
+  --attendance-copy-column-width: 80px;
   width: 100%;
   min-width: 1780px;
   border-collapse: separate;
@@ -130,13 +130,15 @@
 }
 
 .copyColumn {
-  width: 96px;
-  min-width: 96px;
+  width: 80px;
+  min-width: 80px;
+  box-sizing: border-box;
 }
 
 .dateColumn {
   width: 72px;
   min-width: 72px;
+  box-sizing: border-box;
 }
 
 .planColumn {
@@ -178,7 +180,7 @@
 .table th:nth-child(2),
 .table td:nth-child(2) {
   position: sticky;
-  left: 96px;
+  left: 80px;
   box-shadow: 2px 0 5px rgba(15, 23, 42, 0.08);
 }
 
@@ -251,7 +253,7 @@
   }
 
   .table {
-    --attendance-copy-column-width: 84px;
+    --attendance-copy-column-width: 70px;
     min-width: 1380px;
   }
 
@@ -261,8 +263,8 @@
   }
 
   .copyColumn {
-    width: 84px;
-    min-width: 84px;
+    width: 70px;
+    min-width: 70px;
   }
 
   .dateColumn {
@@ -301,7 +303,7 @@
 
   .table th:nth-child(2),
   .table td:nth-child(2) {
-    left: 84px;
+    left: 70px;
   }
 }
 
@@ -311,7 +313,7 @@
   }
 
   .table {
-    --attendance-copy-column-width: 80px;
+    --attendance-copy-column-width: 64px;
     min-width: 1290px;
   }
 
@@ -321,12 +323,12 @@
   }
 
   .copyColumn {
-    width: 80px;
-    min-width: 80px;
+    width: 64px;
+    min-width: 64px;
   }
 
   .table th:nth-child(2),
   .table td:nth-child(2) {
-    left: 80px;
+    left: 64px;
   }
 }
