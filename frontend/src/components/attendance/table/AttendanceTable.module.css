@@ -108,7 +108,8 @@
   --attendance-copy-column-width: 96px;
   width: 100%;
   min-width: 1780px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .tableHeadRow {
