@@ -31,7 +31,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildDailyDetailExcelFileN
 	targetMonth int,
 ) string {
 	return fmt.Sprintf(
-		"%04d年%02d月_全従業員_日別勤怠明細_%s.xlsx",
+		"%04d年%02d月_日別明細_%s.xlsx",
 		targetYear,
 		targetMonth,
 		time.Now().Format("20060102_150405"),
@@ -46,7 +46,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildDailyDetailExcel(
 	if len(userSheets) == 0 {
 		return nil, results.BadRequest(
 			"BUILD_DAILY_ATTENDANCE_DETAIL_EXCEL_EMPTY",
-			"日別勤怠明細Excelの出力対象がありません",
+			"日別明細Excelの出力対象がありません",
 			nil,
 		)
 	}
@@ -91,7 +91,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildDailyDetailExcel(
 			_ = zipWriter.Close()
 			return nil, results.BadRequest(
 				"BUILD_DAILY_ATTENDANCE_DETAIL_EXCEL_ZIP_ENTRY_FAILED",
-				"日別勤怠明細Excelの生成に失敗しました",
+				"日別明細Excelの生成に失敗しました",
 				map[string]any{"path": path, "error": err.Error()},
 			)
 		}
@@ -99,7 +99,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildDailyDetailExcel(
 			_ = zipWriter.Close()
 			return nil, results.BadRequest(
 				"BUILD_DAILY_ATTENDANCE_DETAIL_EXCEL_WRITE_FAILED",
-				"日別勤怠明細Excelの書き込みに失敗しました",
+				"日別明細Excelの書き込みに失敗しました",
 				map[string]any{"path": path, "error": err.Error()},
 			)
 		}
@@ -108,7 +108,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildDailyDetailExcel(
 	if err := zipWriter.Close(); err != nil {
 		return nil, results.BadRequest(
 			"BUILD_DAILY_ATTENDANCE_DETAIL_EXCEL_CLOSE_FAILED",
-			"日別勤怠明細Excelの終了処理に失敗しました",
+			"日別明細Excelの終了処理に失敗しました",
 			map[string]any{"error": err.Error()},
 		)
 	}
@@ -122,7 +122,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildDailyDetailSummaryShe
 	targetMonth int,
 ) dailyDetailSheetDefinition {
 	rows := [][]dailyDetailCell{
-		{{Value: fmt.Sprintf("%04d年%02d月 全従業員 日別勤怠明細", targetYear, targetMonth), StyleID: 1}},
+		{{Value: fmt.Sprintf("%04d年%02d月 日別明細", targetYear, targetMonth), StyleID: 1}},
 		{{Value: "氏名", StyleID: 2}, {Value: "所属", StyleID: 2}, {Value: "承認状態", StyleID: 2},
 			{Value: "勤務日数", StyleID: 2}, {Value: "実働時間", StyleID: 2}, {Value: "休憩時間", StyleID: 2},
 			{Value: "残業時間", StyleID: 2}, {Value: "深夜時間", StyleID: 2}, {Value: "休日労働", StyleID: 2},
@@ -130,6 +130,15 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildDailyDetailSummaryShe
 	}
 
 	for _, userSheet := range userSheets {
+		if userSheet.MonthlyStatus != types.MonthlyAttendanceSummaryMonthlyStatusApproved {
+			rows = append(rows, []dailyDetailCell{
+				{Value: userSheet.UserName, StyleID: 3},
+				{Value: userSheet.DepartmentName, StyleID: 3},
+				{Value: monthlyStatusLabel(userSheet.MonthlyStatus), StyleID: dailyDetailStatusStyle(userSheet.MonthlyStatus)},
+			})
+			continue
+		}
+
 		workDays := 0
 		actual := 0
 		breakMinutes := 0
@@ -178,21 +187,29 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildDailyDetailUserSheet(
 	targetMonth int,
 ) dailyDetailSheetDefinition {
 	rows := [][]dailyDetailCell{
-		{{Value: fmt.Sprintf("%s　%04d年%02d月 日別勤怠明細", userSheet.UserName, targetYear, targetMonth), StyleID: 1}},
+		{{Value: fmt.Sprintf("%s　%04d年%02d月 日別明細", userSheet.UserName, targetYear, targetMonth), StyleID: 1}},
 		{{Value: "所属", StyleID: 7}, {Value: userSheet.DepartmentName, StyleID: 3},
 			{Value: "メール", StyleID: 7}, {Value: userSheet.UserEmail, StyleID: 3},
 			{Value: "承認状態", StyleID: 7}, {Value: monthlyStatusLabel(userSheet.MonthlyStatus), StyleID: dailyDetailStatusStyle(userSheet.MonthlyStatus)}},
 		{},
-		{
-			{Value: "日付", StyleID: 2}, {Value: "曜", StyleID: 2}, {Value: "予定区分", StyleID: 2},
-			{Value: "実績状態", StyleID: 2}, {Value: "予定開始", StyleID: 2}, {Value: "予定終了", StyleID: 2},
-			{Value: "実績開始", StyleID: 2}, {Value: "実績終了", StyleID: 2}, {Value: "予定時間", StyleID: 2},
-			{Value: "拘束時間", StyleID: 2}, {Value: "休憩合計", StyleID: 2}, {Value: "休憩詳細", StyleID: 2},
-			{Value: "実働時間", StyleID: 2}, {Value: "所定内", StyleID: 2}, {Value: "残業", StyleID: 2},
-			{Value: "深夜", StyleID: 2}, {Value: "休日労働", StyleID: 2}, {Value: "遅刻", StyleID: 2},
-			{Value: "早退", StyleID: 2}, {Value: "交通費", StyleID: 2}, {Value: "警告・備考", StyleID: 2},
-		},
 	}
+
+	if userSheet.MonthlyStatus != types.MonthlyAttendanceSummaryMonthlyStatusApproved {
+		rows = append(rows, []dailyDetailCell{
+			{Value: "月次申請が承認済みではないため、日別明細・集計値は出力していません。", StyleID: 3},
+		})
+		return dailyDetailSheetDefinition{Name: sheetName, Rows: rows}
+	}
+
+	rows = append(rows, []dailyDetailCell{
+		{Value: "日付", StyleID: 2}, {Value: "曜", StyleID: 2}, {Value: "予定区分", StyleID: 2},
+		{Value: "実績状態", StyleID: 2}, {Value: "予定開始", StyleID: 2}, {Value: "予定終了", StyleID: 2},
+		{Value: "実績開始", StyleID: 2}, {Value: "実績終了", StyleID: 2}, {Value: "予定時間", StyleID: 2},
+		{Value: "拘束時間", StyleID: 2}, {Value: "休憩合計", StyleID: 2}, {Value: "休憩詳細", StyleID: 2},
+		{Value: "実働時間", StyleID: 2}, {Value: "所定内", StyleID: 2}, {Value: "残業", StyleID: 2},
+		{Value: "深夜", StyleID: 2}, {Value: "休日労働", StyleID: 2}, {Value: "遅刻", StyleID: 2},
+		{Value: "早退", StyleID: 2}, {Value: "交通費", StyleID: 2}, {Value: "警告・備考", StyleID: 2},
+	})
 
 	totalScheduled := 0
 	totalGross := 0

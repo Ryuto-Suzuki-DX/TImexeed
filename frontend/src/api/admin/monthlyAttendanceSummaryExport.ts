@@ -203,7 +203,7 @@ function buildFallbackFileName(params: {
   const paddedMonth = String(params.targetMonth).padStart(2, "0");
 
   if (params.format === "DAILY_DETAIL_XLSX") {
-    return `${params.targetYear}年${paddedMonth}月_全従業員_日別勤怠明細.xlsx`;
+    return `${params.targetYear}年${paddedMonth}月_日別明細.xlsx`;
   }
 
   if (params.format === "XLSX") {
@@ -220,7 +220,7 @@ function getDefaultExportErrorMessage(
   format: MonthlyAttendanceSummaryExportFormat,
 ) {
   if (format === "DAILY_DETAIL_XLSX") {
-    return "全従業員の日別勤怠明細Excelの出力に失敗しました。";
+    return "日別明細Excelの出力に失敗しました。";
   }
 
   if (format === "XLSX") {
@@ -231,21 +231,14 @@ function getDefaultExportErrorMessage(
 }
 
 /*
- * 対象月に在籍している一般ユーザー全員の日別勤怠明細を、
- * 1つのExcelへユーザー別シートで出力する。
+ * 現在選択している月次集計条件に従って、
+ * 対象ユーザーの日別勤怠明細を1つのExcelへ出力する。
  */
-export async function downloadAllUsersDailyAttendanceDetailExcel(params: {
-  targetYear: number;
-  targetMonth: number;
-}) {
+export async function downloadDailyAttendanceDetailExcel(
+  request: ExportMonthlyAttendanceSummaryCsvRequest
+) {
   return downloadMonthlyAttendanceSummaryExport({
-    targetYear: params.targetYear,
-    targetMonth: params.targetMonth,
-    targetType: "ALL",
-    targetUserId: null,
-    departmentIds: [],
-    includeUnassignedDepartment: true,
-    includeNotApproved: true,
+    ...request,
     format: "DAILY_DETAIL_XLSX",
   });
 }

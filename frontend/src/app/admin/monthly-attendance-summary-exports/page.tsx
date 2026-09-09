@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  downloadAllUsersDailyAttendanceDetailExcel,
+  downloadDailyAttendanceDetailExcel,
   downloadMonthlyAttendanceSummaryExport,
 } from "@/api/admin/monthlyAttendanceSummaryExport";
 import Button from "@/components/atoms/Button";
@@ -366,10 +366,12 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
   }
 
   async function handleDailyDetailExport() {
-    if (!exportForm.targetMonth) {
+    const validationMessage = validateExportForm(exportForm);
+
+    if (validationMessage) {
       setPageMessage({
         variant: "warning",
-        text: "対象月を選択してください。",
+        text: validationMessage,
       });
       return;
     }
@@ -380,34 +382,36 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
     const targetYear = Number(targetYearText);
     const targetMonth = Number(targetMonthText);
 
-    if (
-      !targetYear ||
-      !targetMonth ||
-      targetMonth < 1 ||
-      targetMonth > 12
-    ) {
-      setPageMessage({
-        variant: "warning",
-        text: "対象月の形式が正しくありません。",
-      });
-      return;
-    }
-
     setIsDailyDetailExporting(true);
     setPageMessage({
       variant: "info",
-      text: "全従業員の日別勤怠明細Excelを出力しています。",
+      text: "日別明細Excelを出力しています。",
     });
 
     try {
-      await downloadAllUsersDailyAttendanceDetailExcel({
+      await downloadDailyAttendanceDetailExcel({
         targetYear,
         targetMonth,
+        targetType: exportForm.targetType,
+        targetUserId:
+          exportForm.targetType === "USER"
+            ? exportForm.selectedUserId
+            : null,
+        departmentIds:
+          exportForm.targetType === "DEPARTMENT"
+            ? exportForm.selectedDepartmentIds
+            : [],
+        includeUnassignedDepartment:
+          exportForm.targetType === "DEPARTMENT"
+            ? exportForm.includeUnassignedDepartment
+            : false,
+        includeNotApproved: exportForm.includeNotApproved,
+        format: "DAILY_DETAIL_XLSX",
       });
 
       setPageMessage({
         variant: "success",
-        text: "全従業員の日別勤怠明細Excelを出力しました。",
+        text: "日別明細Excelを出力しました。",
       });
     } catch (error) {
       setPageMessage({
@@ -415,7 +419,7 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
         text:
           error instanceof Error
             ? error.message
-            : "全従業員の日別勤怠明細Excelの出力に失敗しました。",
+            : "日別明細Excelの出力に失敗しました。",
       });
     } finally {
       setIsDailyDetailExporting(false);
@@ -804,7 +808,7 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
                   >
                     {isDailyDetailExporting
                       ? "日別明細出力中..."
-                      : "全従業員の日別明細"}
+                      : "日別明細"}
                   </Button>
 
                   <Button
@@ -902,7 +906,7 @@ export default function AdminMonthlyAttendanceSummaryExportsPage() {
                     既存の月次集計では、承認済み以外の集計値を出力しません。
                   </li>
                   <li>
-                    全従業員の日別明細では、承認状態に関係なく現在の入力内容を出力します。
+                    日別明細も上記の出力条件と承認状態の条件に従って出力します。
                   </li>
                   <li>
                     残業は日別超過と週超過を重複しないように集計します。

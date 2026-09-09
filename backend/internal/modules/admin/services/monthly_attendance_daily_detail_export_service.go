@@ -12,10 +12,11 @@ import (
 )
 
 /*
- * 全従業員の日別勤怠明細Excel出力
+ * 日別明細Excel出力
  *
- * 既存の月次集計CSV/Excelとは別用途。
- * 承認状態に関係なく、対象月時点で入力されている日別データを出力する。
+ * 月次集計CSV/Excelと同じ出力対象条件・承認条件を使用する。
+ * APPROVED のユーザーだけ集計値・日別明細を出力し、
+ * IncludeNotApproved が true の場合は未承認者をステータスのみ含める。
  */
 func (service *monthlyAttendanceSummaryExportService) ExportAllUsersDailyAttendanceDetailExcel(
 	request types.ExportMonthlyAttendanceSummaryCsvRequest,
@@ -35,11 +36,47 @@ func (service *monthlyAttendanceSummaryExportService) ExportAllUsersDailyAttenda
 		)
 	}
 
-	request.TargetType = types.MonthlyAttendanceSummaryExportTargetTypeAll
-	request.TargetUserID = nil
-	request.DepartmentIDs = nil
-	request.IncludeUnassignedDepartment = true
-	request.IncludeNotApproved = true
+	request.TargetType = strings.ToUpper(strings.TrimSpace(request.TargetType))
+
+	switch request.TargetType {
+	case types.MonthlyAttendanceSummaryExportTargetTypeUser:
+		if request.TargetUserID == nil || *request.TargetUserID == 0 {
+			return nil, "", results.BadRequest(
+				"EXPORT_DAILY_ATTENDANCE_DETAIL_TARGET_USER_REQUIRED",
+				"出力対象のユーザーを選択してください",
+				nil,
+			)
+		}
+
+		request.DepartmentIDs = nil
+		request.IncludeUnassignedDepartment = false
+
+	case types.MonthlyAttendanceSummaryExportTargetTypeDepartment:
+		request.DepartmentIDs = normalizeMonthlyAttendanceSummaryExportDepartmentIDs(request.DepartmentIDs)
+
+		if len(request.DepartmentIDs) == 0 && !request.IncludeUnassignedDepartment {
+			return nil, "", results.BadRequest(
+				"EXPORT_DAILY_ATTENDANCE_DETAIL_DEPARTMENT_REQUIRED",
+				"出力対象の所属を1つ以上選択してください",
+				nil,
+			)
+		}
+
+		request.TargetUserID = nil
+
+	default:
+		return nil, "", results.BadRequest(
+			"EXPORT_DAILY_ATTENDANCE_DETAIL_INVALID_TARGET_TYPE",
+			"出力単位が正しくありません",
+			map[string]any{
+				"targetType": request.TargetType,
+				"allowed": []string{
+					types.MonthlyAttendanceSummaryExportTargetTypeUser,
+					types.MonthlyAttendanceSummaryExportTargetTypeDepartment,
+				},
+			},
+		)
+	}
 
 	location := jstLocation()
 	targetMonthStart := time.Date(request.TargetYear, time.Month(request.TargetMonth), 1, 0, 0, 0, 0, location)
@@ -88,9 +125,37 @@ func (service *monthlyAttendanceSummaryExportService) ExportAllUsersDailyAttenda
 		return nil, "", monthlyRequestResult
 	}
 
+	exportUsers := users[:0]
+	approvedUserIDs := make([]uint, 0, len(users))
+
+	for _, user := range users {
+		monthlyStatus := types.MonthlyAttendanceSummaryMonthlyStatusNotSubmitted
+		if monthlyRequest, exists := monthlyRequestMap[user.ID]; exists {
+			monthlyStatus = monthlyRequest.Status
+		}
+
+		if monthlyStatus == types.MonthlyAttendanceSummaryMonthlyStatusApproved {
+			exportUsers = append(exportUsers, user)
+			approvedUserIDs = append(approvedUserIDs, user.ID)
+			continue
+		}
+
+		if request.IncludeNotApproved {
+			exportUsers = append(exportUsers, user)
+		}
+	}
+
+	if len(exportUsers) == 0 {
+		return nil, "", results.NotFound(
+			"DAILY_ATTENDANCE_DETAIL_TARGET_USERS_NOT_FOUND",
+			"選択した条件に該当する出力対象ユーザーが見つかりません",
+			nil,
+		)
+	}
+
 	attendanceDays, attendanceDaysResult :=
 		service.monthlyAttendanceSummaryExportRepository.FindAttendanceDays(
-			userIDs,
+			approvedUserIDs,
 			extendedFromDate,
 			extendedToDate,
 		)
@@ -116,9 +181,9 @@ func (service *monthlyAttendanceSummaryExportService) ExportAllUsersDailyAttenda
 	}
 
 	attendanceDaysByUserID := groupAttendanceDaysByUserID(attendanceDays)
-	userSheets := make([]types.MonthlyAttendanceDailyDetailUserSheet, 0, len(users))
+	userSheets := make([]types.MonthlyAttendanceDailyDetailUserSheet, 0, len(exportUsers))
 
-	for _, user := range users {
+	for _, user := range exportUsers {
 		userAttendanceDays := attendanceDaysByUserID[user.ID]
 		workRows := service.buildWorkRows(userAttendanceDays, breakMap, transportMap)
 		service.applyHolidayWorkFlags(workRows)
@@ -152,6 +217,11 @@ func (service *monthlyAttendanceSummaryExportService) ExportAllUsersDailyAttenda
 			DepartmentName: departmentName,
 			MonthlyStatus:  status,
 			Rows:           make([]types.MonthlyAttendanceDailyDetailRow, 0, targetMonthEnd.Day()),
+		}
+
+		if status != types.MonthlyAttendanceSummaryMonthlyStatusApproved {
+			userSheets = append(userSheets, sheet)
+			continue
 		}
 
 		for currentDate := targetMonthStart; !currentDate.After(targetMonthEnd); currentDate = currentDate.AddDate(0, 0, 1) {
@@ -241,8 +311,8 @@ func (service *monthlyAttendanceSummaryExportService) ExportAllUsersDailyAttenda
 			TargetMonth: request.TargetMonth,
 			RowCount:    len(userSheets),
 		},
-		"EXPORT_ALL_USERS_DAILY_ATTENDANCE_DETAIL_EXCEL_SUCCESS",
-		"全従業員の日別勤怠明細Excelを出力しました",
+		"EXPORT_DAILY_ATTENDANCE_DETAIL_EXCEL_SUCCESS",
+		"日別明細Excelを出力しました",
 		nil,
 	)
 }
