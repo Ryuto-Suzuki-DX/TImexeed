@@ -327,8 +327,10 @@ export default function AttendanceRowItem({
       </td>
 
       <td className={`${styles.td} ${styles.dateCell}`}>
-        <p className={styles.dayLabel}>{row.dayLabel}</p>
-        <p className={styles.weekday}>{row.weekday}</p>
+        <div className={styles.dateWeekdayBlock}>
+          <p className={styles.dayLabel}>{row.dayLabel}</p>
+          <p className={styles.weekday}>{row.weekday}</p>
+        </div>
         {row.holidayName && (
           <p className={styles.holidayName}>{row.holidayName}</p>
         )}

@@ -106,6 +106,11 @@
   box-sizing: border-box;
 }
 
+.dateWeekdayBlock {
+  display: block;
+  width: 100%;
+}
+
 .copyActionList {
   display: flex;
   flex-direction: column;
