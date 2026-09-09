@@ -350,8 +350,10 @@ export default function AttendanceTable<TRow extends UserAttendanceViewRow>({
               </th>
               <th className={`${styles.th} ${styles.dateColumn}`}>日付</th>
               <th className={`${styles.th} ${styles.planColumn}`}>予定</th>
+              <th className={`${styles.th} ${styles.scheduledColumn}`}>
+                所定労働時間
+              </th>
               <th className={`${styles.th} ${styles.actualColumn}`}>実績</th>
-              <th className={`${styles.th} ${styles.scheduledColumn}`}>所定</th>
               <th className={`${styles.th} ${styles.breakColumn}`}>休憩</th>
               <th className={`${styles.th} ${styles.transportColumn}`}>交通費</th>
               <th className={`${styles.th} ${styles.statusColumn}`}>状態</th>

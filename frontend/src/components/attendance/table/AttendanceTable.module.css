@@ -93,8 +93,9 @@
 .tableWrap {
   width: 100%;
   max-width: 100%;
+  max-height: calc(100dvh - 24px);
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: auto;
   border: 1px solid #fed7aa;
   border-radius: 14px;
   background-color: #ffffff;
@@ -114,8 +115,11 @@
 }
 
 .th {
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 5;
   padding: 10px;
+  background-color: #ffedd5;
   border-bottom: 1px solid #fed7aa;
   color: #9a3412;
   font-size: 12px;
@@ -166,7 +170,6 @@
 .table td:first-child {
   position: sticky;
   left: 0;
-  z-index: 4;
   box-shadow: 2px 0 5px rgba(15, 23, 42, 0.08);
 }
 
@@ -174,8 +177,23 @@
 .table td:nth-child(2) {
   position: sticky;
   left: 96px;
-  z-index: 3;
   box-shadow: 2px 0 5px rgba(15, 23, 42, 0.08);
+}
+
+.table td:first-child {
+  z-index: 4;
+}
+
+.table td:nth-child(2) {
+  z-index: 3;
+}
+
+.table th:first-child {
+  z-index: 7;
+}
+
+.table th:nth-child(2) {
+  z-index: 6;
 }
 
 .table th:first-child,

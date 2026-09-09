@@ -115,7 +115,7 @@ function buildRowSystemMessage(
   }
 
   if (row.scheduledWorkMinutes !== "") {
-    return `所定 ${row.scheduledWorkMinutes}分`;
+    return `所定 ${row.scheduledWorkMinutes}時間`;
   }
 
   return "通常";
@@ -401,6 +401,32 @@ export default function AttendanceRowItem({
       </td>
 
       <td className={styles.td}>
+        {showScheduledWorkMinutesInput ? (
+          <label className={styles.scheduledField}>
+            <span className={styles.miniLabel}>時間</span>
+            <Input
+              type="number"
+              step="0.1"
+              min="0"
+              placeholder="例：7.5"
+              value={row.scheduledWorkMinutes}
+              onChange={(event) =>
+                onChangeRow(
+                  row.workDate,
+                  "scheduledWorkMinutes",
+                  event.target.value,
+                )
+              }
+              disabled={locked}
+            />
+            <span className={styles.scheduledHelp}>例：7.5時間</span>
+          </label>
+        ) : (
+          <p className={styles.noBreakText}>対象外</p>
+        )}
+      </td>
+
+      <td className={styles.td}>
         <div className={styles.horizontalBlock}>
           {isHolidayAttendanceType ? (
             <p className={styles.syncText}>
@@ -464,30 +490,6 @@ export default function AttendanceRowItem({
             <p className={styles.syncText}>実績状態：通常</p>
           )}
         </div>
-      </td>
-
-      <td className={styles.td}>
-        {showScheduledWorkMinutesInput ? (
-          <label className={styles.scheduledField}>
-            <span className={styles.miniLabel}>分</span>
-            <Input
-              type="number"
-              placeholder="例：480"
-              value={row.scheduledWorkMinutes}
-              onChange={(event) =>
-                onChangeRow(
-                  row.workDate,
-                  "scheduledWorkMinutes",
-                  event.target.value,
-                )
-              }
-              disabled={locked}
-            />
-            <span className={styles.scheduledHelp}>8時間=480</span>
-          </label>
-        ) : (
-          <p className={styles.noBreakText}>対象外</p>
-        )}
       </td>
 
       <td className={styles.td}>

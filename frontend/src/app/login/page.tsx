@@ -9,8 +9,8 @@ import styles from "./page.module.css";
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("test@example.com");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -74,6 +74,7 @@ export default function LoginPage() {
 
             <input
               type="email"
+              placeholder="example@gmail.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               disabled={isLoading}
@@ -87,6 +88,7 @@ export default function LoginPage() {
 
             <input
               type="password"
+              placeholder="password123"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               disabled={isLoading}

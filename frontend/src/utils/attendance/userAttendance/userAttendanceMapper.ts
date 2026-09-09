@@ -185,7 +185,9 @@ export function applyAttendanceDayToViewRow(
     actualEndTime: toTimeText(attendanceDay.actualEndAt),
 
     scheduledWorkMinutes:
-      attendanceDay.scheduledWorkMinutes === null ? "" : String(attendanceDay.scheduledWorkMinutes),
+      attendanceDay.scheduledWorkMinutes === null
+        ? ""
+        : String(attendanceDay.scheduledWorkMinutes / 60),
 
     lateFlag: false,
     earlyLeaveFlag: false,
@@ -437,7 +439,8 @@ export function buildUpdateMonthlyAttendanceSaveTransportExpenseRequest(
 }
 
 /*
- * 画面用の派遣先所定労働時間をAPI送信用のnumber|nullへ変換する
+ * 画面入力の時間をAPI送信用の分へ変換する
+ * 例：7.5時間 → 450分
  */
 function toScheduledWorkMinutes(value: string): number | null {
   const trimmedValue = value.trim();
@@ -446,13 +449,13 @@ function toScheduledWorkMinutes(value: string): number | null {
     return null;
   }
 
-  const parsedValue = Number(trimmedValue);
+  const parsedHours = Number(trimmedValue);
 
-  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+  if (!Number.isFinite(parsedHours) || parsedHours < 0) {
     return null;
   }
 
-  return Math.trunc(parsedValue);
+  return Math.round(parsedHours * 60);
 }
 
 /*
