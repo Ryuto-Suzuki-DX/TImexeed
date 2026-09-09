@@ -101,13 +101,19 @@
 }
 
 .dateCell {
+  position: sticky;
+  left: var(--attendance-copy-column-width, 96px);
+  z-index: 3;
   width: 72px;
   min-width: 72px;
   box-sizing: border-box;
+  background-color: inherit;
+  box-shadow: 2px 0 5px rgba(15, 23, 42, 0.08);
 }
 
 .dateWeekdayBlock {
-  display: block;
+  display: flex;
+  flex-direction: column;
   width: 100%;
 }
 
@@ -436,7 +442,7 @@
     min-width: 84px;
   }
 
-  .dateCell {
+ .dateCell {
     width: 60px;
     min-width: 60px;
   }

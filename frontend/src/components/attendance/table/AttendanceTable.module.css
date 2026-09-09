@@ -105,6 +105,7 @@
 }
 
 .table {
+  --attendance-copy-column-width: 96px;
   width: 100%;
   min-width: 1780px;
   border-collapse: collapse;
@@ -249,6 +250,7 @@
   }
 
   .table {
+    --attendance-copy-column-width: 84px;
     min-width: 1380px;
   }
 
@@ -308,6 +310,7 @@
   }
 
   .table {
+    --attendance-copy-column-width: 80px;
     min-width: 1290px;
   }
 
