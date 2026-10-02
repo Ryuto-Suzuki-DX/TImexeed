@@ -27,8 +27,9 @@ import (
 const expenseExportContentTypeZIP = "application/zip"
 
 // expenseExportReceipt は、Excelへ埋め込む領収書データを保持する。
-// JPEG / PNG / GIF はExcel内へ画像として埋め込む。
-// PDFなど画像化できないファイルは、データ欠落を防ぐためZIP内へ別ファイルとして同梱する。
+// JPEG / PNG / GIF はDriveから取得した原本画像をExcel内部へそのまま埋め込む。
+// 埋め込み済み画像はZIPへ重複出力しない。
+// PDFなど画像ではないファイルだけは、データ欠落を防ぐためZIP内の「領収書_その他」へ原本を同梱する。
 type expenseExportReceipt struct {
 	ExpenseID      uint
 	FileName       string
@@ -66,14 +67,13 @@ func buildExpenseExportZip(
 	}
 
 	baseName := buildExpenseExportBaseName(expenses, exportedAt)
-	exportFolderName := baseName + "_経費一式"
 	excelFileName := baseName + "_経費集計.xlsx"
-	zipFileName := exportFolderName + ".zip"
+	zipFileName := baseName + "_経費一式.zip"
 
 	var zipBuffer bytes.Buffer
 	zipWriter := zip.NewWriter(&zipBuffer)
 
-	if err := writeZIPFile(zipWriter, path.Join(exportFolderName, excelFileName), xlsxBody); err != nil {
+	if err := writeZIPFile(zipWriter, excelFileName, xlsxBody); err != nil {
 		return types.ExpenseExportFileResponse{}, fmt.Errorf("failed to add expense xlsx to zip: %w", err)
 	}
 
@@ -85,7 +85,7 @@ func buildExpenseExportZip(
 		}
 		if err := writeZIPFile(
 			zipWriter,
-			path.Join(exportFolderName, "領収書_その他", receipt.FileName),
+			path.Join("領収書_その他", receipt.FileName),
 			receipt.Body,
 		); err != nil {
 			return types.ExpenseExportFileResponse{}, fmt.Errorf("failed to add non-image receipt to zip: %w", err)
