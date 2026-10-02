@@ -12,7 +12,10 @@ import (
 	_ "image/png"
 	"io"
 	"net/http"
+	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,13 +30,14 @@ import (
 const expenseExportContentTypeZIP = "application/zip"
 
 // expenseExportReceipt は、Excelへ埋め込む領収書データを保持する。
-// JPEG / PNG / GIF はDriveから取得した原本画像をExcel内部へそのまま埋め込む。
-// 埋め込み済み画像はZIPへ重複出力しない。
-// PDFなど画像ではないファイルだけは、データ欠落を防ぐためZIP内の「領収書_その他」へ原本を同梱する。
+// JPEG / PNG / GIF はDriveから取得した原本画像をそのまま埋め込む。
+// PDF は経費出力処理の中だけで先頭ページをPNGへ変換して埋め込む。
+// 変換・埋め込みに失敗した場合だけ、原本をZIP内の「領収書_その他」へ残す。
 type expenseExportReceipt struct {
 	ExpenseID      uint
 	FileName       string
-	Body           []byte
+	OriginalBody   []byte
+	EmbeddedBody   []byte
 	MimeType       string
 	EmbeddedImage  bool
 	MediaExtension string
@@ -78,7 +82,8 @@ func buildExpenseExportZip(
 	}
 
 	// 画像領収書はExcel内部へ埋め込むため、ZIPへ重複して出力しない。
-	// PDFなどExcelへ画像埋め込みできない形式だけは、原本欠落を防ぐため同梱する。
+	// PDFも先頭ページをPNG化してExcelへ埋め込む。
+	// 画像化・埋め込みに失敗した領収書だけは、原本欠落を防ぐため同梱する。
 	for _, receipt := range receipts {
 		if receipt.EmbeddedImage {
 			continue
@@ -86,7 +91,7 @@ func buildExpenseExportZip(
 		if err := writeZIPFile(
 			zipWriter,
 			path.Join("領収書_その他", receipt.FileName),
-			receipt.Body,
+			receipt.OriginalBody,
 		); err != nil {
 			return types.ExpenseExportFileResponse{}, fmt.Errorf("failed to add non-image receipt to zip: %w", err)
 		}
@@ -144,11 +149,34 @@ func downloadExpenseExportReceipts(
 			mimeType = strings.TrimSpace(*expense.MimeType)
 		}
 
+		embeddedBody := body
 		mediaExtension, width, height, embeddedImage := detectExpenseEmbeddedImage(body, receiptFileName, mimeType)
+
+		// PDF はGoogle Driveのサムネイル等には依存せず、
+		// backendコンテナ内の pdftoppm で先頭ページだけPNGへ変換する。
+		if !embeddedImage && isExpensePDF(body, receiptFileName, mimeType) {
+			pngBody, convertErr := renderExpensePDFToPNG(ctx, body)
+			if convertErr == nil {
+				pngExtension, pngWidth, pngHeight, pngEmbedded := detectExpenseEmbeddedImage(
+					pngBody,
+					receiptFileName+".png",
+					"image/png",
+				)
+				if pngEmbedded {
+					embeddedBody = pngBody
+					mediaExtension = pngExtension
+					width = pngWidth
+					height = pngHeight
+					embeddedImage = true
+				}
+			}
+		}
+
 		receipts = append(receipts, expenseExportReceipt{
 			ExpenseID:      expense.ID,
 			FileName:       receiptFileName,
-			Body:           body,
+			OriginalBody:   body,
+			EmbeddedBody:   embeddedBody,
 			MimeType:       mimeType,
 			EmbeddedImage:  embeddedImage,
 			MediaExtension: mediaExtension,
@@ -187,6 +215,66 @@ func detectExpenseEmbeddedImage(body []byte, fileName string, mimeType string) (
 	}
 
 	return mediaExtension, config.Width, config.Height, true
+}
+
+func isExpensePDF(body []byte, fileName string, mimeType string) bool {
+	if len(body) == 0 {
+		return false
+	}
+
+	detectedMimeType := strings.ToLower(strings.TrimSpace(strings.Split(http.DetectContentType(body), ";")[0]))
+	providedMimeType := strings.ToLower(strings.TrimSpace(strings.Split(mimeType, ";")[0]))
+	extension := strings.ToLower(path.Ext(fileName))
+
+	return detectedMimeType == "application/pdf" || providedMimeType == "application/pdf" || extension == ".pdf"
+}
+
+// renderExpensePDFToPNG は経費出力専用。
+// PDFの先頭ページだけをPNGへ変換し、Excel埋め込み用のbytesとして返す。
+// 外部APIは使わず、backendコンテナ内の pdftoppm(poppler-utils) だけを利用する。
+func renderExpensePDFToPNG(ctx context.Context, pdfBody []byte) ([]byte, error) {
+	if len(pdfBody) == 0 {
+		return nil, fmt.Errorf("pdf body is empty")
+	}
+
+	tempDir, err := os.MkdirTemp("", "timexeed-expense-pdf-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	pdfPath := filepath.Join(tempDir, "receipt.pdf")
+	outputBase := filepath.Join(tempDir, "receipt")
+	outputPNGPath := outputBase + ".png"
+
+	if err := os.WriteFile(pdfPath, pdfBody, 0o600); err != nil {
+		return nil, fmt.Errorf("failed to write temporary pdf: %w", err)
+	}
+
+	// 144dpiなら領収書の文字を確認しやすく、Excelが極端に巨大化しにくい。
+	command := exec.CommandContext(
+		ctx,
+		"pdftoppm",
+		"-png",
+		"-f", "1",
+		"-singlefile",
+		"-r", "144",
+		pdfPath,
+		outputBase,
+	)
+	if output, err := command.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("failed to convert pdf to png: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+
+	pngBody, err := os.ReadFile(outputPNGPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read converted png: %w", err)
+	}
+	if len(pngBody) == 0 {
+		return nil, fmt.Errorf("converted png is empty")
+	}
+
+	return pngBody, nil
 }
 
 func writeZIPFile(zipWriter *zip.Writer, filePath string, body []byte) error {
@@ -347,7 +435,7 @@ func buildExpenseExportXLSX(
 
 	for index, receipt := range embeddedReceipts {
 		mediaFileName := fmt.Sprintf("xl/media/receipt_%d.%s", index+1, receipt.MediaExtension)
-		files[mediaFileName] = receipt.Body
+		files[mediaFileName] = receipt.EmbeddedBody
 	}
 
 	fileNames := make([]string, 0, len(files))
