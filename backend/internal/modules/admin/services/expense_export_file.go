@@ -6,7 +6,12 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
+	"net/http"
 	"path"
 	"sort"
 	"strconv"
@@ -21,11 +26,18 @@ import (
 
 const expenseExportContentTypeZIP = "application/zip"
 
-// expenseExportReceipt は、ZIP内の領収書ファイルとExcelリンクを対応させる。
+// expenseExportReceipt は、Excelへ埋め込む領収書データを保持する。
+// JPEG / PNG / GIF はExcel内へ画像として埋め込む。
+// PDFなど画像化できないファイルは、データ欠落を防ぐためZIP内へ別ファイルとして同梱する。
 type expenseExportReceipt struct {
-	ExpenseID uint
-	ZIPPath   string
-	Body      []byte
+	ExpenseID      uint
+	FileName       string
+	Body           []byte
+	MimeType       string
+	EmbeddedImage  bool
+	MediaExtension string
+	ImageWidth     int
+	ImageHeight    int
 }
 
 func hasExpenseReceipt(expenses []models.Expense) bool {
@@ -43,12 +55,12 @@ func buildExpenseExportZip(
 	googleDriveService storage.GoogleDriveService,
 	exportedAt time.Time,
 ) (types.ExpenseExportFileResponse, error) {
-	receipts, receiptPathByExpenseID, err := downloadExpenseExportReceipts(ctx, expenses, googleDriveService)
+	receipts, err := downloadExpenseExportReceipts(ctx, expenses, googleDriveService)
 	if err != nil {
 		return types.ExpenseExportFileResponse{}, err
 	}
 
-	xlsxBody, err := buildExpenseExportXLSX(expenses, receiptPathByExpenseID, exportedAt)
+	xlsxBody, err := buildExpenseExportXLSX(expenses, receipts, exportedAt)
 	if err != nil {
 		return types.ExpenseExportFileResponse{}, err
 	}
@@ -65,9 +77,18 @@ func buildExpenseExportZip(
 		return types.ExpenseExportFileResponse{}, fmt.Errorf("failed to add expense xlsx to zip: %w", err)
 	}
 
+	// 画像領収書はExcel内部へ埋め込むため、ZIPへ重複して出力しない。
+	// PDFなどExcelへ画像埋め込みできない形式だけは、原本欠落を防ぐため同梱する。
 	for _, receipt := range receipts {
-		if err := writeZIPFile(zipWriter, path.Join(exportFolderName, receipt.ZIPPath), receipt.Body); err != nil {
-			return types.ExpenseExportFileResponse{}, fmt.Errorf("failed to add receipt to zip: %w", err)
+		if receipt.EmbeddedImage {
+			continue
+		}
+		if err := writeZIPFile(
+			zipWriter,
+			path.Join(exportFolderName, "領収書_その他", receipt.FileName),
+			receipt.Body,
+		); err != nil {
+			return types.ExpenseExportFileResponse{}, fmt.Errorf("failed to add non-image receipt to zip: %w", err)
 		}
 	}
 
@@ -86,9 +107,8 @@ func downloadExpenseExportReceipts(
 	ctx context.Context,
 	expenses []models.Expense,
 	googleDriveService storage.GoogleDriveService,
-) ([]expenseExportReceipt, map[uint]string, error) {
+) ([]expenseExportReceipt, error) {
 	receipts := make([]expenseExportReceipt, 0)
-	receiptPathByExpenseID := make(map[uint]string)
 
 	for _, expense := range expenses {
 		if expense.DriveFileID == nil || strings.TrimSpace(*expense.DriveFileID) == "" {
@@ -96,21 +116,21 @@ func downloadExpenseExportReceipts(
 		}
 
 		if googleDriveService == nil {
-			return nil, nil, fmt.Errorf("google drive service is nil")
+			return nil, fmt.Errorf("google drive service is nil")
 		}
 
 		downloadedFile, err := googleDriveService.DownloadFile(ctx, *expense.DriveFileID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to download receipt for expense %d: %w", expense.ID, err)
+			return nil, fmt.Errorf("failed to download receipt for expense %d: %w", expense.ID, err)
 		}
 
 		body, readErr := io.ReadAll(downloadedFile.Body)
 		closeErr := downloadedFile.Body.Close()
 		if readErr != nil {
-			return nil, nil, fmt.Errorf("failed to read receipt for expense %d: %w", expense.ID, readErr)
+			return nil, fmt.Errorf("failed to read receipt for expense %d: %w", expense.ID, readErr)
 		}
 		if closeErr != nil {
-			return nil, nil, fmt.Errorf("failed to close receipt for expense %d: %w", expense.ID, closeErr)
+			return nil, fmt.Errorf("failed to close receipt for expense %d: %w", expense.ID, closeErr)
 		}
 
 		originalFileName := downloadedFile.FileName
@@ -119,17 +139,54 @@ func downloadExpenseExportReceipts(
 		}
 
 		receiptFileName := buildExpenseReceiptExportFileName(expense, originalFileName)
-		receiptZIPPath := path.Join("領収書", receiptFileName)
+		mimeType := strings.TrimSpace(downloadedFile.MimeType)
+		if mimeType == "" && expense.MimeType != nil {
+			mimeType = strings.TrimSpace(*expense.MimeType)
+		}
 
+		mediaExtension, width, height, embeddedImage := detectExpenseEmbeddedImage(body, receiptFileName, mimeType)
 		receipts = append(receipts, expenseExportReceipt{
-			ExpenseID: expense.ID,
-			ZIPPath:   receiptZIPPath,
-			Body:      body,
+			ExpenseID:      expense.ID,
+			FileName:       receiptFileName,
+			Body:           body,
+			MimeType:       mimeType,
+			EmbeddedImage:  embeddedImage,
+			MediaExtension: mediaExtension,
+			ImageWidth:     width,
+			ImageHeight:    height,
 		})
-		receiptPathByExpenseID[expense.ID] = receiptZIPPath
 	}
 
-	return receipts, receiptPathByExpenseID, nil
+	return receipts, nil
+}
+
+func detectExpenseEmbeddedImage(body []byte, fileName string, mimeType string) (string, int, int, bool) {
+	if len(body) == 0 {
+		return "", 0, 0, false
+	}
+
+	detectedMimeType := strings.ToLower(strings.TrimSpace(strings.Split(http.DetectContentType(body), ";")[0]))
+	providedMimeType := strings.ToLower(strings.TrimSpace(strings.Split(mimeType, ";")[0]))
+	extension := strings.ToLower(path.Ext(fileName))
+
+	mediaExtension := ""
+	switch {
+	case detectedMimeType == "image/jpeg" || providedMimeType == "image/jpeg" || extension == ".jpg" || extension == ".jpeg":
+		mediaExtension = "jpeg"
+	case detectedMimeType == "image/png" || providedMimeType == "image/png" || extension == ".png":
+		mediaExtension = "png"
+	case detectedMimeType == "image/gif" || providedMimeType == "image/gif" || extension == ".gif":
+		mediaExtension = "gif"
+	default:
+		return "", 0, 0, false
+	}
+
+	config, _, err := image.DecodeConfig(bytes.NewReader(body))
+	if err != nil || config.Width <= 0 || config.Height <= 0 {
+		return "", 0, 0, false
+	}
+
+	return mediaExtension, config.Width, config.Height, true
 }
 
 func writeZIPFile(zipWriter *zip.Writer, filePath string, body []byte) error {
@@ -255,24 +312,40 @@ func sanitizeExpenseExportFileNamePart(value string) string {
 }
 
 // buildExpenseExportXLSX は外部ライブラリを追加せず、必要最小限のXLSXを生成する。
+// 画像領収書はxl/media配下へ格納し、領収書シートのDrawingとしてExcel内部へ埋め込む。
 func buildExpenseExportXLSX(
 	expenses []models.Expense,
-	receiptPathByExpenseID map[uint]string,
+	receipts []expenseExportReceipt,
 	exportedAt time.Time,
 ) ([]byte, error) {
 	var buffer bytes.Buffer
 	writer := zip.NewWriter(&buffer)
 
-	sheetXML, relationshipsXML := buildExpenseSheetXML(expenses, receiptPathByExpenseID, exportedAt)
+	receiptByExpenseID := make(map[uint]expenseExportReceipt, len(receipts))
+	for _, receipt := range receipts {
+		receiptByExpenseID[receipt.ExpenseID] = receipt
+	}
 
-	files := map[string]string{
-		"[Content_Types].xml":                 expenseXLSXContentTypesXML,
-		"_rels/.rels":                         expenseXLSXRootRelationshipsXML,
-		"xl/workbook.xml":                     expenseXLSXWorkbookXML,
-		"xl/_rels/workbook.xml.rels":          expenseXLSXWorkbookRelationshipsXML,
-		"xl/styles.xml":                       expenseXLSXStylesXML,
-		"xl/worksheets/sheet1.xml":            sheetXML,
-		"xl/worksheets/_rels/sheet1.xml.rels": relationshipsXML,
+	summarySheetXML := buildExpenseSummarySheetXML(expenses, receiptByExpenseID, exportedAt)
+	receiptSheetXML, drawingXML, drawingRelationshipsXML, receiptSheetRelationshipsXML, embeddedReceipts := buildExpenseReceiptSheetXML(expenses, receiptByExpenseID)
+
+	files := map[string][]byte{
+		"[Content_Types].xml":        []byte(expenseXLSXContentTypesXML),
+		"_rels/.rels":                []byte(expenseXLSXRootRelationshipsXML),
+		"xl/workbook.xml":            []byte(expenseXLSXWorkbookXML),
+		"xl/_rels/workbook.xml.rels": []byte(expenseXLSXWorkbookRelationshipsXML),
+		"xl/styles.xml":              []byte(expenseXLSXStylesXML),
+		"xl/worksheets/sheet1.xml":   []byte(summarySheetXML),
+		"xl/worksheets/sheet2.xml":   []byte(receiptSheetXML),
+	}
+
+	files["xl/worksheets/_rels/sheet2.xml.rels"] = []byte(receiptSheetRelationshipsXML)
+	files["xl/drawings/drawing1.xml"] = []byte(drawingXML)
+	files["xl/drawings/_rels/drawing1.xml.rels"] = []byte(drawingRelationshipsXML)
+
+	for index, receipt := range embeddedReceipts {
+		mediaFileName := fmt.Sprintf("xl/media/receipt_%d.%s", index+1, receipt.MediaExtension)
+		files[mediaFileName] = receipt.Body
 	}
 
 	fileNames := make([]string, 0, len(files))
@@ -286,7 +359,7 @@ func buildExpenseExportXLSX(
 		if err != nil {
 			return nil, fmt.Errorf("failed to create xlsx entry %s: %w", fileName, err)
 		}
-		if _, err := fileWriter.Write([]byte(files[fileName])); err != nil {
+		if _, err := fileWriter.Write(files[fileName]); err != nil {
 			return nil, fmt.Errorf("failed to write xlsx entry %s: %w", fileName, err)
 		}
 	}
@@ -298,14 +371,12 @@ func buildExpenseExportXLSX(
 	return buffer.Bytes(), nil
 }
 
-func buildExpenseSheetXML(
+func buildExpenseSummarySheetXML(
 	expenses []models.Expense,
-	receiptPathByExpenseID map[uint]string,
+	receiptByExpenseID map[uint]expenseExportReceipt,
 	exportedAt time.Time,
-) (string, string) {
+) string {
 	var rows strings.Builder
-	var hyperlinks strings.Builder
-	var relationships strings.Builder
 
 	rows.WriteString(`<row r="1" ht="28" customHeight="1">`)
 	rows.WriteString(inlineStringCell("A1", "経費集計", 1))
@@ -333,7 +404,7 @@ func buildExpenseSheetXML(
 	}
 	rows.WriteString(`</row>`)
 
-	relationshipID := 1
+	receiptNumber := 0
 	for index, expense := range expenses {
 		row := index + 6
 		rows.WriteString(`<row r="` + strconv.Itoa(row) + `" ht="22" customHeight="1">`)
@@ -346,14 +417,14 @@ func buildExpenseSheetXML(
 		rows.WriteString(inlineStringCell(cellReference(7, row), stringPointerValue(expense.Memo), 5))
 		rows.WriteString(numberCell(cellReference(8, row), expense.Amount, 7))
 
-		receiptPath, hasReceipt := receiptPathByExpenseID[expense.ID]
+		receipt, hasReceipt := receiptByExpenseID[expense.ID]
 		if hasReceipt {
-			cellRef := cellReference(9, row)
-			rows.WriteString(inlineStringCell(cellRef, "領収書を開く", 8))
-			relID := fmt.Sprintf("rId%d", relationshipID)
-			hyperlinks.WriteString(`<hyperlink ref="` + cellRef + `" r:id="` + relID + `"/>`)
-			relationships.WriteString(`<Relationship Id="` + relID + `" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="` + xmlEscape(buildExpenseRelationshipTarget(receiptPath)) + `" TargetMode="External"/>`)
-			relationshipID++
+			receiptNumber++
+			if receipt.EmbeddedImage {
+				rows.WriteString(inlineStringCell(cellReference(9, row), fmt.Sprintf("領収書シート No.%d", receiptNumber), 5))
+			} else {
+				rows.WriteString(inlineStringCell(cellReference(9, row), fmt.Sprintf("領収書シート No.%d（別ファイル同梱）", receiptNumber), 5))
+			}
 		} else {
 			rows.WriteString(inlineStringCell(cellReference(9, row), "なし", 5))
 		}
@@ -380,7 +451,7 @@ func buildExpenseSheetXML(
 	dimension := fmt.Sprintf("A1:I%d", totalRow)
 	autoFilter := fmt.Sprintf("A5:I%d", totalRow-1)
 
-	sheet := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 		`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
 		`<dimension ref="` + dimension + `"/>` +
 		`<sheetViews><sheetView workbookViewId="0"><pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` +
@@ -393,34 +464,145 @@ func buildExpenseSheetXML(
 		`<col min="6" max="6" width="34" customWidth="1"/>` +
 		`<col min="7" max="7" width="30" customWidth="1"/>` +
 		`<col min="8" max="8" width="14" customWidth="1"/>` +
-		`<col min="9" max="9" width="18" customWidth="1"/>` +
+		`<col min="9" max="9" width="30" customWidth="1"/>` +
 		`</cols>` +
 		`<sheetData>` + rows.String() + `</sheetData>` +
 		`<autoFilter ref="` + autoFilter + `"/>` +
-		`<mergeCells count="1"><mergeCell ref="A1:I1"/></mergeCells>`
-
-	if hyperlinks.Len() > 0 {
-		sheet += `<hyperlinks>` + hyperlinks.String() + `</hyperlinks>`
-	}
-
-	sheet += `<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>` +
+		`<mergeCells count="1"><mergeCell ref="A1:I1"/></mergeCells>` +
+		`<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>` +
 		`<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>` +
 		`</worksheet>`
-
-	rels := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-		relationships.String() +
-		`</Relationships>`
-
-	return sheet, rels
 }
 
-func buildExpenseRelationshipTarget(filePath string) string {
-	// Excel の外部相対リンクは、XLSX の Relationship Target に
-	// ファイル名をそのまま保持した方が安定する。
-	// URLエンコードすると、日本語ファイル名を含む領収書で
-	// 「ファイルが見つかりません」になる環境があるため行わない。
-	return strings.ReplaceAll(filePath, "\\", "/")
+func buildExpenseReceiptSheetXML(
+	expenses []models.Expense,
+	receiptByExpenseID map[uint]expenseExportReceipt,
+) (string, string, string, string, []expenseExportReceipt) {
+	const receiptBlockRows = 40
+
+	var rows strings.Builder
+	var drawingAnchors strings.Builder
+	var drawingRelationships strings.Builder
+
+	embeddedReceipts := make([]expenseExportReceipt, 0)
+	receiptNumber := 0
+	maxRow := 2
+
+	for _, expense := range expenses {
+		receipt, hasReceipt := receiptByExpenseID[expense.ID]
+		if !hasReceipt {
+			continue
+		}
+
+		receiptNumber++
+		startRow := 1 + (receiptNumber-1)*receiptBlockRows
+		maxRow = startRow + receiptBlockRows - 1
+
+		rows.WriteString(`<row r="` + strconv.Itoa(startRow) + `" ht="24" customHeight="1">`)
+		rows.WriteString(inlineStringCell(cellReference(1, startRow), fmt.Sprintf("領収書 No.%d", receiptNumber), 4))
+		rows.WriteString(inlineStringCell(cellReference(2, startRow), expense.User.Name, 4))
+		rows.WriteString(inlineStringCell(cellReference(3, startRow), expense.ExpenseDate.Format("2006/01/02"), 4))
+		rows.WriteString(inlineStringCell(cellReference(4, startRow), expense.Description, 4))
+		rows.WriteString(numberCell(cellReference(8, startRow), expense.Amount, 10))
+		rows.WriteString(`</row>`)
+
+		rows.WriteString(`<row r="` + strconv.Itoa(startRow+1) + `">`)
+		rows.WriteString(inlineStringCell(cellReference(1, startRow+1), "元ファイル名", 2))
+		rows.WriteString(inlineStringCell(cellReference(2, startRow+1), receipt.FileName, 3))
+		rows.WriteString(`</row>`)
+
+		if receipt.EmbeddedImage {
+			embeddedReceipts = append(embeddedReceipts, receipt)
+			imageIndex := len(embeddedReceipts)
+			widthEMU, heightEMU := fitExpenseReceiptImageEMU(receipt.ImageWidth, receipt.ImageHeight)
+			anchorRow := startRow + 2
+			drawingAnchors.WriteString(buildExpenseReceiptDrawingAnchor(imageIndex, anchorRow, widthEMU, heightEMU))
+			drawingRelationships.WriteString(
+				`<Relationship Id="rId` + strconv.Itoa(imageIndex) + `" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/receipt_` + strconv.Itoa(imageIndex) + `.` + receipt.MediaExtension + `"/>`,
+			)
+		} else {
+			rows.WriteString(`<row r="` + strconv.Itoa(startRow+3) + `" ht="30" customHeight="1">`)
+			rows.WriteString(inlineStringCell(cellReference(1, startRow+3), "この領収書は画像形式ではないためExcel内へ画像表示できません。ZIP内の「領収書_その他」に原本を同梱しています。", 3))
+			rows.WriteString(`</row>`)
+		}
+	}
+
+	if receiptNumber == 0 {
+		rows.WriteString(`<row r="1"><c r="A1" s="3" t="inlineStr"><is><t>領収書はありません</t></is></c></row>`)
+		maxRow = 1
+	}
+
+	sheet := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+		`<dimension ref="A1:I` + strconv.Itoa(maxRow) + `"/>` +
+		`<sheetViews><sheetView workbookViewId="0"/></sheetViews>` +
+		`<sheetFormatPr defaultRowHeight="18"/>` +
+		`<cols>` +
+		`<col min="1" max="1" width="18" customWidth="1"/>` +
+		`<col min="2" max="2" width="28" customWidth="1"/>` +
+		`<col min="3" max="3" width="16" customWidth="1"/>` +
+		`<col min="4" max="7" width="24" customWidth="1"/>` +
+		`<col min="8" max="8" width="16" customWidth="1"/>` +
+		`</cols>` +
+		`<sheetData>` + rows.String() + `</sheetData>`
+
+	sheet += `<drawing r:id="rId1"/>`
+	drawingXML := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
+		drawingAnchors.String() +
+		`</xdr:wsDr>`
+	drawingRelationshipsXML := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+		drawingRelationships.String() +
+		`</Relationships>`
+	receiptSheetRelationshipsXML := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+		`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>` +
+		`</Relationships>`
+
+	sheet += `<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>` +
+		`</worksheet>`
+
+	return sheet, drawingXML, drawingRelationshipsXML, receiptSheetRelationshipsXML, embeddedReceipts
+}
+
+func fitExpenseReceiptImageEMU(width int, height int) (int64, int64) {
+	const (
+		maxWidthPX  = 960.0
+		maxHeightPX = 720.0
+		emuPerPixel = 9525.0
+	)
+
+	if width <= 0 || height <= 0 {
+		return int64(640 * emuPerPixel), int64(480 * emuPerPixel)
+	}
+
+	scale := 1.0
+	if float64(width) > maxWidthPX {
+		scale = maxWidthPX / float64(width)
+	}
+	if float64(height)*scale > maxHeightPX {
+		scale = maxHeightPX / float64(height)
+	}
+
+	return int64(float64(width) * scale * emuPerPixel), int64(float64(height) * scale * emuPerPixel)
+}
+
+func buildExpenseReceiptDrawingAnchor(imageIndex int, startRow int, widthEMU int64, heightEMU int64) string {
+	zeroBasedRow := startRow - 1
+	relID := "rId" + strconv.Itoa(imageIndex)
+	name := "Receipt " + strconv.Itoa(imageIndex)
+
+	return `<xdr:oneCellAnchor>` +
+		`<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>` + strconv.Itoa(zeroBasedRow) + `</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>` +
+		`<xdr:ext cx="` + strconv.FormatInt(widthEMU, 10) + `" cy="` + strconv.FormatInt(heightEMU, 10) + `"/>` +
+		`<xdr:pic>` +
+		`<xdr:nvPicPr><xdr:cNvPr id="` + strconv.Itoa(imageIndex) + `" name="` + xmlEscape(name) + `"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>` +
+		`<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="` + relID + `"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>` +
+		`<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="` + strconv.FormatInt(widthEMU, 10) + `" cy="` + strconv.FormatInt(heightEMU, 10) + `"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>` +
+		`</xdr:pic>` +
+		`<xdr:clientData/>` +
+		`</xdr:oneCellAnchor>`
 }
 
 func inlineStringCell(reference string, value string, style int) string {
@@ -518,8 +700,14 @@ const expenseXLSXContentTypesXML = `<?xml version="1.0" encoding="UTF-8" standal
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="jpg" ContentType="image/jpeg"/>
+  <Default Extension="jpeg" ContentType="image/jpeg"/>
+  <Default Extension="png" ContentType="image/png"/>
+  <Default Extension="gif" ContentType="image/gif"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
   <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>
   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
 </Types>`
 
@@ -531,14 +719,18 @@ const expenseXLSXRootRelationshipsXML = `<?xml version="1.0" encoding="UTF-8" st
 const expenseXLSXWorkbookXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <bookViews><workbookView xWindow="0" yWindow="0" windowWidth="24000" windowHeight="12000"/></bookViews>
-  <sheets><sheet name="経費集計" sheetId="1" r:id="rId1"/></sheets>
+  <sheets>
+    <sheet name="経費集計" sheetId="1" r:id="rId1"/>
+    <sheet name="領収書" sheetId="2" r:id="rId2"/>
+  </sheets>
   <calcPr calcId="191029" fullCalcOnLoad="1"/>
 </workbook>`
 
 const expenseXLSXWorkbookRelationshipsXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>`
 
 const expenseXLSXStylesXML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
