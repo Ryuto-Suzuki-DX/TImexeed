@@ -339,9 +339,11 @@ func buildExpenseExportXLSX(
 		"xl/worksheets/sheet2.xml":   []byte(receiptSheetXML),
 	}
 
-	files["xl/worksheets/_rels/sheet2.xml.rels"] = []byte(receiptSheetRelationshipsXML)
-	files["xl/drawings/drawing1.xml"] = []byte(drawingXML)
-	files["xl/drawings/_rels/drawing1.xml.rels"] = []byte(drawingRelationshipsXML)
+	if len(embeddedReceipts) > 0 {
+		files["xl/worksheets/_rels/sheet2.xml.rels"] = []byte(receiptSheetRelationshipsXML)
+		files["xl/drawings/drawing1.xml"] = []byte(drawingXML)
+		files["xl/drawings/_rels/drawing1.xml.rels"] = []byte(drawingRelationshipsXML)
+	}
 
 	for index, receipt := range embeddedReceipts {
 		mediaFileName := fmt.Sprintf("xl/media/receipt_%d.%s", index+1, receipt.MediaExtension)
@@ -546,7 +548,6 @@ func buildExpenseReceiptSheetXML(
 		`</cols>` +
 		`<sheetData>` + rows.String() + `</sheetData>`
 
-	sheet += `<drawing r:id="rId1"/>`
 	drawingXML := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 		`<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
 		drawingAnchors.String() +
@@ -560,8 +561,11 @@ func buildExpenseReceiptSheetXML(
 		`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>` +
 		`</Relationships>`
 
-	sheet += `<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>` +
-		`</worksheet>`
+	sheet += `<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>`
+	if len(embeddedReceipts) > 0 {
+		sheet += `<drawing r:id="rId1"/>`
+	}
+	sheet += `</worksheet>`
 
 	return sheet, drawingXML, drawingRelationshipsXML, receiptSheetRelationshipsXML, embeddedReceipts
 }
