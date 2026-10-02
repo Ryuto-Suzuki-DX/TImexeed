@@ -596,6 +596,10 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 			row.MissingScheduledWorkDays++
 		}
 
+		if workRow.RemoteWorkAllowanceFlag {
+			row.RemoteWorkAllowanceDays++
+		}
+
 		row.DailyTransportationAmount += workRow.TransportAmount
 		row.DailyTransportationCount += workRow.TransportCount
 
@@ -635,6 +639,10 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 	service.applyExpensesToRow(&row, expenses)
 
 	row.TotalTransportationAmount = row.DailyTransportationAmount + row.CommuterPassAmount
+	row.RemoteWorkAllowanceAmount = row.RemoteWorkAllowanceDays * 150
+	if row.RemoteWorkAllowanceAmount > 3000 {
+		row.RemoteWorkAllowanceAmount = 3000
+	}
 
 	service.applyActualOperationRateToRow(&row)
 	service.applyDataWarningFlagsToRow(&row, &warnings)
@@ -761,6 +769,7 @@ func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 			PlanAttendanceTypeCode:     attendanceDay.PlanAttendanceType.Code,
 			PlanAttendanceTypeCategory: attendanceDay.PlanAttendanceType.Category,
 			ActualWorkStatus:           attendanceDay.ActualWorkStatus,
+			RemoteWorkAllowanceFlag:    attendanceDay.RemoteWorkAllowanceFlag,
 			ScheduledWorkMinutes:       scheduledWorkMinutes,
 			TransportAmount:            transportAmount,
 			TransportCount:             transportCount,

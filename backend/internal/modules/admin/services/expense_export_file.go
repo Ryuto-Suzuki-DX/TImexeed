@@ -7,7 +7,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"net/url"
 	"path"
 	"sort"
 	"strconv"
@@ -55,18 +54,19 @@ func buildExpenseExportZip(
 	}
 
 	baseName := buildExpenseExportBaseName(expenses, exportedAt)
+	exportFolderName := baseName + "_経費一式"
 	excelFileName := baseName + "_経費集計.xlsx"
-	zipFileName := baseName + "_経費一式.zip"
+	zipFileName := exportFolderName + ".zip"
 
 	var zipBuffer bytes.Buffer
 	zipWriter := zip.NewWriter(&zipBuffer)
 
-	if err := writeZIPFile(zipWriter, excelFileName, xlsxBody); err != nil {
+	if err := writeZIPFile(zipWriter, path.Join(exportFolderName, excelFileName), xlsxBody); err != nil {
 		return types.ExpenseExportFileResponse{}, fmt.Errorf("failed to add expense xlsx to zip: %w", err)
 	}
 
 	for _, receipt := range receipts {
-		if err := writeZIPFile(zipWriter, receipt.ZIPPath, receipt.Body); err != nil {
+		if err := writeZIPFile(zipWriter, path.Join(exportFolderName, receipt.ZIPPath), receipt.Body); err != nil {
 			return types.ExpenseExportFileResponse{}, fmt.Errorf("failed to add receipt to zip: %w", err)
 		}
 	}
@@ -416,11 +416,11 @@ func buildExpenseSheetXML(
 }
 
 func buildExpenseRelationshipTarget(filePath string) string {
-	parts := strings.Split(filePath, "/")
-	for index, part := range parts {
-		parts[index] = url.PathEscape(part)
-	}
-	return strings.Join(parts, "/")
+	// Excel の外部相対リンクは、XLSX の Relationship Target に
+	// ファイル名をそのまま保持した方が安定する。
+	// URLエンコードすると、日本語ファイル名を含む領収書で
+	// 「ファイルが見つかりません」になる環境があるため行わない。
+	return strings.ReplaceAll(filePath, "\\", "/")
 }
 
 func inlineStringCell(reference string, value string, style int) string {

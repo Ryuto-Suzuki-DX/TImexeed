@@ -368,10 +368,10 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildExcel(
 	targetYear int,
 	targetMonth int,
 ) ([]byte, results.Result) {
-	header := builder.buildHeader(allowanceColumns)
+	header := builder.buildExcelHeader(allowanceColumns)
 	records := make([][]string, 0, len(rows))
 	for _, row := range rows {
-		records = append(records, builder.buildRecord(row, allowanceColumns))
+		records = append(records, builder.buildExcelRecord(row, allowanceColumns))
 	}
 
 	buffer := &bytes.Buffer{}
@@ -433,6 +433,115 @@ func (builder *monthlyAttendanceSummaryExportBuilder) BuildExcel(
 		"",
 		nil,
 	)
+}
+
+func (builder *monthlyAttendanceSummaryExportBuilder) buildExcelHeader(
+	allowanceColumns []types.MonthlyAttendanceSummaryAllowanceColumn,
+) []string {
+	csvHeader := builder.buildHeader(allowanceColumns)
+	header := make([]string, 0, len(csvHeader)+2)
+
+	for _, headerName := range csvHeader {
+		header = append(header, strings.TrimSuffix(headerName, "_分"))
+		if headerName == "手当合計" {
+			header = append(header, "在宅手当日数", "在宅手当")
+		}
+	}
+
+	return header
+}
+
+func (builder *monthlyAttendanceSummaryExportBuilder) buildExcelRecord(
+	row types.MonthlyAttendanceSummaryCsvRow,
+	allowanceColumns []types.MonthlyAttendanceSummaryAllowanceColumn,
+) []string {
+	csvHeader := builder.buildHeader(allowanceColumns)
+	csvRecord := builder.buildRecord(row, allowanceColumns)
+	record := make([]string, 0, len(csvRecord)+2)
+	calculated := row.CalculationStatus == types.MonthlyAttendanceSummaryCalculationStatusCalculated
+
+	for index, value := range csvRecord {
+		headerName := csvHeader[index]
+		if strings.HasSuffix(headerName, "_分") && strings.TrimSpace(value) != "" {
+			minutes, err := strconv.Atoi(strings.TrimSpace(value))
+			if err == nil {
+				value = formatExcelMinutes(minutes)
+			}
+		}
+
+		record = append(record, value)
+		if headerName == "手当合計" {
+			record = append(
+				record,
+				calcIntToString(calculated, row.RemoteWorkAllowanceDays),
+				calcIntToString(calculated, row.RemoteWorkAllowanceAmount),
+			)
+		}
+	}
+
+	return record
+}
+
+func formatExcelMinutes(minutes int) string {
+	if minutes < 0 {
+		return fmt.Sprintf("-%d時間%d分", (-minutes)/60, (-minutes)%60)
+	}
+	return fmt.Sprintf("%d時間%d分", minutes/60, minutes%60)
+}
+
+func parseExcelMinutes(value string) (int, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false
+	}
+
+	sign := 1
+	if strings.HasPrefix(value, "-") {
+		sign = -1
+		value = strings.TrimPrefix(value, "-")
+	}
+
+	hourIndex := strings.Index(value, "時間")
+	minuteIndex := strings.Index(value, "分")
+	if hourIndex <= 0 || minuteIndex <= hourIndex {
+		return 0, false
+	}
+
+	hours, err := strconv.Atoi(value[:hourIndex])
+	if err != nil {
+		return 0, false
+	}
+	minutes, err := strconv.Atoi(value[hourIndex+len("時間") : minuteIndex])
+	if err != nil {
+		return 0, false
+	}
+
+	return sign * (hours*60 + minutes), true
+}
+
+func isExcelDurationHeader(headerName string) bool {
+	durationHeaders := map[string]bool{
+		"予定労働時間":   true,
+		"総労働時間":    true,
+		"日中労働時間":   true,
+		"夜勤労働時間":   true,
+		"休憩時間":     true,
+		"所定内労働時間":  true,
+		"控除対象不足時間": true,
+		"総残業時間":    true,
+		"日中残業時間":   true,
+		"夜勤残業時間":   true,
+		"深夜労働時間":   true,
+		"休日労働時間":   true,
+		"有給換算時間":   true,
+		"欠勤控除時間":   true,
+		"病欠控除時間":   true,
+		"遅刻控除時間":   true,
+		"早退控除時間":   true,
+		"有給使用換算時間": true,
+	}
+
+	return durationHeaders[headerName]
 }
 
 func writeExcelZipFile(zipWriter *zip.Writer, fileName string, content string) error {
@@ -587,6 +696,26 @@ func buildExcelTotalRecord(header []string, records [][]string) []string {
 			continue
 		}
 
+		if isExcelDurationHeader(headerName) {
+			totalMinutes := 0
+			hasValue := false
+			for _, record := range records {
+				if columnIndex >= len(record) {
+					continue
+				}
+				minutes, ok := parseExcelMinutes(record[columnIndex])
+				if !ok {
+					continue
+				}
+				totalMinutes += minutes
+				hasValue = true
+			}
+			if hasValue {
+				totalRecord[columnIndex] = formatExcelMinutes(totalMinutes)
+			}
+			continue
+		}
+
 		if !isExcelSummableHeader(headerName) {
 			continue
 		}
@@ -662,6 +791,10 @@ func excelBodyStyleID(headerName string, warningRow bool, alternateRow bool) int
 }
 
 func isExcelNumericHeader(headerName string) bool {
+	if isExcelDurationHeader(headerName) {
+		return false
+	}
+
 	textHeaders := map[string]bool{
 		"出力日時":    true,
 		"集計状態":    true,
@@ -693,6 +826,10 @@ func isExcelSummableHeader(headerName string) bool {
 	}
 	if nonSummableHeaders[headerName] {
 		return false
+	}
+
+	if headerName == "在宅手当日数" || headerName == "在宅手当" {
+		return true
 	}
 
 	summableWords := []string{"日数", "回数", "_分", "合計", "金額", "件数", "控除"}

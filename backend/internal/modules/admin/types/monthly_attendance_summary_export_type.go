@@ -151,6 +151,10 @@ type MonthlyAttendanceSummaryCsvRow struct {
 	// 対象月に登録された全手当の合計
 	TotalAllowanceAmount int `json:"totalAllowanceAmount"`
 
+	// 在宅手当（RemoteWorkAllowanceFlag=true の日を1日150円、月上限3,000円で集計）
+	RemoteWorkAllowanceDays   int `json:"remoteWorkAllowanceDays"`
+	RemoteWorkAllowanceAmount int `json:"remoteWorkAllowanceAmount"`
+
 	// 勤怠日数集計
 	CalendarDays             int `json:"calendarDays"`
 	RegisteredAttendanceDays int `json:"registeredAttendanceDays"`
@@ -286,6 +290,9 @@ type MonthlyAttendanceSummaryWorkRow struct {
 	// 実績状態
 	// 例：NORMAL, ABSENCE, SICK_LEAVE, LATE, EARLY_LEAVE
 	ActualWorkStatus string
+
+	// 在宅手当対象フラグ
+	RemoteWorkAllowanceFlag bool
 
 	ScheduledWorkMinutes int
 

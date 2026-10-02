@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"timexeed/backend/internal/constants"
 	"timexeed/backend/internal/modules/admin/types"
 	"timexeed/backend/internal/results"
 )
@@ -234,7 +235,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildDailyDetailUserSheet(
 			{Value: row.WorkDate, StyleID: bodyStyle},
 			{Value: row.Weekday, StyleID: bodyStyle},
 			{Value: row.PlanAttendanceType, StyleID: bodyStyle},
-			{Value: row.ActualWorkStatus, StyleID: bodyStyle},
+			{Value: actualWorkStatusJapaneseLabel(row.ActualWorkStatus), StyleID: bodyStyle},
 			{Value: row.PlanStart, StyleID: bodyStyle},
 			{Value: row.PlanEnd, StyleID: bodyStyle},
 			{Value: row.ActualStart, StyleID: bodyStyle},
@@ -287,6 +288,13 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildDailyDetailUserSheet(
 	)
 
 	return dailyDetailSheetDefinition{Name: sheetName, Rows: rows}
+}
+
+func actualWorkStatusJapaneseLabel(status string) string {
+	if label, ok := constants.ActualWorkStatusLabels[status]; ok {
+		return label
+	}
+	return status
 }
 
 func excelMinutes(minutes int) string {
