@@ -1,3 +1,5 @@
+export type ExpenseCategory = "TRANSPORTATION" | "SUPPLIES" | "COMMUNICATION" | "OTHER";
+
 export type ApiResponse<TData> = {
   data: TData;
   error: boolean;
@@ -38,6 +40,7 @@ export type ExpenseListItemResponse = {
   targetMonth: string;
   expenseDate: string;
 
+  category: ExpenseCategory;
   amount: number;
   description: string;
   memo: string | null;
@@ -70,6 +73,7 @@ export type ExpenseResponse = {
   targetMonth: string;
   expenseDate: string;
 
+  category: ExpenseCategory;
   amount: number;
   description: string;
   memo: string | null;
@@ -97,6 +101,7 @@ export type CreateExpenseRequest = {
   targetMonth: string;
   expenseDate: string;
 
+  category: ExpenseCategory;
   amount: number;
   description: string;
   memo: string | null;
@@ -121,6 +126,7 @@ export type UpdateExpenseRequest = {
   targetMonth: string;
   expenseDate: string;
 
+  category: ExpenseCategory;
   amount: number;
   description: string;
   memo: string | null;

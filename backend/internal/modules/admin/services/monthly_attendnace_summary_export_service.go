@@ -526,7 +526,13 @@ func (service *monthlyAttendanceSummaryExportService) calculateApprovedUserRow(
 			row.ScheduledWorkDays++
 		}
 
-		row.ActualWorkMinutes += workRow.ActualWorkMinutes
+		if workRow.PlanAttendanceTypeCode == "SPECIAL_LEAVE" {
+			// 特別休暇は100%勤務相当として月次勤務時間へ加算する。
+			// workRow.ActualWorkMinutes自体は0のままなので、残業・週40時間判定には混ざらない。
+			row.ActualWorkMinutes += workRow.ScheduledWorkMinutes
+		} else {
+			row.ActualWorkMinutes += workRow.ActualWorkMinutes
+		}
 		row.DayWorkMinutes += workRow.DayWorkMinutes
 		row.NightWorkMinutes += workRow.NightWorkMinutes
 		row.BreakMinutes += workRow.BreakMinutes
@@ -799,7 +805,7 @@ func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 		}
 
 		if attendanceDay.ActualStartAt == nil && attendanceDay.ActualEndAt == nil {
-			if scheduledWorkMinutes > 0 && !workRow.IsAbsenceDay && !workRow.IsSickLeaveDay && !workRow.IsPaidLeaveDay {
+			if scheduledWorkMinutes > 0 && !workRow.IsAbsenceDay && !workRow.IsSickLeaveDay && !workRow.IsPaidLeaveDay && workRow.PlanAttendanceTypeCode != "SPECIAL_LEAVE" {
 				workRow.IsScheduledButNoActual = true
 				workRow.WorkShortageMinutes = scheduledWorkMinutes
 				workRow.Warnings = append(workRow.Warnings, workDate+" 実績未入力: 予定労働時間がありますが実績時刻が未入力です")
@@ -873,7 +879,7 @@ func (service *monthlyAttendanceSummaryExportService) buildWorkRows(
 			workRow.Warnings = append(workRow.Warnings, workDate+" 予定不整合: 実績がありますが予定労働時間が未設定です")
 		}
 
-		if scheduledWorkMinutes > 0 && actualWorkMinutes == 0 && !workRow.IsAbsenceDay && !workRow.IsSickLeaveDay && !workRow.IsPaidLeaveDay {
+		if scheduledWorkMinutes > 0 && actualWorkMinutes == 0 && !workRow.IsAbsenceDay && !workRow.IsSickLeaveDay && !workRow.IsPaidLeaveDay && workRow.PlanAttendanceTypeCode != "SPECIAL_LEAVE" {
 			workRow.IsScheduledButNoActual = true
 			workRow.Warnings = append(workRow.Warnings, workDate+" 実績未入力: 予定労働時間がありますが有効な実績労働時間がありません")
 		}
@@ -1205,17 +1211,13 @@ func (service *monthlyAttendanceSummaryExportService) applyDataWarningFlagsToRow
 		*warnings = append(*warnings, fmt.Sprintf("予定不整合: 予定労働時間未設定日が%d日あります", row.MissingScheduledWorkDays))
 	}
 
-	if row.ExpenseCount > 0 && row.OtherExpenseAmount == row.ExpenseTotalAmount {
-		row.HasExpenseCategoryWarning = true
-		*warnings = append(*warnings, "経費カテゴリ警告: Expenseにカテゴリがないため、経費はすべてその他経費として出力しています")
-	}
 }
 
 /*
  * 経費をCSV行へ反映
  *
- * 現時点の Expense model にはカテゴリカラムが存在しない。
- * そのため、カテゴリ別集計は全額 other_expense_amount に寄せる。
+ * Expense.Category に応じて4分類へ集計する。
+ * 既存データや不明値は安全側でOTHERとして扱う。
  */
 func (service *monthlyAttendanceSummaryExportService) applyExpensesToRow(
 	row *types.MonthlyAttendanceSummaryCsvRow,
@@ -1224,7 +1226,17 @@ func (service *monthlyAttendanceSummaryExportService) applyExpensesToRow(
 	for _, expense := range expenses {
 		row.ExpenseTotalAmount += expense.Amount
 		row.ExpenseCount++
-		row.OtherExpenseAmount += expense.Amount
+
+		switch strings.ToUpper(strings.TrimSpace(expense.Category)) {
+		case models.ExpenseCategoryTransportation:
+			row.TransportationExpenseAmount += expense.Amount
+		case models.ExpenseCategorySupplies:
+			row.SuppliesExpenseAmount += expense.Amount
+		case models.ExpenseCategoryCommunication:
+			row.CommunicationExpenseAmount += expense.Amount
+		default:
+			row.OtherExpenseAmount += expense.Amount
+		}
 	}
 }
 

@@ -1,6 +1,7 @@
 package builders
 
 import (
+	"strings"
 	"time"
 
 	"timexeed/backend/internal/models"
@@ -306,10 +307,23 @@ func (builder *expenseBuilder) BuildCreateExpenseModel(req types.CreateExpenseRe
 		)
 	}
 
+	category := strings.ToUpper(strings.TrimSpace(req.Category))
+	if category == "" {
+		category = models.ExpenseCategoryOther
+	}
+	if !models.IsValidExpenseCategory(category) {
+		return models.Expense{}, results.BadRequest(
+			"BUILD_CREATE_EXPENSE_MODEL_INVALID_CATEGORY",
+			"経費カテゴリが正しくありません",
+			map[string]any{"category": req.Category},
+		)
+	}
+
 	expense := models.Expense{
 		UserID:      req.TargetUserID,
 		TargetMonth: targetMonth,
 		ExpenseDate: expenseDate,
+		Category:    category,
 		Amount:      req.Amount,
 		Description: req.Description,
 		Memo:        req.Memo,
@@ -377,9 +391,22 @@ func (builder *expenseBuilder) BuildUpdateExpenseModel(
 		)
 	}
 
+	category := strings.ToUpper(strings.TrimSpace(req.Category))
+	if category == "" {
+		category = models.ExpenseCategoryOther
+	}
+	if !models.IsValidExpenseCategory(category) {
+		return models.Expense{}, results.BadRequest(
+			"BUILD_UPDATE_EXPENSE_MODEL_INVALID_CATEGORY",
+			"経費カテゴリが正しくありません",
+			map[string]any{"category": req.Category},
+		)
+	}
+
 	currentExpense.UserID = req.TargetUserID
 	currentExpense.TargetMonth = targetMonth
 	currentExpense.ExpenseDate = expenseDate
+	currentExpense.Category = category
 	currentExpense.Amount = req.Amount
 	currentExpense.Description = req.Description
 	currentExpense.Memo = req.Memo

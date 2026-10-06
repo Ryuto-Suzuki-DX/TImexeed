@@ -352,6 +352,19 @@ func uniqueExpenseExportMonths(expenses []models.Expense) []string {
 	return values
 }
 
+func expenseCategoryDisplayName(category string) string {
+	switch category {
+	case models.ExpenseCategoryTransportation:
+		return "交通費系経費"
+	case models.ExpenseCategorySupplies:
+		return "備品系経費"
+	case models.ExpenseCategoryCommunication:
+		return "通信系経費"
+	default:
+		return "その他経費"
+	}
+}
+
 func buildExpenseReceiptExportFileName(expense models.Expense, originalFileName string) string {
 	extension := path.Ext(strings.TrimSpace(originalFileName))
 	if len(extension) > 20 {
@@ -487,7 +500,7 @@ func buildExpenseSummarySheetXML(
 	rows.WriteString(numberCell("H3", sumExpenseAmounts(expenses), 10))
 	rows.WriteString(`</row>`)
 
-	headers := []string{"No.", "対象月", "経費発生日", "従業員", "メールアドレス", "内容", "メモ", "金額", "領収書"}
+	headers := []string{"No.", "対象月", "経費発生日", "従業員", "メールアドレス", "カテゴリ", "内容", "メモ", "金額", "領収書"}
 	rows.WriteString(`<row r="5" ht="24" customHeight="1">`)
 	for index, header := range headers {
 		rows.WriteString(inlineStringCell(cellReference(index+1, 5), header, 4))
@@ -503,43 +516,44 @@ func buildExpenseSummarySheetXML(
 		rows.WriteString(inlineStringCell(cellReference(3, row), expense.ExpenseDate.Format("2006/01/02"), 6))
 		rows.WriteString(inlineStringCell(cellReference(4, row), expense.User.Name, 5))
 		rows.WriteString(inlineStringCell(cellReference(5, row), expense.User.Email, 5))
-		rows.WriteString(inlineStringCell(cellReference(6, row), expense.Description, 5))
-		rows.WriteString(inlineStringCell(cellReference(7, row), stringPointerValue(expense.Memo), 5))
-		rows.WriteString(numberCell(cellReference(8, row), expense.Amount, 7))
+		rows.WriteString(inlineStringCell(cellReference(6, row), expenseCategoryDisplayName(expense.Category), 5))
+		rows.WriteString(inlineStringCell(cellReference(7, row), expense.Description, 5))
+		rows.WriteString(inlineStringCell(cellReference(8, row), stringPointerValue(expense.Memo), 5))
+		rows.WriteString(numberCell(cellReference(9, row), expense.Amount, 7))
 
 		receipt, hasReceipt := receiptByExpenseID[expense.ID]
 		if hasReceipt {
 			receiptNumber++
 			if receipt.EmbeddedImage {
-				rows.WriteString(inlineStringCell(cellReference(9, row), fmt.Sprintf("領収書シート No.%d", receiptNumber), 5))
+				rows.WriteString(inlineStringCell(cellReference(10, row), fmt.Sprintf("領収書シート No.%d", receiptNumber), 5))
 			} else {
-				rows.WriteString(inlineStringCell(cellReference(9, row), fmt.Sprintf("領収書シート No.%d（別ファイル同梱）", receiptNumber), 5))
+				rows.WriteString(inlineStringCell(cellReference(10, row), fmt.Sprintf("領収書シート No.%d（別ファイル同梱）", receiptNumber), 5))
 			}
 		} else {
-			rows.WriteString(inlineStringCell(cellReference(9, row), "なし", 5))
+			rows.WriteString(inlineStringCell(cellReference(10, row), "なし", 5))
 		}
 		rows.WriteString(`</row>`)
 	}
 
 	totalRow := len(expenses) + 6
 	rows.WriteString(`<row r="` + strconv.Itoa(totalRow) + `" ht="24" customHeight="1">`)
-	rows.WriteString(inlineStringCell(cellReference(7, totalRow), "合計", 9))
+	rows.WriteString(inlineStringCell(cellReference(8, totalRow), "合計", 9))
 	if len(expenses) > 0 {
 		rows.WriteString(
 			formulaCell(
-				cellReference(8, totalRow),
-				fmt.Sprintf("SUM(H6:H%d)", totalRow-1),
+				cellReference(9, totalRow),
+				fmt.Sprintf("SUM(I6:I%d)", totalRow-1),
 				sumExpenseAmounts(expenses),
 				10,
 			),
 		)
 	} else {
-		rows.WriteString(numberCell(cellReference(8, totalRow), 0, 10))
+		rows.WriteString(numberCell(cellReference(9, totalRow), 0, 10))
 	}
 	rows.WriteString(`</row>`)
 
-	dimension := fmt.Sprintf("A1:I%d", totalRow)
-	autoFilter := fmt.Sprintf("A5:I%d", totalRow-1)
+	dimension := fmt.Sprintf("A1:J%d", totalRow)
+	autoFilter := fmt.Sprintf("A5:J%d", totalRow-1)
 
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
 		`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
@@ -551,14 +565,15 @@ func buildExpenseSummarySheetXML(
 		`<col min="2" max="3" width="15" customWidth="1"/>` +
 		`<col min="4" max="4" width="18" customWidth="1"/>` +
 		`<col min="5" max="5" width="30" customWidth="1"/>` +
-		`<col min="6" max="6" width="34" customWidth="1"/>` +
-		`<col min="7" max="7" width="30" customWidth="1"/>` +
-		`<col min="8" max="8" width="14" customWidth="1"/>` +
-		`<col min="9" max="9" width="30" customWidth="1"/>` +
+		`<col min="6" max="6" width="18" customWidth="1"/>` +
+		`<col min="7" max="7" width="34" customWidth="1"/>` +
+		`<col min="8" max="8" width="30" customWidth="1"/>` +
+		`<col min="9" max="9" width="14" customWidth="1"/>` +
+		`<col min="10" max="10" width="30" customWidth="1"/>` +
 		`</cols>` +
 		`<sheetData>` + rows.String() + `</sheetData>` +
 		`<autoFilter ref="` + autoFilter + `"/>` +
-		`<mergeCells count="1"><mergeCell ref="A1:I1"/></mergeCells>` +
+		`<mergeCells count="1"><mergeCell ref="A1:J1"/></mergeCells>` +
 		`<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>` +
 		`<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>` +
 		`</worksheet>`

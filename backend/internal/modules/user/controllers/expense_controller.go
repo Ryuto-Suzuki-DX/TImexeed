@@ -230,6 +230,7 @@ func buildCreateExpenseRequestFromMultipart(c *gin.Context) (types.CreateExpense
 	req := types.CreateExpenseRequest{
 		TargetMonth: strings.TrimSpace(c.PostForm("targetMonth")),
 		ExpenseDate: strings.TrimSpace(c.PostForm("expenseDate")),
+		Category:    strings.TrimSpace(c.PostForm("category")),
 		Amount:      amount,
 		Description: strings.TrimSpace(c.PostForm("description")),
 		Memo:        optionalStringPointer(c.PostForm("memo")),
@@ -259,6 +260,7 @@ func buildUpdateExpenseRequestFromMultipart(c *gin.Context) (types.UpdateExpense
 		ExpenseID:   expenseID,
 		TargetMonth: strings.TrimSpace(c.PostForm("targetMonth")),
 		ExpenseDate: strings.TrimSpace(c.PostForm("expenseDate")),
+		Category:    strings.TrimSpace(c.PostForm("category")),
 		Amount:      amount,
 		Description: strings.TrimSpace(c.PostForm("description")),
 		Memo:        optionalStringPointer(c.PostForm("memo")),

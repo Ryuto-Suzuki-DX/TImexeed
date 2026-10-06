@@ -176,6 +176,7 @@ function buildCreateExpenseFormData(request: CreateExpenseRequest) {
   formData.append("targetUserId", String(request.targetUserId));
   formData.append("targetMonth", request.targetMonth);
   formData.append("expenseDate", request.expenseDate);
+  formData.append("category", request.category);
   formData.append("amount", String(request.amount));
   formData.append("description", request.description);
 
@@ -200,6 +201,7 @@ function buildUpdateExpenseFormData(request: UpdateExpenseRequest) {
   formData.append("targetUserId", String(request.targetUserId));
   formData.append("targetMonth", request.targetMonth);
   formData.append("expenseDate", request.expenseDate);
+  formData.append("category", request.category);
   formData.append("amount", String(request.amount));
   formData.append("description", request.description);
 

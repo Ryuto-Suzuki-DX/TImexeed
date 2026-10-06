@@ -14,6 +14,22 @@ import "time"
  * ・対象月は year / month に分けず、date 型で月初日として保持する
  * ・領収書ファイル情報もこのテーブルに保持する
  */
+const (
+	ExpenseCategoryTransportation = "TRANSPORTATION"
+	ExpenseCategorySupplies       = "SUPPLIES"
+	ExpenseCategoryCommunication  = "COMMUNICATION"
+	ExpenseCategoryOther          = "OTHER"
+)
+
+func IsValidExpenseCategory(category string) bool {
+	switch category {
+	case ExpenseCategoryTransportation, ExpenseCategorySupplies, ExpenseCategoryCommunication, ExpenseCategoryOther:
+		return true
+	default:
+		return false
+	}
+}
+
 type Expense struct {
 	ID uint `gorm:"primaryKey" json:"id"`
 
@@ -41,6 +57,13 @@ type Expense struct {
 	 * 経費発生日
 	 */
 	ExpenseDate time.Time `gorm:"type:date;not null;index" json:"expenseDate"`
+
+	/*
+	 * 経費カテゴリ
+	 *
+	 * 既存データはOTHERとして扱う。
+	 */
+	Category string `gorm:"type:varchar(30);not null;default:'OTHER';index" json:"category"`
 
 	/*
 	 * 金額

@@ -53,6 +53,7 @@ func toExpenseResponse(expense models.Expense) types.ExpenseResponse {
 		TargetMonth: expense.TargetMonth.Format("2006-01"),
 		ExpenseDate: expense.ExpenseDate.Format("2006-01-02"),
 
+		Category:    expense.Category,
 		Amount:      expense.Amount,
 		Description: expense.Description,
 		Memo:        expense.Memo,
@@ -79,6 +80,7 @@ func toExpenseListItemResponse(expense models.Expense) types.ExpenseListItemResp
 		TargetMonth: expense.TargetMonth.Format("2006-01"),
 		ExpenseDate: expense.ExpenseDate.Format("2006-01-02"),
 
+		Category:    expense.Category,
 		Amount:      expense.Amount,
 		Description: expense.Description,
 		Memo:        expense.Memo,

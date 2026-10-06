@@ -15,6 +15,7 @@ import {
 } from "@/api/user/expense";
 import type {
   CreateExpenseRequest,
+  ExpenseCategory,
   ExpenseListItemResponse,
   SearchExpensesResponse,
   UpdateExpenseRequest,
@@ -31,6 +32,7 @@ type ExpenseFormState = {
   expenseId: number | null;
   targetMonth: string;
   expenseDate: string;
+  category: ExpenseCategory;
   amount: string;
   description: string;
   memo: string;
@@ -48,6 +50,7 @@ const initialExpenseForm: ExpenseFormState = {
   expenseId: null,
   targetMonth: getCurrentMonthText(),
   expenseDate: getTodayText(),
+  category: "OTHER",
   amount: "",
   description: "",
   memo: "",
@@ -180,6 +183,7 @@ export default function UserExpensesPage() {
           expenseId: expenseForm.expenseId as number,
           targetMonth: expenseForm.targetMonth,
           expenseDate: expenseForm.expenseDate,
+          category: expenseForm.category,
           amount: Number(expenseForm.amount),
           description: expenseForm.description.trim(),
           memo: normalizeNullableText(expenseForm.memo),
@@ -194,6 +198,7 @@ export default function UserExpensesPage() {
         const request: CreateExpenseRequest = {
           targetMonth: expenseForm.targetMonth,
           expenseDate: expenseForm.expenseDate,
+          category: expenseForm.category,
           amount: Number(expenseForm.amount),
           description: expenseForm.description.trim(),
           memo: normalizeNullableText(expenseForm.memo),
@@ -307,6 +312,7 @@ export default function UserExpensesPage() {
       expenseId: expense.id,
       targetMonth: expense.targetMonth,
       expenseDate: expense.expenseDate,
+      category: expense.category,
       amount: String(expense.amount),
       description: expense.description,
       memo: expense.memo ?? "",
@@ -413,6 +419,25 @@ export default function UserExpensesPage() {
                     </span>
                   </label>
                 </div>
+
+                <label className={styles.fieldLabel}>
+                  経費カテゴリ
+                  <select
+                    className={styles.input}
+                    value={expenseForm.category}
+                    onChange={(event) =>
+                      setExpenseForm((current) => ({
+                        ...current,
+                        category: event.target.value as ExpenseCategory,
+                      }))
+                    }
+                  >
+                    <option value="TRANSPORTATION">交通費系経費</option>
+                    <option value="SUPPLIES">備品系経費</option>
+                    <option value="COMMUNICATION">通信系経費</option>
+                    <option value="OTHER">その他経費</option>
+                  </select>
+                </label>
 
                 <label className={styles.fieldLabel}>
                   金額
@@ -596,6 +621,7 @@ export default function UserExpensesPage() {
                     <tr>
                       <th>対象月</th>
                       <th>発生日</th>
+                      <th>カテゴリ</th>
                       <th>金額</th>
                       <th>内容</th>
                       <th>領収書</th>
@@ -605,7 +631,7 @@ export default function UserExpensesPage() {
                   <tbody>
                     {expenses.length === 0 ? (
                       <tr>
-                        <td className={styles.emptyCell} colSpan={6}>
+                        <td className={styles.emptyCell} colSpan={7}>
                           経費がありません。
                         </td>
                       </tr>
@@ -614,6 +640,7 @@ export default function UserExpensesPage() {
                         <tr key={expense.id}>
                           <td>{expense.targetMonth}</td>
                           <td>{expense.expenseDate}</td>
+                          <td>{expenseCategoryLabel(expense.category)}</td>
                           <td className={styles.amountCell}>{formatYen(expense.amount)}</td>
                           <td>
                             <div className={styles.descriptionCell}>
@@ -747,6 +774,10 @@ function validateExpenseForm(form: ExpenseFormState) {
     return "経費発生日を入力してください。";
   }
 
+  if (!form.category) {
+    return "経費カテゴリを選択してください。";
+  }
+
   if (!form.amount || Number(form.amount) <= 0) {
     return "金額は1円以上で入力してください。";
   }
@@ -816,4 +847,17 @@ function formatDatePickerLabel(value: string) {
   }
 
   return `${year}年${month}月${day}日`;
+}
+
+function expenseCategoryLabel(category: ExpenseCategory) {
+  switch (category) {
+    case "TRANSPORTATION":
+      return "交通費系経費";
+    case "SUPPLIES":
+      return "備品系経費";
+    case "COMMUNICATION":
+      return "通信系経費";
+    default:
+      return "その他経費";
+  }
 }

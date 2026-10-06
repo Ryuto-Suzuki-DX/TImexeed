@@ -51,6 +51,7 @@ type ExpenseListItemResponse struct {
 	TargetMonth string `json:"targetMonth"`
 	ExpenseDate string `json:"expenseDate"`
 
+	Category    string  `json:"category"`
 	Amount      int     `json:"amount"`
 	Description string  `json:"description"`
 	Memo        *string `json:"memo"`
@@ -83,6 +84,7 @@ type ExpenseResponse struct {
 	TargetMonth string `json:"targetMonth"`
 	ExpenseDate string `json:"expenseDate"`
 
+	Category    string  `json:"category"`
 	Amount      int     `json:"amount"`
 	Description string  `json:"description"`
 	Memo        *string `json:"memo"`
@@ -109,6 +111,7 @@ type CreateExpenseRequest struct {
 	TargetMonth string
 	ExpenseDate string
 
+	Category    string
 	Amount      int
 	Description string
 	Memo        *string
@@ -134,6 +137,7 @@ type UpdateExpenseRequest struct {
 	TargetMonth string
 	ExpenseDate string
 
+	Category    string
 	Amount      int
 	Description string
 	Memo        *string

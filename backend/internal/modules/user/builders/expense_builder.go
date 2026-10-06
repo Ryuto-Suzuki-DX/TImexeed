@@ -1,6 +1,7 @@
 package builders
 
 import (
+	"strings"
 	"time"
 
 	"timexeed/backend/internal/models"
@@ -138,10 +139,23 @@ func (builder *expenseBuilder) BuildCreateExpenseModel(userID uint, req types.Cr
 		return models.Expense{}, results.BadRequest("BUILD_CREATE_EXPENSE_MODEL_EMPTY_DESCRIPTION", "経費作成データの作成に失敗しました", nil)
 	}
 
+	category := strings.ToUpper(strings.TrimSpace(req.Category))
+	if category == "" {
+		category = models.ExpenseCategoryOther
+	}
+	if !models.IsValidExpenseCategory(category) {
+		return models.Expense{}, results.BadRequest(
+			"BUILD_CREATE_EXPENSE_MODEL_INVALID_CATEGORY",
+			"経費カテゴリが正しくありません",
+			map[string]any{"category": req.Category},
+		)
+	}
+
 	expense := models.Expense{
 		UserID:      userID,
 		TargetMonth: targetMonth,
 		ExpenseDate: expenseDate,
+		Category:    category,
 		Amount:      req.Amount,
 		Description: req.Description,
 		Memo:        req.Memo,
@@ -174,8 +188,21 @@ func (builder *expenseBuilder) BuildUpdateExpenseModel(currentExpense models.Exp
 		return models.Expense{}, results.BadRequest("BUILD_UPDATE_EXPENSE_MODEL_EMPTY_DESCRIPTION", "経費更新データの作成に失敗しました", nil)
 	}
 
+	category := strings.ToUpper(strings.TrimSpace(req.Category))
+	if category == "" {
+		category = models.ExpenseCategoryOther
+	}
+	if !models.IsValidExpenseCategory(category) {
+		return models.Expense{}, results.BadRequest(
+			"BUILD_UPDATE_EXPENSE_MODEL_INVALID_CATEGORY",
+			"経費カテゴリが正しくありません",
+			map[string]any{"category": req.Category},
+		)
+	}
+
 	currentExpense.TargetMonth = targetMonth
 	currentExpense.ExpenseDate = expenseDate
+	currentExpense.Category = category
 	currentExpense.Amount = req.Amount
 	currentExpense.Description = req.Description
 	currentExpense.Memo = req.Memo
