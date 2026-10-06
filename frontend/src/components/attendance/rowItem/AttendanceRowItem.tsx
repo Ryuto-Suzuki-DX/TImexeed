@@ -115,7 +115,7 @@ function buildRowSystemMessage(
   }
 
   if (row.scheduledWorkMinutes !== "") {
-    return `所定 ${row.scheduledWorkMinutes}時間`;
+    return `所定 ${row.scheduledWorkMinutes}`;
   }
 
   return "通常";
@@ -407,10 +407,9 @@ export default function AttendanceRowItem({
           <label className={styles.scheduledField}>
             <span className={styles.miniLabel}>時間</span>
             <Input
-              type="number"
-              step="0.1"
-              min="0"
-              placeholder="例：7.5"
+              type="text"
+              inputMode="numeric"
+              placeholder="例：7:40"
               value={row.scheduledWorkMinutes}
               onChange={(event) =>
                 onChangeRow(
@@ -421,7 +420,7 @@ export default function AttendanceRowItem({
               }
               disabled={locked}
             />
-            <span className={styles.scheduledHelp}>例：7.5時間</span>
+            <span className={styles.scheduledHelp}>例：7:40</span>
           </label>
         ) : (
           <p className={styles.noBreakText}>対象外</p>

@@ -32,7 +32,7 @@ type ExpenseFormState = {
   expenseId: number | null;
   targetMonth: string;
   expenseDate: string;
-  category: ExpenseCategory;
+  category: ExpenseCategory | "";
   amount: string;
   description: string;
   memo: string;
@@ -50,7 +50,7 @@ const initialExpenseForm: ExpenseFormState = {
   expenseId: null,
   targetMonth: getCurrentMonthText(),
   expenseDate: getTodayText(),
-  category: "OTHER",
+  category: "",
   amount: "",
   description: "",
   memo: "",
@@ -183,7 +183,7 @@ export default function UserExpensesPage() {
           expenseId: expenseForm.expenseId as number,
           targetMonth: expenseForm.targetMonth,
           expenseDate: expenseForm.expenseDate,
-          category: expenseForm.category,
+          category: expenseForm.category as ExpenseCategory,
           amount: Number(expenseForm.amount),
           description: expenseForm.description.trim(),
           memo: normalizeNullableText(expenseForm.memo),
@@ -198,7 +198,7 @@ export default function UserExpensesPage() {
         const request: CreateExpenseRequest = {
           targetMonth: expenseForm.targetMonth,
           expenseDate: expenseForm.expenseDate,
-          category: expenseForm.category,
+          category: expenseForm.category as ExpenseCategory,
           amount: Number(expenseForm.amount),
           description: expenseForm.description.trim(),
           memo: normalizeNullableText(expenseForm.memo),
@@ -428,10 +428,11 @@ export default function UserExpensesPage() {
                     onChange={(event) =>
                       setExpenseForm((current) => ({
                         ...current,
-                        category: event.target.value as ExpenseCategory,
+                        category: event.target.value as ExpenseCategory | "",
                       }))
                     }
                   >
+                    <option value="" disabled>選択してください</option>
                     <option value="TRANSPORTATION">交通費系経費</option>
                     <option value="SUPPLIES">備品系経費</option>
                     <option value="COMMUNICATION">通信系経費</option>

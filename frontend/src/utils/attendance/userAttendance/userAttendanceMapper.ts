@@ -187,7 +187,7 @@ export function applyAttendanceDayToViewRow(
     scheduledWorkMinutes:
       attendanceDay.scheduledWorkMinutes === null
         ? ""
-        : String(attendanceDay.scheduledWorkMinutes / 60),
+        : formatScheduledWorkMinutes(attendanceDay.scheduledWorkMinutes),
 
     lateFlag: false,
     earlyLeaveFlag: false,
@@ -439,8 +439,22 @@ export function buildUpdateMonthlyAttendanceSaveTransportExpenseRequest(
 }
 
 /*
- * 画面入力の時間をAPI送信用の分へ変換する
- * 例：7.5時間 → 450分
+ * APIで保持している「分」を画面表示用の H:MM へ変換する。
+ * 例：450分 → 7:30、460分 → 7:40
+ */
+function formatScheduledWorkMinutes(minutes: number): string {
+  const safeMinutes = Math.max(0, Math.trunc(minutes));
+  const hours = Math.floor(safeMinutes / 60);
+  const remainderMinutes = safeMinutes % 60;
+
+  return `${hours}:${String(remainderMinutes).padStart(2, "0")}`;
+}
+
+/*
+ * 画面入力の H:MM をAPI送信用の分へ変換する。
+ * 例：7:30 → 450分、7:40 → 460分
+ *
+ * 小数時間（7.5など）は受け付けず、H:MM に統一する。
  */
 function toScheduledWorkMinutes(value: string): number | null {
   const trimmedValue = value.trim();
@@ -449,13 +463,19 @@ function toScheduledWorkMinutes(value: string): number | null {
     return null;
   }
 
-  const parsedHours = Number(trimmedValue);
-
-  if (!Number.isFinite(parsedHours) || parsedHours < 0) {
-    return null;
+  const matched = /^(\d+):([0-5]\d)$/.exec(trimmedValue);
+  if (!matched) {
+    throw new Error('所定労働時間は「7:40」のように時間:分で入力してください。');
   }
 
-  return Math.round(parsedHours * 60);
+  const hours = Number(matched[1]);
+  const minutes = Number(matched[2]);
+
+  if (!Number.isInteger(hours) || hours < 0 || hours > 23) {
+    throw new Error('所定労働時間は「7:40」のように時間:分で入力してください。');
+  }
+
+  return hours * 60 + minutes;
 }
 
 /*

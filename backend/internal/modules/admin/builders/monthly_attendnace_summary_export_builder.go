@@ -483,10 +483,13 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildExcelRecord(
 }
 
 func formatExcelMinutes(minutes int) string {
+	sign := ""
 	if minutes < 0 {
-		return fmt.Sprintf("-%d時間%d分", (-minutes)/60, (-minutes)%60)
+		sign = "-"
+		minutes = -minutes
 	}
-	return fmt.Sprintf("%d時間%d分", minutes/60, minutes%60)
+
+	return fmt.Sprintf("%s%d:%02d", sign, minutes/60, minutes%60)
 }
 
 func parseExcelMinutes(value string) (int, bool) {
@@ -501,18 +504,18 @@ func parseExcelMinutes(value string) (int, bool) {
 		value = strings.TrimPrefix(value, "-")
 	}
 
-	hourIndex := strings.Index(value, "時間")
-	minuteIndex := strings.Index(value, "分")
-	if hourIndex <= 0 || minuteIndex <= hourIndex {
+	parts := strings.Split(value, ":")
+	if len(parts) != 2 || parts[0] == "" || len(parts[1]) != 2 {
 		return 0, false
 	}
 
-	hours, err := strconv.Atoi(value[:hourIndex])
-	if err != nil {
+	hours, err := strconv.Atoi(parts[0])
+	if err != nil || hours < 0 {
 		return 0, false
 	}
-	minutes, err := strconv.Atoi(value[hourIndex+len("時間") : minuteIndex])
-	if err != nil {
+
+	minutes, err := strconv.Atoi(parts[1])
+	if err != nil || minutes < 0 || minutes >= 60 {
 		return 0, false
 	}
 
