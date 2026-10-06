@@ -18,12 +18,13 @@ const (
 	ExpenseCategoryTransportation = "TRANSPORTATION"
 	ExpenseCategorySupplies       = "SUPPLIES"
 	ExpenseCategoryCommunication  = "COMMUNICATION"
+	ExpenseCategoryQualification  = "QUALIFICATION"
 	ExpenseCategoryOther          = "OTHER"
 )
 
 func IsValidExpenseCategory(category string) bool {
 	switch category {
-	case ExpenseCategoryTransportation, ExpenseCategorySupplies, ExpenseCategoryCommunication, ExpenseCategoryOther:
+	case ExpenseCategoryTransportation, ExpenseCategorySupplies, ExpenseCategoryCommunication, ExpenseCategoryQualification, ExpenseCategoryOther:
 		return true
 	default:
 		return false

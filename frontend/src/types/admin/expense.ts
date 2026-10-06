@@ -1,4 +1,4 @@
-export type ExpenseCategory = "TRANSPORTATION" | "SUPPLIES" | "COMMUNICATION" | "OTHER";
+export type ExpenseCategory = "TRANSPORTATION" | "SUPPLIES" | "COMMUNICATION" | "QUALIFICATION" | "OTHER";
 
 export type ApiResponse<TData> = {
   data: TData;

@@ -140,9 +140,6 @@ func (builder *expenseBuilder) BuildCreateExpenseModel(userID uint, req types.Cr
 	}
 
 	category := strings.ToUpper(strings.TrimSpace(req.Category))
-	if category == "" {
-		category = models.ExpenseCategoryOther
-	}
 	if !models.IsValidExpenseCategory(category) {
 		return models.Expense{}, results.BadRequest(
 			"BUILD_CREATE_EXPENSE_MODEL_INVALID_CATEGORY",
@@ -189,9 +186,6 @@ func (builder *expenseBuilder) BuildUpdateExpenseModel(currentExpense models.Exp
 	}
 
 	category := strings.ToUpper(strings.TrimSpace(req.Category))
-	if category == "" {
-		category = models.ExpenseCategoryOther
-	}
 	if !models.IsValidExpenseCategory(category) {
 		return models.Expense{}, results.BadRequest(
 			"BUILD_UPDATE_EXPENSE_MODEL_INVALID_CATEGORY",

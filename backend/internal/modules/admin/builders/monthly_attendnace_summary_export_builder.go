@@ -205,9 +205,10 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildHeader(
 
 		"経費合計",
 		"経費件数",
-		"交通費系経費",
-		"備品系経費",
-		"通信費系経費",
+		"交通費",
+		"備品経費",
+		"通信経費",
+		"資格経費",
 		"その他経費",
 
 		"警告件数",
@@ -312,6 +313,7 @@ func (builder *monthlyAttendanceSummaryExportBuilder) buildRecord(
 		calcIntToString(calculated, row.TransportationExpenseAmount),
 		calcIntToString(calculated, row.SuppliesExpenseAmount),
 		calcIntToString(calculated, row.CommunicationExpenseAmount),
+		calcIntToString(calculated, row.QualificationExpenseAmount),
 		calcIntToString(calculated, row.OtherExpenseAmount),
 
 		intToString(row.WarningCount),

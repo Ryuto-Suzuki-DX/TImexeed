@@ -433,9 +433,10 @@ export default function UserExpensesPage() {
                     }
                   >
                     <option value="" disabled>選択してください</option>
-                    <option value="TRANSPORTATION">交通費系経費</option>
-                    <option value="SUPPLIES">備品系経費</option>
-                    <option value="COMMUNICATION">通信系経費</option>
+                    <option value="TRANSPORTATION">交通費</option>
+                    <option value="SUPPLIES">備品経費</option>
+                    <option value="COMMUNICATION">通信経費</option>
+                    <option value="QUALIFICATION">資格経費</option>
                     <option value="OTHER">その他経費</option>
                   </select>
                 </label>
@@ -853,11 +854,13 @@ function formatDatePickerLabel(value: string) {
 function expenseCategoryLabel(category: ExpenseCategory) {
   switch (category) {
     case "TRANSPORTATION":
-      return "交通費系経費";
+      return "交通費";
     case "SUPPLIES":
-      return "備品系経費";
+      return "備品経費";
     case "COMMUNICATION":
-      return "通信系経費";
+      return "通信経費";
+    case "QUALIFICATION":
+      return "資格経費";
     default:
       return "その他経費";
   }

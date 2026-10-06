@@ -241,6 +241,7 @@ type MonthlyAttendanceSummaryCsvRow struct {
 	TransportationExpenseAmount int `json:"transportationExpenseAmount"`
 	SuppliesExpenseAmount       int `json:"suppliesExpenseAmount"`
 	CommunicationExpenseAmount  int `json:"communicationExpenseAmount"`
+	QualificationExpenseAmount  int `json:"qualificationExpenseAmount"`
 	OtherExpenseAmount          int `json:"otherExpenseAmount"`
 
 	// 警告・不整合

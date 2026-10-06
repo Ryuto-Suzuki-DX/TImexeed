@@ -355,11 +355,13 @@ func uniqueExpenseExportMonths(expenses []models.Expense) []string {
 func expenseCategoryDisplayName(category string) string {
 	switch category {
 	case models.ExpenseCategoryTransportation:
-		return "交通費系経費"
+		return "交通費"
 	case models.ExpenseCategorySupplies:
-		return "備品系経費"
+		return "備品経費"
 	case models.ExpenseCategoryCommunication:
-		return "通信系経費"
+		return "通信経費"
+	case models.ExpenseCategoryQualification:
+		return "資格経費"
 	default:
 		return "その他経費"
 	}

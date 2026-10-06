@@ -1216,7 +1216,7 @@ func (service *monthlyAttendanceSummaryExportService) applyDataWarningFlagsToRow
 /*
  * 経費をCSV行へ反映
  *
- * Expense.Category に応じて4分類へ集計する。
+ * Expense.Category に応じて5分類へ集計する。
  * 既存データや不明値は安全側でOTHERとして扱う。
  */
 func (service *monthlyAttendanceSummaryExportService) applyExpensesToRow(
@@ -1234,6 +1234,8 @@ func (service *monthlyAttendanceSummaryExportService) applyExpensesToRow(
 			row.SuppliesExpenseAmount += expense.Amount
 		case models.ExpenseCategoryCommunication:
 			row.CommunicationExpenseAmount += expense.Amount
+		case models.ExpenseCategoryQualification:
+			row.QualificationExpenseAmount += expense.Amount
 		default:
 			row.OtherExpenseAmount += expense.Amount
 		}
