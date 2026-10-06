@@ -99,6 +99,7 @@ func (controller *ExpenseController) GetExpenseDetail(c *gin.Context) {
  * - targetMonth
  * - expenseDate
  * - amount
+ * - category
  * - description
  * - memo
  * - receiptFile
@@ -129,6 +130,7 @@ func (controller *ExpenseController) CreateExpense(c *gin.Context) {
  * - targetMonth
  * - expenseDate
  * - amount
+ * - category
  * - description
  * - memo
  * - receiptFile
@@ -263,6 +265,7 @@ func buildCreateExpenseRequestFromMultipart(c *gin.Context) (types.CreateExpense
 		TargetMonth:  strings.TrimSpace(c.PostForm("targetMonth")),
 		ExpenseDate:  strings.TrimSpace(c.PostForm("expenseDate")),
 		Amount:       amount,
+		Category:     strings.TrimSpace(c.PostForm("category")),
 		Description:  strings.TrimSpace(c.PostForm("description")),
 		Memo:         optionalStringPointer(c.PostForm("memo")),
 		ReceiptFile:  receiptFile,
@@ -306,6 +309,7 @@ func buildUpdateExpenseRequestFromMultipart(c *gin.Context) (types.UpdateExpense
 		TargetMonth:  strings.TrimSpace(c.PostForm("targetMonth")),
 		ExpenseDate:  strings.TrimSpace(c.PostForm("expenseDate")),
 		Amount:       amount,
+		Category:     strings.TrimSpace(c.PostForm("category")),
 		Description:  strings.TrimSpace(c.PostForm("description")),
 		Memo:         optionalStringPointer(c.PostForm("memo")),
 		ReceiptFile:  receiptFile,
